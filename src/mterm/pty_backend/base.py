@@ -31,3 +31,8 @@ class PtySession(QObject):
     @abstractmethod
     def close(self) -> None:
         """Terminate the child process and stop the reader thread."""
+
+    @property
+    @abstractmethod
+    def is_alive(self) -> bool:
+        """Whether the child process is still running."""

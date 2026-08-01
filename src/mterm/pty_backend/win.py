@@ -46,3 +46,7 @@ class WinPtySession(PtySession):
         self._stop_reading.set()
         if self._process is not None and self._process.isalive():
             self._process.terminate(force=True)
+
+    @property
+    def is_alive(self) -> bool:
+        return self._process is not None and self._process.isalive()

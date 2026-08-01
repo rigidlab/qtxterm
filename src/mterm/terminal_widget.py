@@ -7,7 +7,7 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from mterm.pty_backend import create_pty_session, default_shell
+from mterm.pty_backend import PtySession, create_pty_session, default_shell
 from mterm.terminal_bridge import TerminalBridge
 
 ASSETS_DIR = Path(__file__).parent / "assets"
@@ -16,10 +16,15 @@ ASSETS_DIR = Path(__file__).parent / "assets"
 class TerminalWidget(QWidget):
     """A single terminal: xterm.js view (QWebEngineView) wired to a PtySession."""
 
-    def __init__(self, shell: str | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        shell: str | None = None,
+        parent: QWidget | None = None,
+        pty_session: PtySession | None = None,
+    ) -> None:
         super().__init__(parent)
         self._shell = shell or default_shell()
-        self._pty = create_pty_session()
+        self._pty = pty_session or create_pty_session()
 
         self._view = QWebEngineView(self)
         self._bridge = TerminalBridge(self)
