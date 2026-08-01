@@ -42,6 +42,11 @@ class TerminalWidget(QWidget):
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
         self._pty.start(self._shell, cols, rows)
 
-    def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+    def shutdown(self) -> None:
+        """Terminate the backing PTY process.
+
+        Not done via closeEvent: a child widget embedded in a layout never
+        receives closeEvent when its parent QMainWindow closes, only
+        top-level windows do. Callers must invoke this explicitly.
+        """
         self._pty.close()
-        super().closeEvent(event)

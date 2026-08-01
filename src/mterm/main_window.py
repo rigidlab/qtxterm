@@ -10,4 +10,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("mterm")
         self.resize(1000, 650)
-        self.setCentralWidget(TerminalWidget(parent=self))
+        self._terminal = TerminalWidget(parent=self)
+        self.setCentralWidget(self._terminal)
+
+    def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        self._terminal.shutdown()
+        super().closeEvent(event)
