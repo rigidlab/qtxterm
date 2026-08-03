@@ -58,26 +58,30 @@ and content can evolve independently.
 
 ## Phased Build Plan
 
-### Phase 1 — Single-tab terminal (current target)
+### Phase 1 — Single-tab terminal ✅ done
 Goal: prove the core rendering + I/O loop works cross-platform before any
 tabs/macros/sidebar complexity.
 
-- [ ] `uv init` project, add deps: `PySide6`, `PySide6-Addons` (WebEngine), `pywinpty` (win only), `ptyprocess` (posix only)
-- [ ] Vendor xterm.js + addon-fit into `assets/xterm/`
-- [ ] `PtySession` abstract wrapper: `start(shell, cols, rows)`, `write(data)`, `resize(cols, rows)`, `on_output` callback, `close()`
+- [x] `uv init` project, add deps: `PySide6`, `PySide6-Addons` (WebEngine), `pywinpty` (win only), `ptyprocess` (posix only)
+- [x] Vendor xterm.js + addon-fit into `assets/xterm/`
+- [x] `PtySession` abstract wrapper: `start(shell, cols, rows)`, `write(data)`, `resize(cols, rows)`, `on_output` callback, `close()`, `is_alive`
   - `WinPtySession` using `pywinpty`
-  - `PosixPtySession` using `ptyprocess`
-- [ ] `TerminalWidget(QWidget)`: hosts `QWebEngineView` loading local `terminal.html`, wires `QWebChannel` object (`TerminalBridge`) exposing `write_to_pty(str)` (JS->Py) and a Py->JS signal for PTY output
-- [ ] `terminal.html`/`terminal.js`: init xterm.js + fit addon, pipe keystrokes to bridge, render incoming PTY output, handle resize -> notify bridge
-- [ ] `MainWindow(QMainWindow)`: single `TerminalWidget` as central widget, spawns default shell (`$SHELL` on Linux, `powershell.exe` on Windows) on startup
-- [ ] Verify: shell prompt renders, keyboard I/O works, resizing the window resizes the PTY, full-screen apps (`vim`, `htop`/`btop`) render correctly, process exit closes cleanly
+  - `PosixPtySession` using `ptyprocess` (implemented, not yet verified on Linux)
+- [x] `TerminalWidget(QWidget)`: hosts `QWebEngineView` loading local `terminal.html`, wires `QWebChannel` object (`TerminalBridge`) exposing `sendInput`/`resize`/`ready`/`setTitle` (JS->Py) and `output`/`exited`/`title_changed` (Py->JS)
+- [x] `terminal.html`/`terminal.js`: init xterm.js + fit addon, pipe keystrokes to bridge, render incoming PTY output, handle resize -> notify bridge
+- [x] `MainWindow(QMainWindow)`: hosts terminal(s), spawns default shell (`$SHELL` on Linux, `powershell.exe` on Windows) on startup
+- [x] Verify: shell prompt renders, keyboard I/O works, resizing the window resizes the PTY, full-screen apps (vim) render correctly, process exit closes cleanly (caught + fixed a PTY-leak-on-close bug: child widgets never get `closeEvent` from a closing `QMainWindow`)
+- [x] pytest + pytest-qt suite: PTY backend (real spawn/write/read/resize), bridge signal re-emission, widget wiring against a fake PtySession
 
-**Definition of done for Phase 1**: one window, one working real terminal, on both Windows and Linux, no crashes on resize/exit.
+**Definition of done for Phase 1**: one window, one working real terminal, on both Windows and Linux, no crashes on resize/exit. *(Windows verified end-to-end; Linux backend implemented but untested — no Linux machine available yet.)*
 
-### Phase 2 — Tabs
-- `QTabWidget` central widget, each tab = one `TerminalWidget` + `PtySession`
-- New tab (button/shortcut), close tab (button/Ctrl+W, kill PTY on close), rename tab, switch tabs
-- Track "active terminal" reference for later command/macro targeting
+### Phase 2 — Tabs ✅ done
+- [x] `TerminalTabWidget(QTabWidget)` central widget, each tab = one `TerminalWidget` + `PtySession`
+- [x] New tab (`+` corner button, Ctrl+Shift+T), close tab (per-tab "x", Ctrl+Shift+W), Ctrl+Tab/Ctrl+Shift+Tab to switch — deliberately not plain Ctrl+T/W, which would fight bash/readline's Ctrl+W word-delete
+- [x] Tab labels: tmux-style `"{index}:{title}"`, live-updated from the shell's OSC title sequence (`xterm.js onTitleChange` -> bridge), renumbered on add/close/reorder
+- [x] `active_terminal()` tracks the current tab's `TerminalWidget` for later command/macro targeting
+- [x] Closing the last tab closes the window; closing the window (titlebar X) shuts down every tab's PTY, not just the active one
+- [x] pytest-qt suite: tab creation/labeling/renumbering, active-terminal tracking, all-tabs-closed vs close-all-tabs semantics, next/prev wraparound
 
 ### Phase 3 — Command Presets + Sidebar
 - `Preset` model + JSON persistence (`presets.json`)
