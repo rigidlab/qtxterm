@@ -2,33 +2,9 @@
 
 from __future__ import annotations
 
-from mterm.pty_backend.base import PtySession
+from conftest import FakePtySession
+
 from mterm.terminal_widget import TerminalWidget
-
-
-class FakePtySession(PtySession):
-    def __init__(self) -> None:
-        super().__init__()
-        self.start_calls: list[tuple[str, int, int]] = []
-        self.write_calls: list[str] = []
-        self.resize_calls: list[tuple[int, int]] = []
-        self.closed = False
-
-    def start(self, shell: str, cols: int, rows: int) -> None:
-        self.start_calls.append((shell, cols, rows))
-
-    def write(self, data: str) -> None:
-        self.write_calls.append(data)
-
-    def resize(self, cols: int, rows: int) -> None:
-        self.resize_calls.append((cols, rows))
-
-    def close(self) -> None:
-        self.closed = True
-
-    @property
-    def is_alive(self) -> bool:
-        return bool(self.start_calls) and not self.closed
 
 
 def test_terminal_ready_starts_pty_with_configured_shell(qtbot) -> None:

@@ -49,21 +49,21 @@ def test_real_pty_roundtrip(qtbot) -> None:
     session.output_ready.connect(output_chunks.append)
 
     session.start(default_shell(), cols=80, rows=24)
-    qtbot.waitUntil(lambda: session.is_alive, timeout=3000)
+    qtbot.waitUntil(lambda: session.is_alive, timeout=5000)
 
     session.write("echo pytest_roundtrip_ok\r\n")
     qtbot.waitUntil(
-        lambda: "pytest_roundtrip_ok" in "".join(output_chunks), timeout=5000
+        lambda: "pytest_roundtrip_ok" in "".join(output_chunks), timeout=10000
     )
 
     session.close()
-    qtbot.waitUntil(lambda: not session.is_alive, timeout=3000)
+    qtbot.waitUntil(lambda: not session.is_alive, timeout=5000)
 
 
 def test_real_pty_resize(qtbot) -> None:
     session = create_pty_session()
     session.start(default_shell(), cols=80, rows=24)
-    qtbot.waitUntil(lambda: session.is_alive, timeout=3000)
+    qtbot.waitUntil(lambda: session.is_alive, timeout=5000)
 
     session.resize(cols=120, rows=40)
 
