@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, Signal
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -13,8 +13,18 @@ from mterm.terminal_bridge import TerminalBridge
 ASSETS_DIR = Path(__file__).parent / "assets"
 
 
+def shell_short_name(shell: str) -> str:
+    """Best-effort short label for a shell path, e.g. 'powershell.exe' -> 'powershell'."""
+    name = Path(shell).name
+    if name.lower().endswith(".exe"):
+        name = name[: -len(".exe")]
+    return name
+
+
 class TerminalWidget(QWidget):
     """A single terminal: xterm.js view (QWebEngineView) wired to a PtySession."""
+
+    title_changed = Signal(str)
 
     def __init__(
         self,
@@ -39,10 +49,16 @@ class TerminalWidget(QWidget):
         self._bridge.terminal_ready.connect(self._on_terminal_ready)
         self._bridge.input_received.connect(self._pty.write)
         self._bridge.resize_requested.connect(self._pty.resize)
+        self._bridge.title_changed.connect(self.title_changed.emit)
         self._pty.output_ready.connect(self._bridge.output.emit)
         self._pty.exited.connect(self._bridge.exited.emit)
 
         self._view.load(QUrl.fromLocalFile(str(ASSETS_DIR / "terminal.html")))
+
+    @property
+    def default_title(self) -> str:
+        """Short label derived from the shell, used until the shell sets its own title."""
+        return shell_short_name(self._shell)
 
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
         self._pty.start(self._shell, cols, rows)

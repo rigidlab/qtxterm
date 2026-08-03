@@ -14,6 +14,7 @@
     const bridge = channel.objects.bridge;
 
     term.onData((data) => bridge.sendInput(data));
+    term.onTitleChange((title) => bridge.setTitle(title));
 
     bridge.output.connect((data) => term.write(data));
     bridge.exited.connect((code) => {

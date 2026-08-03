@@ -17,6 +17,7 @@ class TerminalBridge(QObject):
     input_received = Signal(str)
     resize_requested = Signal(int, int)
     terminal_ready = Signal(int, int)
+    title_changed = Signal(str)
 
     @Slot(str)
     def sendInput(self, data: str) -> None:
@@ -29,3 +30,7 @@ class TerminalBridge(QObject):
     @Slot(int, int)
     def ready(self, cols: int, rows: int) -> None:
         self.terminal_ready.emit(cols, rows)
+
+    @Slot(str)
+    def setTitle(self, title: str) -> None:
+        self.title_changed.emit(title)
