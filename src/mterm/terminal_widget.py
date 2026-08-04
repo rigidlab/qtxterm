@@ -29,12 +29,17 @@ class TerminalWidget(QWidget):
 
     def __init__(
         self,
-        shell: str | None = None,
+        shell: str | list[str] | None = None,
         parent: QWidget | None = None,
         pty_session: PtySession | None = None,
     ) -> None:
         super().__init__(parent)
-        self._shell = shell or default_shell()
+        if shell is None:
+            self._command = [default_shell()]
+        elif isinstance(shell, str):
+            self._command = [shell]
+        else:
+            self._command = list(shell)
         self._pty = pty_session or create_pty_session()
         self.is_pty_started = False
 
@@ -60,10 +65,10 @@ class TerminalWidget(QWidget):
     @property
     def default_title(self) -> str:
         """Short label derived from the shell, used until the shell sets its own title."""
-        return shell_short_name(self._shell)
+        return shell_short_name(self._command[0])
 
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
-        self._pty.start(self._shell, cols, rows)
+        self._pty.start(self._command, cols, rows)
         self.is_pty_started = True
         self.pty_started.emit()
 

@@ -48,7 +48,7 @@ class TerminalTabWidget(QTabWidget):
         self._prev_tab_shortcut = bind("Ctrl+Shift+Tab", self._activate_prev_tab)
 
     def new_tab(
-        self, shell: str | None = None, pty_session: PtySession | None = None
+        self, shell: str | list[str] | None = None, pty_session: PtySession | None = None
     ) -> TerminalWidget:
         widget = TerminalWidget(shell=shell, pty_session=pty_session)
         widget.title_changed.connect(
@@ -89,7 +89,10 @@ class TerminalTabWidget(QTabWidget):
             terminal.send_command(line)
 
     def run_in_new_tab(
-        self, shell: str | None, lines: list[str], pty_session: PtySession | None = None
+        self,
+        shell: str | list[str] | None,
+        lines: list[str],
+        pty_session: PtySession | None = None,
     ) -> TerminalWidget:
         """Open a new tab and feed it `lines` once its PTY has actually started."""
         widget = self.new_tab(shell=shell, pty_session=pty_session)

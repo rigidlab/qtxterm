@@ -16,8 +16,8 @@ class PosixPtySession(PtySession):
         self._reader_thread: threading.Thread | None = None
         self._stop_reading = threading.Event()
 
-    def start(self, shell: str, cols: int, rows: int) -> None:
-        self._process = PtyProcessUnicode.spawn([shell], dimensions=(rows, cols))
+    def start(self, command: list[str], cols: int, rows: int) -> None:
+        self._process = PtyProcessUnicode.spawn(command, dimensions=(rows, cols))
         self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
         self._reader_thread.start()
 

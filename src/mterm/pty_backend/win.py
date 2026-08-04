@@ -16,8 +16,12 @@ class WinPtySession(PtySession):
         self._reader_thread: threading.Thread | None = None
         self._stop_reading = threading.Event()
 
-    def start(self, shell: str, cols: int, rows: int) -> None:
-        self._process = PtyProcess.spawn(shell, dimensions=(rows, cols))
+    def start(self, command: list[str], cols: int, rows: int) -> None:
+        # Must be a real argv list, not a joined string: PtyProcess.spawn()
+        # shlex-splits string argv on whitespace, which breaks paths like
+        # "C:\Program Files\Git\bin\bash.exe" (splits into "C:\Program" +
+        # the rest, and "C:\Program" isn't found on PATH).
+        self._process = PtyProcess.spawn(command, dimensions=(rows, cols))
         self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
         self._reader_thread.start()
 

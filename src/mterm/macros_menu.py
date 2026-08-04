@@ -25,6 +25,11 @@ class MacrosMenu(QMenu):
 
     def reload(self) -> None:
         self.clear()
+        # QMenu.addMenu() parents the submenu in C++, but without a Python-side
+        # reference kept alive too, PySide6 can garbage-collect the wrapper (and
+        # the underlying object with it) before it's ever clicked - keep one
+        # here for as long as this reload()'s menu contents are current.
+        self._submenus: list[QMenu] = []
 
         macros = [p for p in self._store.presets if p.target == "new_tab"]
         groups: dict[str | None, list[Preset]] = {}
@@ -35,7 +40,11 @@ class MacrosMenu(QMenu):
             name for name in groups if name is not None
         )
         for group_name in ordered_group_names:
-            target_menu = self if group_name is None else self.addMenu(group_name)
+            if group_name is None:
+                target_menu = self
+            else:
+                target_menu = self.addMenu(group_name)
+                self._submenus.append(target_menu)
             for preset in groups[group_name]:
                 action = target_menu.addAction(preset.name)
                 action.triggered.connect(

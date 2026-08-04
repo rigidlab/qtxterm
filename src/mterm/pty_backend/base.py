@@ -17,8 +17,8 @@ class PtySession(QObject):
     exited = Signal(int)
 
     @abstractmethod
-    def start(self, shell: str, cols: int, rows: int) -> None:
-        """Spawn the shell process attached to a new PTY of the given size."""
+    def start(self, command: list[str], cols: int, rows: int) -> None:
+        """Spawn `command` (argv: executable + args) attached to a new PTY."""
 
     @abstractmethod
     def write(self, data: str) -> None:
