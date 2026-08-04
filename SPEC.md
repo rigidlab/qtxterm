@@ -104,19 +104,38 @@ tabs/macros/sidebar complexity.
 - [x] `CommandSidebar` dock widget: buttons grouped by `group` (ungrouped flat at
       top), single column — full drag-and-drop `SidebarLayout` arrangement deferred
       to Phase 4, per-scope decision (not enough presets/macros yet to need it)
-- [x] Click -> `run_in_active()` sends `lines` + Enter to the active terminal's PTY,
-      always active regardless of a preset's `target` (sidebar = one-click-now,
-      `target` only matters once the Phase 4 Macros menu can open new tabs)
+- [x] Click -> `run_in_active()` sends `lines` + Enter to the active terminal's PTY.
+      Only ever shows `target: active` presets (Commands) - see the Commands vs
+      Macros split below, finalized during Phase 4
 - [x] `PresetEditorDialog` (add/edit/delete, set group + show_in_sidebar)
 - [x] pytest suite: PresetStore CRUD/persistence, sidebar grouping/click emission,
       editor dialog New/Save/Delete flows
 
-### Phase 4 — Macros menu + new-tab execution
-- Macros menu (grouped dropdown) listing all presets
-- `target: new_tab` execution: open tab, spawn PTY, feed lines sequentially
-- Sidebar "Edit Layout" mode (drag reorder, section management)
+### Phase 4 — Macros menu + new-tab execution ✅ done
+- [x] Commands vs Macros finalized as a strict split on `target` (see "Data Model"
+      above): every preset is a Command (`active`) or a Macro (`new_tab`), never
+      both. `PresetEditorDialog` gained an explicit Type dropdown - target is no
+      longer inferred purely from line count, and picking Macro live-disables
+      "Show in sidebar"
+- [x] `MacrosMenu(QMenu)`: lists only `target: new_tab` presets, grouped by
+      `group` into submenus (ungrouped ones flat), plus New Macro.../Manage
+      Presets... actions
+- [x] Running a macro -> `TerminalTabWidget.run_in_new_tab()`: opens a tab, feeds
+      `lines` once the PTY has actually started (`TerminalWidget.pty_started` /
+      `run_when_ready()`) - fixes a real race where writing immediately after
+      `new_tab()` returns silently drops input, since the PTY only starts after
+      an async QWebEngineView load -> xterm.js boot -> JS-calls-Python round trip
+- [x] `PresetStore` is now reactive (`changed` signal after every `save()`), so
+      the sidebar and Macros menu both auto-refresh regardless of which surface
+      (or dialog) made the edit
+- [x] pytest suite: MacrosMenu grouping/actions/auto-reload, run_when_ready
+      (immediate vs deferred), run_in_new_tab against a fake PTY
+- [x] Verified end-to-end: menu renders grouped/ungrouped macros correctly;
+      triggering one opens a new tab and runs every script line in sequence
 
 ### Phase 5 — Packaging & polish
+- Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
+  from Phase 3/4 twice now; revisit once real usage shows it's actually needed
 - PyInstaller specs (Windows `.exe`, Linux binary/AppImage)
 - App icon, settings persistence (last window size, default shell), themes (xterm.js theme presets)
 
