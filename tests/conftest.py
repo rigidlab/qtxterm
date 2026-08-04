@@ -8,13 +8,13 @@ class FakePtySession(PtySession):
 
     def __init__(self) -> None:
         super().__init__()
-        self.start_calls: list[tuple[str, int, int]] = []
+        self.start_calls: list[tuple[list[str], int, int]] = []
         self.write_calls: list[str] = []
         self.resize_calls: list[tuple[int, int]] = []
         self.closed = False
 
-    def start(self, shell: str, cols: int, rows: int) -> None:
-        self.start_calls.append((shell, cols, rows))
+    def start(self, command: list[str], cols: int, rows: int) -> None:
+        self.start_calls.append((command, cols, rows))
 
     def write(self, data: str) -> None:
         self.write_calls.append(data)

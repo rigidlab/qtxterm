@@ -14,7 +14,7 @@ def test_terminal_ready_starts_pty_with_configured_shell(qtbot) -> None:
 
     widget._bridge.ready(100, 30)
 
-    assert fake_pty.start_calls == [("/bin/fake-shell", 100, 30)]
+    assert fake_pty.start_calls == [(["/bin/fake-shell"], 100, 30)]
 
 
 def test_bridge_input_forwarded_to_pty_write(qtbot) -> None:
