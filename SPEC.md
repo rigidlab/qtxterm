@@ -161,6 +161,18 @@ tabs/macros/sidebar complexity.
 - [x] pytest suite for `known_shells()`; verified end-to-end that all four
       shells spawn correctly in a new tab
 
+### Phase 4c — Commands menu ✅ done
+- [x] `Commands` menu item (menu bar order: File, Commands, Macros), alongside
+      the existing sidebar rather than replacing it
+- [x] `MacrosMenu` refactored into a shared `_PresetCategoryMenu` base
+      (`src/mterm/preset_menu.py`, replaces `macros_menu.py`); `CommandsMenu`
+      only supplies its target (`active`), run behavior (`run_in_active`), and
+      labels - grouping/reload/New/Manage Presets logic is shared
+- [x] Lists every `target: active` preset, not just sidebar-pinned ones - the
+      sidebar stays the curated quick-access view, this menu is the full list
+- [x] pytest suite (renamed to `test_preset_menu.py`, covers both menus);
+      verified end-to-end
+
 ### Phase 5 — Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed
