@@ -36,18 +36,38 @@ def test_editing_fields_and_saving_persists_changes(qtbot, tmp_path: Path) -> No
 
     dialog._name_edit.setText("Renamed")
     dialog._group_edit.setText("MyGroup")
-    dialog._lines_edit.setPlainText("echo one\necho two")
+    dialog._lines_edit.setPlainText("echo one line")
     dialog._sidebar_check.setChecked(True)
     dialog._save_current()
 
     saved = store.presets[0]
     assert saved.name == "Renamed"
     assert saved.group == "MyGroup"
-    assert saved.lines == ["echo one", "echo two"]
+    assert saved.lines == ["echo one line"]
+    assert saved.target == "active"
     assert saved.show_in_sidebar is True
 
     reloaded = PresetStore(path=store.path)
     assert reloaded.presets[0].name == "Renamed"
+
+
+def test_multiline_preset_cannot_be_shown_in_sidebar(qtbot, tmp_path: Path) -> None:
+    """A multi-line preset is a Macro (target: new_tab); Macros never show in
+    the sidebar, so the checkbox is overridden even if the user checked it."""
+    store = make_store(tmp_path)
+    store.add(Preset(name="Original", lines=["echo original"]))
+    dialog = PresetEditorDialog(store)
+    qtbot.addWidget(dialog)
+    dialog._list.setCurrentRow(0)
+
+    dialog._lines_edit.setPlainText("echo one\necho two")
+    dialog._sidebar_check.setChecked(True)
+    dialog._save_current()
+
+    saved = store.presets[0]
+    assert saved.lines == ["echo one", "echo two"]
+    assert saved.target == "new_tab"
+    assert saved.show_in_sidebar is False
 
 
 def test_delete_removes_preset(qtbot, tmp_path: Path) -> None:

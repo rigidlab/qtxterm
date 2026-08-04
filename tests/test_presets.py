@@ -52,6 +52,23 @@ def test_sidebar_presets_filters_by_flag(tmp_path: Path) -> None:
     assert [p.name for p in store.sidebar_presets()] == ["Shown"]
 
 
+def test_sidebar_presets_excludes_new_tab_macros_even_if_flagged(tmp_path: Path) -> None:
+    """Commands vs Macros is a strict split: a new_tab preset is a Macro and
+    belongs in the Macros menu (Phase 4), never the sidebar."""
+    store = PresetStore(path=tmp_path / "presets.json")
+    store.presets = [
+        Preset(name="Command", lines=["echo one"], show_in_sidebar=True),
+        Preset(
+            name="Macro",
+            lines=["echo one", "echo two"],
+            show_in_sidebar=True,
+            target="new_tab",
+        ),
+    ]
+
+    assert [p.name for p in store.sidebar_presets()] == ["Command"]
+
+
 def test_add_update_delete_persist(tmp_path: Path) -> None:
     path = tmp_path / "presets.json"
     store = PresetStore(path=path)

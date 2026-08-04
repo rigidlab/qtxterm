@@ -58,7 +58,7 @@ def test_presets_are_grouped_into_group_boxes(qtbot, tmp_path: Path) -> None:
 def test_clicking_a_button_emits_run_requested_with_its_lines(qtbot, tmp_path: Path) -> None:
     store = make_store(
         tmp_path,
-        [Preset(name="Status", lines=["git status", "git log -1"], show_in_sidebar=True)],
+        [Preset(name="Status", lines=["git status"], show_in_sidebar=True)],
     )
     sidebar = CommandSidebar(store)
     qtbot.addWidget(sidebar)
@@ -67,7 +67,7 @@ def test_clicking_a_button_emits_run_requested_with_its_lines(qtbot, tmp_path: P
     with qtbot.waitSignal(sidebar.run_requested, timeout=1000) as blocker:
         qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
 
-    assert blocker.args == [["git status", "git log -1"]]
+    assert blocker.args == [["git status"]]
 
 
 def test_reload_reflects_store_changes(qtbot, tmp_path: Path) -> None:

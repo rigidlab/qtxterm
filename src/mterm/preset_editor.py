@@ -95,12 +95,17 @@ class PresetEditorDialog(QDialog):
     def _save_current(self) -> None:
         if self._current_index is None:
             return
-        lines = [line for line in self._lines_edit.toPlainText().splitlines() if line.strip()]
+        lines = [line for line in self._lines_edit.toPlainText().splitlines() if line.strip()] or [
+            "echo"
+        ]
+        # Commands (single line, target: active) can go in the sidebar; Macros
+        # (multiple lines, target: new_tab) can't - see Preset.target docstring.
+        show_in_sidebar = self._sidebar_check.isChecked() and len(lines) == 1
         preset = Preset(
             name=self._name_edit.text().strip() or "Unnamed",
             group=self._group_edit.text().strip() or None,
-            lines=lines or ["echo"],
-            show_in_sidebar=self._sidebar_check.isChecked(),
+            lines=lines,
+            show_in_sidebar=show_in_sidebar,
         )
         self._store.update(self._current_index, preset)
         self._reload_list()

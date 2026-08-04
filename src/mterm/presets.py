@@ -65,7 +65,14 @@ class PresetStore:
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def sidebar_presets(self) -> list[Preset]:
-        return [p for p in self.presets if p.show_in_sidebar]
+        """Command-category presets opted into the sidebar.
+
+        target == "active" is required, not just show_in_sidebar: Commands
+        and Macros are a strict split (see SPEC.md) - a new_tab preset is a
+        Macro and belongs in the Macros menu (Phase 4), never the sidebar,
+        even if show_in_sidebar was left set from before it became a Macro.
+        """
+        return [p for p in self.presets if p.show_in_sidebar and p.target == "active"]
 
     def add(self, preset: Preset) -> None:
         self.presets.append(preset)
