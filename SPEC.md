@@ -18,25 +18,40 @@ and a Macros menu for multi-step/multi-tab command sequences.
 
 ## Data Model — unified "Command Preset"
 
-Commands and macros are the same underlying object, viewed two ways:
+Commands and macros share one storage format and one `Preset` shape, but
+`target` is a strict, mutually-exclusive category, not just an execution
+detail — every preset is *either* a Command *or* a Macro, never both:
+
+- **Command** (`target: active`): a short interaction with a terminal you're
+  actively working in and staying in — `git status`, `clear`, etc. Sent to
+  whichever tab is currently active; you keep using that tab afterwards.
+- **Macro** (`target: new_tab`): a script for something long-running or
+  disruptive to run alongside your current work — starting a dev server,
+  a build, a deploy — so it gets its own fresh tab rather than hijacking
+  the terminal you're in.
 
 ```yaml
 Preset:
   name: str
   group: str                       # optional, for menu/sidebar section organization
   lines: list[str]                 # one or more shell lines
-  target: active | new_tab         # default: active if len(lines)==1 else new_tab
-  show_in_sidebar: bool            # opt-in to sidebar button
+  target: active | new_tab         # category: Command vs Macro. Default:
+                                    # active if len(lines)==1 else new_tab
+  show_in_sidebar: bool            # opt-in to sidebar button; only meaningful
+                                    # (and only offered in the editor) for
+                                    # target: active presets — Macros don't
+                                    # appear in the sidebar, only the Macros menu
 ```
 
-Stored as a single JSON/YAML file (e.g. `~/.config/mterm/presets.json` on Linux,
-`%APPDATA%/mterm/presets.json` on Windows).
+Stored as a single JSON file under the platformdirs user config dir
+(`presets.py::PresetStore`, built in Phase 3).
 
-- **Commands sidebar**: shows presets with `show_in_sidebar: true`. One-click
-  sends `lines` to the currently active terminal tab. Fast, always visible.
-- **Macros menu** (dropdown, grouped by `group`): full preset list, with
-  Run / Edit / New / Delete. Presets with `target: new_tab` open a fresh tab,
-  spawn a PTY, and feed `lines` into it in sequence.
+- **Commands sidebar**: shows only `target: active` presets with
+  `show_in_sidebar: true`. One-click sends `lines` to the currently active
+  terminal tab. Fast, always visible. (Built in Phase 3.)
+- **Macros menu** (dropdown, grouped by `group`): shows only `target: new_tab`
+  presets, with Run / Edit / New / Delete. Clicking one always opens a fresh
+  tab, spawns a PTY, and feeds `lines` into it in sequence. (Phase 4.)
 
 ### Sidebar Layout (separate from preset content)
 
