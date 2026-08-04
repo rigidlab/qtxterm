@@ -56,3 +56,27 @@ def test_shutdown_closes_pty(qtbot) -> None:
     widget.shutdown()
 
     assert fake_pty.closed is True
+
+
+def test_run_when_ready_calls_immediately_if_pty_already_started(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    widget._bridge.ready(80, 24)
+
+    called = []
+    widget.run_when_ready(lambda: called.append(True))
+
+    assert called == [True]
+
+
+def test_run_when_ready_waits_for_pty_started(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+
+    called = []
+    widget.run_when_ready(lambda: called.append(True))
+    assert called == []
+
+    widget._bridge.ready(80, 24)
+
+    assert called == [True]

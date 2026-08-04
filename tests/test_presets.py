@@ -69,6 +69,13 @@ def test_sidebar_presets_excludes_new_tab_macros_even_if_flagged(tmp_path: Path)
     assert [p.name for p in store.sidebar_presets()] == ["Command"]
 
 
+def test_save_emits_changed(qtbot, tmp_path: Path) -> None:
+    store = PresetStore(path=tmp_path / "presets.json")
+
+    with qtbot.waitSignal(store.changed, timeout=1000):
+        store.add(Preset(name="New", lines=["echo new"]))
+
+
 def test_add_update_delete_persist(tmp_path: Path) -> None:
     path = tmp_path / "presets.json"
     store = PresetStore(path=path)

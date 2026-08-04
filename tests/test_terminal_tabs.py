@@ -93,3 +93,17 @@ def test_next_prev_tab_wraps_around(qtbot) -> None:
 
     tabs._activate_prev_tab()
     assert tabs.currentIndex() == 1
+
+
+def test_run_in_new_tab_feeds_lines_once_pty_starts(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    fake_pty = FakePtySession()
+
+    widget = tabs.run_in_new_tab(None, ["echo one", "echo two"], pty_session=fake_pty)
+
+    assert widget is tabs.active_terminal()
+    assert fake_pty.write_calls == []  # PTY hasn't started yet
+
+    widget._bridge.ready(80, 24)
+
+    assert fake_pty.write_calls == ["echo one\r\n", "echo two\r\n"]

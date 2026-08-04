@@ -29,7 +29,7 @@ def test_only_sidebar_flagged_presets_render_as_buttons(qtbot, tmp_path: Path) -
     sidebar = CommandSidebar(store)
     qtbot.addWidget(sidebar)
 
-    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Edit Commands..."]
+    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Manage Presets..."]
     assert button_labels == ["Shown"]
 
 
@@ -70,14 +70,15 @@ def test_clicking_a_button_emits_run_requested_with_its_lines(qtbot, tmp_path: P
     assert blocker.args == [["git status"]]
 
 
-def test_reload_reflects_store_changes(qtbot, tmp_path: Path) -> None:
+def test_store_changes_auto_reload_the_sidebar(qtbot, tmp_path: Path) -> None:
+    """PresetStore.changed drives sidebar.reload() automatically - no manual
+    reload() call needed after add/update/delete."""
     store = make_store(tmp_path, [])
     sidebar = CommandSidebar(store)
     qtbot.addWidget(sidebar)
     assert sidebar.findChildren(QGroupBox) == []
 
     store.add(Preset(name="New", lines=["echo new"], show_in_sidebar=True))
-    sidebar.reload()
 
-    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Edit Commands..."]
+    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Manage Presets..."]
     assert button_labels == ["New"]
