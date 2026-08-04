@@ -12,7 +12,7 @@ and a Macros menu for multi-step/multi-tab command sequences.
 |---|---|
 | Terminal rendering | xterm.js + addon-fit + addon-webgl, vendored locally in `assets/xterm/` (no CDN, offline-capable) |
 | Python <-> JS bridge | `QWebChannel` (no extra port/server) |
-| PTY backend | `pywinpty` (ConPTY) on Windows, `ptyprocess` (openpty) on Linux, behind a common `PtySession` wrapper interface |
+| PTY backend | `pywinpty` (ConPTY) on Windows, `ptyprocess` (openpty) on Linux, behind a common `PtySession` wrapper interface. `start()` takes a real argv `list[str]`, not a bare command string - needed for e.g. `["wsl.exe", "-d", "Ubuntu"]` |
 | Project tooling | `uv` (installed via `pipx install uv`), `pyproject.toml` + `uv.lock` |
 | Packaging (later) | PyInstaller, one spec per OS |
 
@@ -132,6 +132,34 @@ tabs/macros/sidebar complexity.
       (immediate vs deferred), run_in_new_tab against a fake PTY
 - [x] Verified end-to-end: menu renders grouped/ungrouped macros correctly;
       triggering one opens a new tab and runs every script line in sequence
+
+### Phase 4b — File menu & multi-shell support ✅ done
+- [x] `File` menu (before `Macros` in the menu bar): `New Terminal` submenu +
+      `Exit`. `New Terminal` always has "Default Shell" (Ctrl+Shift+T shown as
+      a hint, not a duplicate binding) plus one entry per shell `known_shells()`
+      (`src/mterm/shells.py`) actually finds installed
+- [x] Windows-only for now (PowerShell/CMD/Git Bash/WSL are Windows concepts);
+      `known_shells()` returns `[]` on other platforms
+- [x] Git Bash resolved via its standard install dirs, not `shutil.which` (which
+      can resolve to the unrelated legacy WSL `bash.exe` shim in System32)
+- [x] WSL resolved by listing real distros (`wsl.exe -l -q`, UTF-16LE decoded)
+      and picking one explicitly (`wsl.exe -d <name>`), skipping Docker
+      Desktop's non-interactive `docker-desktop`/`docker-desktop-data` -
+      bare `wsl.exe` launches whatever's marked "default", which can be one of
+      those and fail outright with no usable shell
+- [x] `PtySession.start()` changed from a bare shell string to a real argv
+      `list[str]` throughout (`TerminalWidget`, `TerminalTabWidget`), needed
+      for `wsl.exe -d <name>`-style multi-arg commands
+- [x] Fixed along the way: `WinPtySession` passed a bare string to
+      `PtyProcess.spawn()`, which shlex-splits on whitespace and silently
+      broke any shell path containing a space (e.g. Git Bash's default
+      `C:\Program Files\Git\bin\bash.exe`)
+- [x] Fixed along the way: a PySide6/shiboken lifetime issue where
+      `QMenu.addMenu()`'s returned submenu can be garbage-collected without a
+      retained Python reference, despite being C++-parented to a live menu -
+      affected both the new File menu and `MacrosMenu`'s group submenus
+- [x] pytest suite for `known_shells()`; verified end-to-end that all four
+      shells spawn correctly in a new tab
 
 ### Phase 5 — Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
