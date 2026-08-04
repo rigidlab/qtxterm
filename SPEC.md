@@ -83,11 +83,18 @@ tabs/macros/sidebar complexity.
 - [x] Closing the last tab closes the window; closing the window (titlebar X) shuts down every tab's PTY, not just the active one
 - [x] pytest-qt suite: tab creation/labeling/renumbering, active-terminal tracking, all-tabs-closed vs close-all-tabs semantics, next/prev wraparound
 
-### Phase 3 — Command Presets + Sidebar
-- `Preset` model + JSON persistence (`presets.json`)
-- Sidebar dock widget rendering buttons per `SidebarLayout`
-- Click -> write `lines` to active terminal's PTY
-- Basic preset editor dialog (add/edit/delete, set `show_in_sidebar`)
+### Phase 3 — Command Presets + Sidebar ✅ done
+- [x] `Preset` dataclass + `PresetStore` JSON persistence (`presets.json` under the
+      platformdirs user config dir), seeded with example presets on first run
+- [x] `CommandSidebar` dock widget: buttons grouped by `group` (ungrouped flat at
+      top), single column — full drag-and-drop `SidebarLayout` arrangement deferred
+      to Phase 4, per-scope decision (not enough presets/macros yet to need it)
+- [x] Click -> `run_in_active()` sends `lines` + Enter to the active terminal's PTY,
+      always active regardless of a preset's `target` (sidebar = one-click-now,
+      `target` only matters once the Phase 4 Macros menu can open new tabs)
+- [x] `PresetEditorDialog` (add/edit/delete, set group + show_in_sidebar)
+- [x] pytest suite: PresetStore CRUD/persistence, sidebar grouping/click emission,
+      editor dialog New/Save/Delete flows
 
 ### Phase 4 — Macros menu + new-tab execution
 - Macros menu (grouped dropdown) listing all presets
