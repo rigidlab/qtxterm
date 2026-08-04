@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow
 
-from mterm.macros_menu import MacrosMenu
+from mterm.preset_menu import CommandsMenu, MacrosMenu
 from mterm.presets import PresetStore
 from mterm.shells import known_shells
 from mterm.sidebar import CommandSidebar
@@ -28,6 +28,9 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, sidebar_dock)
 
         self._build_file_menu()
+
+        self._commands_menu = CommandsMenu(self._preset_store, self._tabs, parent=self)
+        self.menuBar().addMenu(self._commands_menu)
 
         self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)
         self.menuBar().addMenu(self._macros_menu)
