@@ -5,6 +5,7 @@ description = "Cross-platform GUI terminal (PySide6 + xterm.js)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "platformdirs>=4.11.0",
     "ptyprocess>=0.7 ; sys_platform != 'win32'",
     "pyside6>=6.7",
     "pywinpty>=2.0 ; sys_platform == 'win32'",

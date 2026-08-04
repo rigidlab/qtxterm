@@ -63,6 +63,10 @@ class TerminalWidget(QWidget):
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
         self._pty.start(self._shell, cols, rows)
 
+    def send_command(self, text: str) -> None:
+        """Write a line to the PTY and submit it, as if the user typed it + Enter."""
+        self._pty.write(f"{text}\r\n")
+
     def shutdown(self) -> None:
         """Terminate the backing PTY process.
 

@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+    QGroupBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
+from mterm.preset_editor import PresetEditorDialog
+from mterm.presets import Preset, PresetStore
+
+
+class CommandSidebar(QWidget):
+    """Quick-access buttons for presets flagged `show_in_sidebar`, grouped by `group`.
+
+    Always sends to the active terminal (see Preset.target docstring for why).
+    """
+
+    run_requested = Signal(list)
+
+    def __init__(self, store: PresetStore, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._store = store
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+
+        edit_button = QPushButton("Edit Commands...")
+        edit_button.clicked.connect(self._open_editor)
+        layout.addWidget(edit_button)
+
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        self._container = QWidget()
+        self._container_layout = QVBoxLayout(self._container)
+        self._container_layout.addStretch(1)
+        scroll.setWidget(self._container)
+        layout.addWidget(scroll)
+
+        self.reload()
+
+    def reload(self) -> None:
+        while self._container_layout.count() > 1:
+            item = self._container_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        groups: dict[str | None, list[Preset]] = {}
+        for preset in self._store.sidebar_presets():
+            groups.setdefault(preset.group, []).append(preset)
+
+        ordered_group_names = [name for name in groups if name is None] + sorted(
+            name for name in groups if name is not None
+        )
+        for group_name in ordered_group_names:
+            box = QGroupBox(group_name or "")
+            box.setFlat(group_name is None)
+            box_layout = QVBoxLayout(box)
+            for preset in groups[group_name]:
+                button = QPushButton(preset.name)
+                button.setToolTip("\n".join(preset.lines))
+                button.clicked.connect(
+                    lambda _checked=False, p=preset: self.run_requested.emit(p.lines)
+                )
+                box_layout.addWidget(button)
+            self._container_layout.insertWidget(self._container_layout.count() - 1, box)
+
+    def _open_editor(self) -> None:
+        dialog = PresetEditorDialog(self._store, self)
+        dialog.exec()
+        self.reload()

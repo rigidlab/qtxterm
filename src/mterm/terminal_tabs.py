@@ -80,6 +80,14 @@ class TerminalTabWidget(QTabWidget):
         for i in range(self.count()):
             self.widget(i).shutdown()
 
+    def run_in_active(self, lines: list[str]) -> None:
+        """Send each line to the active terminal's PTY. No-op if there's no tab."""
+        terminal = self.active_terminal()
+        if terminal is None:
+            return
+        for line in lines:
+            terminal.send_command(line)
+
     def active_terminal(self) -> TerminalWidget | None:
         return self.currentWidget()
 
