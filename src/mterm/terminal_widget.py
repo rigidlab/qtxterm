@@ -25,6 +25,7 @@ class TerminalWidget(QWidget):
     """A single terminal: xterm.js view (QWebEngineView) wired to a PtySession."""
 
     title_changed = Signal(str)
+    pty_started = Signal()
 
     def __init__(
         self,
@@ -35,6 +36,7 @@ class TerminalWidget(QWidget):
         super().__init__(parent)
         self._shell = shell or default_shell()
         self._pty = pty_session or create_pty_session()
+        self.is_pty_started = False
 
         self._view = QWebEngineView(self)
         self._bridge = TerminalBridge(self)
@@ -62,10 +64,25 @@ class TerminalWidget(QWidget):
 
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
         self._pty.start(self._shell, cols, rows)
+        self.is_pty_started = True
+        self.pty_started.emit()
 
     def send_command(self, text: str) -> None:
         """Write a line to the PTY and submit it, as if the user typed it + Enter."""
         self._pty.write(f"{text}\r\n")
+
+    def run_when_ready(self, callback) -> None:
+        """Call `callback` once the PTY has started (immediately if it already has).
+
+        The PTY only starts after an async round trip (QWebEngineView loads
+        terminal.html -> xterm.js boots -> JS calls back into Python), so
+        code that spawns a tab and immediately wants to feed it input (e.g.
+        macros) can't just call send_command() right after new_tab() returns.
+        """
+        if self.is_pty_started:
+            callback()
+        else:
+            self.pty_started.connect(callback)
 
     def shutdown(self) -> None:
         """Terminate the backing PTY process.

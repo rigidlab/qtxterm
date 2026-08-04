@@ -88,6 +88,19 @@ class TerminalTabWidget(QTabWidget):
         for line in lines:
             terminal.send_command(line)
 
+    def run_in_new_tab(
+        self, shell: str | None, lines: list[str], pty_session: PtySession | None = None
+    ) -> TerminalWidget:
+        """Open a new tab and feed it `lines` once its PTY has actually started."""
+        widget = self.new_tab(shell=shell, pty_session=pty_session)
+
+        def _feed() -> None:
+            for line in lines:
+                widget.send_command(line)
+
+        widget.run_when_ready(_feed)
+        return widget
+
     def active_terminal(self) -> TerminalWidget | None:
         return self.currentWidget()
 

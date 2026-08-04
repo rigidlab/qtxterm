@@ -5,17 +5,19 @@ import json
 from pathlib import Path
 
 import platformdirs
+from PySide6.QtCore import QObject, Signal
 
 
 @dataclasses.dataclass
 class Preset:
     """A named, reusable shell command (or sequence of commands).
 
-    `target` decides how the Macros menu will eventually run it: "active"
-    types it into the current terminal, "new_tab" opens a fresh tab first
-    (Phase 4). The sidebar (Phase 3) ignores `target` entirely and always
-    sends to the active terminal, since sidebar buttons are meant for quick
-    one-click actions in whatever terminal you're already looking at.
+    `target` is a strict category, not just an execution detail (see
+    SPEC.md "Data Model"): "active" is a Command, shown in the sidebar and
+    sent to whichever terminal you're already working in. "new_tab" is a
+    Macro, shown in the Macros menu and run in a fresh tab, for anything
+    long-running or disruptive (a dev server, a build). A preset is one or
+    the other, never both.
     """
 
     name: str
@@ -43,10 +45,18 @@ def default_presets_path() -> Path:
     return Path(platformdirs.user_config_dir("mterm", appauthor=False)) / "presets.json"
 
 
-class PresetStore:
-    """Loads/saves the preset list as JSON, seeding defaults on first run."""
+class PresetStore(QObject):
+    """Loads/saves the preset list as JSON, seeding defaults on first run.
+
+    Emits `changed` after every save() so any number of UI surfaces
+    (sidebar, Macros menu) can stay in sync regardless of which one
+    triggered the edit, without reaching into each other.
+    """
+
+    changed = Signal()
 
     def __init__(self, path: Path | None = None) -> None:
+        super().__init__()
         self.path = path or default_presets_path()
         self.presets: list[Preset] = []
         self.load()
@@ -63,6 +73,7 @@ class PresetStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = [dataclasses.asdict(p) for p in self.presets]
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        self.changed.emit()
 
     def sidebar_presets(self) -> list[Preset]:
         """Command-category presets opted into the sidebar.

@@ -14,9 +14,10 @@ from mterm.presets import Preset, PresetStore
 
 
 class CommandSidebar(QWidget):
-    """Quick-access buttons for presets flagged `show_in_sidebar`, grouped by `group`.
+    """Quick-access buttons for Command-category presets, grouped by `group`.
 
-    Always sends to the active terminal (see Preset.target docstring for why).
+    Always sends to the active terminal - see Preset.target docstring for why
+    this only ever shows target: active presets (Commands), never Macros.
     """
 
     run_requested = Signal(list)
@@ -24,11 +25,12 @@ class CommandSidebar(QWidget):
     def __init__(self, store: PresetStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._store = store
+        self._store.changed.connect(self.reload)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        edit_button = QPushButton("Edit Commands...")
+        edit_button = QPushButton("Manage Presets...")
         edit_button.clicked.connect(self._open_editor)
         layout.addWidget(edit_button)
 
@@ -72,4 +74,3 @@ class CommandSidebar(QWidget):
     def _open_editor(self) -> None:
         dialog = PresetEditorDialog(self._store, self)
         dialog.exec()
-        self.reload()
