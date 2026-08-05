@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mterm.terminal_bridge import TerminalBridge
+from qtxterm.terminal_bridge import TerminalBridge
 
 
 def test_send_input_emits_input_received(qtbot) -> None:

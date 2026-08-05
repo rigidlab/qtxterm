@@ -7,9 +7,9 @@ from pathlib import Path
 
 from PySide6.QtGui import QAction
 
-from mterm.preset_menu import CommandsMenu, MacrosMenu
-from mterm.presets import Preset, PresetStore
-from mterm.terminal_tabs import TerminalTabWidget
+from qtxterm.preset_menu import CommandsMenu, MacrosMenu
+from qtxterm.presets import Preset, PresetStore
+from qtxterm.terminal_tabs import TerminalTabWidget
 
 
 def make_store(tmp_path: Path, presets: list[Preset]) -> PresetStore:

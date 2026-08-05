@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QDockWidget
 
-from mterm.main_window import MainWindow
+from qtxterm.main_window import MainWindow
 
 
 def test_sidebar_dock_has_no_close_feature(qtbot) -> None:

@@ -5,9 +5,9 @@ from abc import abstractmethod
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QWidget
 
-from mterm.preset_editor import PresetEditorDialog
-from mterm.presets import Preset, PresetStore
-from mterm.terminal_tabs import TerminalTabWidget
+from qtxterm.preset_editor import PresetEditorDialog
+from qtxterm.presets import Preset, PresetStore
+from qtxterm.terminal_tabs import TerminalTabWidget
 
 
 class _PresetCategoryMenu(QMenu):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mterm.pty_backend.base import PtySession
+from qtxterm.pty_backend.base import PtySession
 
 
 class FakePtySession(PtySession):

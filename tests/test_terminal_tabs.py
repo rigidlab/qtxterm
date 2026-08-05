@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from conftest import FakePtySession
 
-from mterm.terminal_tabs import TerminalTabWidget
+from qtxterm.terminal_tabs import TerminalTabWidget
 
 
 def make_tabs(qtbot) -> TerminalTabWidget:

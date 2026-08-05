@@ -4,7 +4,7 @@ import threading
 
 from winpty import PtyProcess
 
-from mterm.pty_backend.base import PtySession
+from qtxterm.pty_backend.base import PtySession
 
 
 class WinPtySession(PtySession):

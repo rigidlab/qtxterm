@@ -7,8 +7,8 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from mterm.pty_backend import PtySession, create_pty_session, default_shell
-from mterm.terminal_bridge import TerminalBridge
+from qtxterm.pty_backend import PtySession, create_pty_session, default_shell
+from qtxterm.terminal_bridge import TerminalBridge
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 

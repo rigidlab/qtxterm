@@ -4,17 +4,17 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDockWidget, QMainWindow
 
-from mterm.preset_menu import CommandsMenu, MacrosMenu
-from mterm.presets import PresetStore
-from mterm.shells import known_shells
-from mterm.sidebar import CommandSidebar
-from mterm.terminal_tabs import TerminalTabWidget
+from qtxterm.preset_menu import CommandsMenu, MacrosMenu
+from qtxterm.presets import PresetStore
+from qtxterm.shells import known_shells
+from qtxterm.sidebar import CommandSidebar
+from qtxterm.terminal_tabs import TerminalTabWidget
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("mterm")
+        self.setWindowTitle("qtxterm")
         self.resize(1000, 650)
 
         self._tabs = TerminalTabWidget(parent=self)

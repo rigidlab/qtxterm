@@ -11,17 +11,17 @@ import sys
 
 import pytest
 
-from mterm.pty_backend import create_pty_session, default_shell
+from qtxterm.pty_backend import create_pty_session, default_shell
 
 
 def test_create_pty_session_matches_current_platform() -> None:
     session = create_pty_session()
     if sys.platform == "win32":
-        from mterm.pty_backend.win import WinPtySession
+        from qtxterm.pty_backend.win import WinPtySession
 
         assert isinstance(session, WinPtySession)
     else:
-        from mterm.pty_backend.posix import PosixPtySession
+        from qtxterm.pty_backend.posix import PosixPtySession
 
         assert isinstance(session, PosixPtySession)
 

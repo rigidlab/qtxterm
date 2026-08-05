@@ -41,8 +41,8 @@ def default_presets() -> list[Preset]:
 
 def default_presets_path() -> Path:
     # appauthor=False: no vendor subfolder (Windows would otherwise nest
-    # under "mterm/mterm" since appauthor defaults to the app name).
-    return Path(platformdirs.user_config_dir("mterm", appauthor=False)) / "presets.json"
+    # under "qtxterm/qtxterm" since appauthor defaults to the app name).
+    return Path(platformdirs.user_config_dir("qtxterm", appauthor=False)) / "presets.json"
 
 
 class PresetStore(QObject):

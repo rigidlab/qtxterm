@@ -4,7 +4,7 @@ import threading
 
 from ptyprocess import PtyProcessUnicode
 
-from mterm.pty_backend.base import PtySession
+from qtxterm.pty_backend.base import PtySession
 
 
 class PosixPtySession(PtySession):

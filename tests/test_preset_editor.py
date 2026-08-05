@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mterm.preset_editor import PresetEditorDialog
-from mterm.presets import Preset, PresetStore
+from qtxterm.preset_editor import PresetEditorDialog
+from qtxterm.presets import Preset, PresetStore
 
 
 def make_store(tmp_path: Path) -> PresetStore:

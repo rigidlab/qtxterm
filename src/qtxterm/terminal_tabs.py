@@ -4,8 +4,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
 
-from mterm.pty_backend import PtySession
-from mterm.terminal_widget import TerminalWidget
+from qtxterm.pty_backend import PtySession
+from qtxterm.terminal_widget import TerminalWidget
 
 
 class TerminalTabWidget(QTabWidget):

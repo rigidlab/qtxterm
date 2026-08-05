@@ -21,37 +21,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mterm"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "platformdirs" },
-    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
-    { name = "pyside6" },
-    { name = "pywinpty", marker = "sys_platform == 'win32'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-qt" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "platformdirs", specifier = ">=4.11.0" },
-    { name = "ptyprocess", marker = "sys_platform != 'win32'", specifier = ">=0.7" },
-    { name = "pyside6", specifier = ">=6.7" },
-    { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = ">=2.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-qt", specifier = ">=4.5.0" },
-]
-
-[[package]]
 name = "packaging"
 version = "26.2"
 source = { registry = "https://pypi.org/simple" }
@@ -190,6 +159,37 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/dd/96d6cbfc6d9ddab5c1c2f92c26545ae8997446a2ba7ee2024cd43c81f49b/pywinpty-3.0.5-cp314-cp314-win_arm64.whl", hash = "sha256:89c5c6ef08997a3b4b277b214a35fe15cab4dd6d119f0140aa71df5b1168fdbc", size = 815700, upload-time = "2026-06-10T23:40:50.001Z" },
     { url = "https://files.pythonhosted.org/packages/30/36/d98087bce0acaa4cce7f196103cfa7be3f63ce65f52473bb3e38784ae5d9/pywinpty-3.0.5-cp314-cp314t-win_amd64.whl", hash = "sha256:7b566165e0c5fdd6abe167a5ac8b954be6a843eb55a85946576d6bc1dea03d6d", size = 2090093, upload-time = "2026-06-10T23:40:58.933Z" },
     { url = "https://files.pythonhosted.org/packages/57/fd/fe2b0db922ba052ce3976a08f3fc05d0c05047c8b4ebb6102e832b8ef563/pywinpty-3.0.5-cp314-cp314t-win_arm64.whl", hash = "sha256:24366280a8aa677323da87bec729cb3ea3b35367386cece0978bdc6e4695c690", size = 814517, upload-time = "2026-06-10T23:42:34.946Z" },
+]
+
+[[package]]
+name = "qtxterm"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "platformdirs" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
+    { name = "pyside6" },
+    { name = "pywinpty", marker = "sys_platform == 'win32'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-qt" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "platformdirs", specifier = ">=4.11.0" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32'", specifier = ">=0.7" },
+    { name = "pyside6", specifier = ">=6.7" },
+    { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = ">=2.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-qt", specifier = ">=4.5.0" },
 ]
 
 [[package]]

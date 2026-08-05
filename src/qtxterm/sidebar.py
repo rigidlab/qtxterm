@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from mterm.presets import Preset, PresetStore
+from qtxterm.presets import Preset, PresetStore
 
 
 class CommandSidebar(QWidget):

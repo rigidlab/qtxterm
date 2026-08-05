@@ -1,4 +1,4 @@
-# mterm — Cross-Platform GUI Terminal (PySide6 + xterm.js)
+# qtxterm — Cross-Platform GUI Terminal (PySide6 + xterm.js)
 
 ## Overview
 A desktop terminal application (Windows + Linux) built with PySide6, rendering
@@ -137,7 +137,7 @@ tabs/macros/sidebar complexity.
 - [x] `File` menu (before `Macros` in the menu bar): `New Terminal` submenu +
       `Exit`. `New Terminal` always has "Default Shell" (Ctrl+Shift+T shown as
       a hint, not a duplicate binding) plus one entry per shell `known_shells()`
-      (`src/mterm/shells.py`) actually finds installed
+      (`src/qtxterm/shells.py`) actually finds installed
 - [x] Windows-only for now (PowerShell/CMD/Git Bash/WSL are Windows concepts);
       `known_shells()` returns `[]` on other platforms
 - [x] Git Bash resolved via its standard install dirs, not `shutil.which` (which
@@ -165,7 +165,7 @@ tabs/macros/sidebar complexity.
 - [x] `Commands` menu item (menu bar order: File, Commands, Macros), alongside
       the existing sidebar rather than replacing it
 - [x] `MacrosMenu` refactored into a shared `_PresetCategoryMenu` base
-      (`src/mterm/preset_menu.py`, replaces `macros_menu.py`); `CommandsMenu`
+      (`src/qtxterm/preset_menu.py`, replaces `macros_menu.py`); `CommandsMenu`
       only supplies its target (`active`), run behavior (`run_in_active`), and
       labels - grouping/reload/New/Manage Presets logic is shared
 - [x] Lists every `target: active` preset, not just sidebar-pinned ones - the

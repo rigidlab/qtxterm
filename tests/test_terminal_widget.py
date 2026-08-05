@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from conftest import FakePtySession
 
-from mterm.terminal_widget import TerminalWidget
+from qtxterm.terminal_widget import TerminalWidget
 
 
 def test_terminal_ready_starts_pty_with_configured_shell(qtbot) -> None:

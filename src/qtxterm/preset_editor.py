@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from mterm.presets import Preset, PresetStore
+from qtxterm.presets import Preset, PresetStore
 
 _TARGET_LABELS = {
     "active": "Command (send to active terminal)",

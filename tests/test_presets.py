@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mterm.presets import Preset, PresetStore
+from qtxterm.presets import Preset, PresetStore
 
 
 def test_target_defaults_to_active_for_single_line() -> None:

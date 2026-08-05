@@ -7,8 +7,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGroupBox, QPushButton
 
-from mterm.presets import Preset, PresetStore
-from mterm.sidebar import CommandSidebar
+from qtxterm.presets import Preset, PresetStore
+from qtxterm.sidebar import CommandSidebar
 
 
 def make_store(tmp_path: Path, presets: list[Preset]) -> PresetStore:
