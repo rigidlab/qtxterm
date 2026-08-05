@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from mterm.preset_editor import PresetEditorDialog
 from mterm.presets import Preset, PresetStore
 
 
@@ -18,6 +17,9 @@ class CommandSidebar(QWidget):
 
     Always sends to the active terminal - see Preset.target docstring for why
     this only ever shows target: active presets (Commands), never Macros.
+
+    Editing presets lives in the Commands menu ("Manage Presets...") instead
+    of a button here - the sidebar is just the quick-access button list.
     """
 
     run_requested = Signal(list)
@@ -29,10 +31,6 @@ class CommandSidebar(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
-
-        edit_button = QPushButton("Manage Presets...")
-        edit_button.clicked.connect(self._open_editor)
-        layout.addWidget(edit_button)
 
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
@@ -70,7 +68,3 @@ class CommandSidebar(QWidget):
                 )
                 box_layout.addWidget(button)
             self._container_layout.insertWidget(self._container_layout.count() - 1, box)
-
-    def _open_editor(self) -> None:
-        dialog = PresetEditorDialog(self._store, self)
-        dialog.exec()

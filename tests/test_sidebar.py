@@ -29,7 +29,7 @@ def test_only_sidebar_flagged_presets_render_as_buttons(qtbot, tmp_path: Path) -
     sidebar = CommandSidebar(store)
     qtbot.addWidget(sidebar)
 
-    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Manage Presets..."]
+    button_labels = [b.text() for b in sidebar.findChildren(QPushButton)]
     assert button_labels == ["Shown"]
 
 
@@ -80,5 +80,5 @@ def test_store_changes_auto_reload_the_sidebar(qtbot, tmp_path: Path) -> None:
 
     store.add(Preset(name="New", lines=["echo new"], show_in_sidebar=True))
 
-    button_labels = [b.text() for b in sidebar.findChildren(QPushButton) if b.text() != "Manage Presets..."]
+    button_labels = [b.text() for b in sidebar.findChildren(QPushButton)]
     assert button_labels == ["New"]
