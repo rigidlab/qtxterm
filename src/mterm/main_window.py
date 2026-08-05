@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDockWidget, QMainWindow
 
 from mterm.preset_menu import CommandsMenu, MacrosMenu
@@ -23,13 +24,36 @@ class MainWindow(QMainWindow):
         self._preset_store = PresetStore()
         self._sidebar = CommandSidebar(self._preset_store, parent=self)
         self._sidebar.run_requested.connect(self._tabs.run_in_active)
-        sidebar_dock = QDockWidget("Commands", self)
-        sidebar_dock.setWidget(self._sidebar)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, sidebar_dock)
+        self._sidebar_dock = QDockWidget("Commands", self)
+        self._sidebar_dock.setWidget(self._sidebar)
+        # No close ("x") button on the dock itself - visibility is only
+        # toggled via the Commands menu's "Show Sidebar" action below, not by
+        # the user accidentally closing the dock with no way back.
+        self._sidebar_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetMovable
+            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+        )
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._sidebar_dock)
 
         self._build_file_menu()
 
-        self._commands_menu = CommandsMenu(self._preset_store, self._tabs, parent=self)
+        # Not sidebar_dock.toggleViewAction(): Qt ties that action's enabled
+        # state to the DockWidgetClosable feature (toggling visibility is
+        # treated as a form of "closing"), so it'd be silently inert once we
+        # removed Closable above. An independent action wired both ways
+        # (toggled -> setVisible, visibilityChanged -> setChecked) avoids
+        # that coupling entirely.
+        sidebar_toggle_action = QAction("Show Sidebar", self)
+        sidebar_toggle_action.setCheckable(True)
+        sidebar_toggle_action.setChecked(True)
+        sidebar_toggle_action.toggled.connect(self._sidebar_dock.setVisible)
+        self._sidebar_dock.visibilityChanged.connect(sidebar_toggle_action.setChecked)
+        self._commands_menu = CommandsMenu(
+            self._preset_store,
+            self._tabs,
+            sidebar_toggle_action=sidebar_toggle_action,
+            parent=self,
+        )
         self.menuBar().addMenu(self._commands_menu)
 
         self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)

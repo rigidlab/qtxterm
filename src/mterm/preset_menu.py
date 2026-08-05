@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QWidget
 
 from mterm.preset_editor import PresetEditorDialog
@@ -88,12 +89,23 @@ class CommandsMenu(_PresetCategoryMenu):
     """
 
     def __init__(
-        self, store: PresetStore, tabs: TerminalTabWidget, parent: QWidget | None = None
+        self,
+        store: PresetStore,
+        tabs: TerminalTabWidget,
+        sidebar_toggle_action: QAction | None = None,
+        parent: QWidget | None = None,
     ) -> None:
+        self._sidebar_toggle_action = sidebar_toggle_action
         super().__init__("&Commands", "active", "New Command...", store, tabs, parent)
 
     def _run(self, preset: Preset) -> None:
         self._tabs.run_in_active(preset.lines)
+
+    def reload(self) -> None:
+        super().reload()
+        if self._sidebar_toggle_action is not None:
+            self.addSeparator()
+            self.addAction(self._sidebar_toggle_action)
 
 
 class MacrosMenu(_PresetCategoryMenu):
