@@ -179,7 +179,31 @@ tabs/macros/sidebar complexity.
 - PyInstaller specs (Windows `.exe`, Linux binary/AppImage)
 - App icon, settings persistence (last window size, default shell), themes (xterm.js theme presets)
 
+## Execution semantics: multiline presets vs. a real script
+
+Both Commands and Macros execute the same way — each line is written to the
+PTY followed by Enter. They differ only in *where* they run (`target`), not in
+how. Verified empirically:
+
+- **Sequencing works.** Lines run strictly one after another, each completing
+  before the next starts, because the terminal's input buffer queues them and
+  the shell reads one line at a time. A macro whose first line is
+  `Start-Sleep -Seconds 3` does not run line 2 until the sleep finishes, and
+  nothing is garbled or lost. This matches script behavior.
+- **No stop-on-error.** Unlike `set -e` or `&&` chaining, a failing line does
+  not halt the rest. Deliberately left as-is - matches "paste these commands
+  into my terminal" semantics. If revisited, note that Windows PowerShell 5.1
+  (the default shell here) has no `&&`, so a fix needs per-shell handling.
+- **Interactive prompts consume queued lines.** If a line triggers a `sudo`
+  password, a `y/n` confirm, or a full-screen app, the buffered keystrokes are
+  read as input to *that* prompt rather than as commands. Inherent to feeding a
+  live terminal's keyboard buffer; the tradeoff for running in a session you
+  can keep interacting with.
+
 ## Open Questions / Deferred
-- Multi-step macro *scripting* (delays, wait-for-pattern) — deferred past v1 per earlier decision; current model only supports "send lines in sequence" with no conditional waiting.
+- Multi-step macro *scripting* (wait-for-pattern, conditional branching) —
+  deferred; would mean either running presets as a real temp script file (true
+  script semantics, but a subshell, so `cd` wouldn't persist) or Expect-style
+  prompt detection.
 - Session persistence across app restarts (reopen tabs) — not yet decided.
 - Config file format: JSON assumed above; can switch to YAML/TOML if preferred.
