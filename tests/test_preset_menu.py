@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtGui import QAction
+
 from mterm.preset_menu import CommandsMenu, MacrosMenu
 from mterm.presets import Preset, PresetStore
 from mterm.terminal_tabs import TerminalTabWidget
@@ -161,3 +163,29 @@ def test_store_changes_auto_reload_the_commands_menu(qtbot, tmp_path: Path) -> N
     store.add(Preset(name="New Command Item", lines=["echo hi"]))
 
     assert "New Command Item" in [a.text() for a in menu.actions()]
+
+
+def test_sidebar_toggle_action_present_and_survives_reload(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    toggle_action = QAction("Show Sidebar")
+    toggle_action.setCheckable(True)
+    toggle_action.setChecked(True)
+    menu = CommandsMenu(store, tabs, sidebar_toggle_action=toggle_action)
+
+    assert toggle_action in menu.actions()
+
+    store.add(Preset(name="Triggers Reload", lines=["echo hi"]))
+
+    assert toggle_action in menu.actions()
+
+
+def test_commands_menu_without_sidebar_toggle_action_omits_it(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+
+    menu = CommandsMenu(store, tabs)
+
+    assert "Show Sidebar" not in [a.text() for a in menu.actions()]
