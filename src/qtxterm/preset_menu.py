@@ -72,11 +72,15 @@ class _PresetCategoryMenu(QMenu):
         manage_action.triggered.connect(self._open_editor)
 
     def _new_preset(self) -> None:
-        dialog = PresetEditorDialog(self._store, self.parentWidget(), new_preset_target=self._target)
+        dialog = PresetEditorDialog(
+            self._store, self.parentWidget(), target=self._target, create_new=True
+        )
         dialog.exec()
 
     def _open_editor(self) -> None:
-        dialog = PresetEditorDialog(self._store, self.parentWidget())
+        dialog = PresetEditorDialog(
+            self._store, self.parentWidget(), target=self._target
+        )
         dialog.exec()
 
 
