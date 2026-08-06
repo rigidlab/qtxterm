@@ -2,14 +2,14 @@
   <title>qtxterm</title>
 
   <!-- Small-size variant of logo.svg: same mark with the window frame, title
-       dots and typed line dropped, and everything scaled up. At 16-24px those
-       details collapse into a smudge; chevron plus cursor still reads. -->
+       dots and separator dropped, and everything scaled up. At 32px and below
+       those details collapse into a smudge; chevron plus cursor still reads. -->
   <rect x="8" y="8" width="240" height="240" rx="52" fill="#0d0d0d"/>
 
   <!-- The gap between chevron and cursor is held wide on purpose: at 16px it
-       is barely over a pixel, and any less closes up into one blob. -->
-  <polyline points="73,74 129,128 73,182"
-            fill="none" stroke="#2fe664" stroke-width="30"
+       is barely over a pixel, and any less closes up into one shape. -->
+  <polyline points="51,74 107,128 51,182"
+            fill="none" stroke="#e5e5e5" stroke-width="30"
             stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="163" y="96" width="34" height="86" fill="#ffffff"/>
+  <rect x="144" y="158" width="76" height="24" rx="12" fill="#ffffff"/>
 </svg>
