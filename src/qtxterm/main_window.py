@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QDockWidget, QMainWindow
+from PySide6.QtWidgets import QDockWidget, QMainWindow, QStyle
 
+from qtxterm.help_dialog import HelpDialog
 from qtxterm.preset_menu import CommandsMenu, MacrosMenu
 from qtxterm.presets import PresetStore
 from qtxterm.shells import known_shells
@@ -59,7 +60,20 @@ class MainWindow(QMainWindow):
         self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)
         self.menuBar().addMenu(self._macros_menu)
 
+        self._build_help_menu()
+
         self._tabs.new_tab()
+
+    def _build_help_menu(self) -> None:
+        self._help_menu = self.menuBar().addMenu("&Help")
+        self._usage_action = self._help_menu.addAction("Usage")
+        self._usage_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
+        )
+        self._usage_action.triggered.connect(self.show_usage)
+
+    def show_usage(self) -> None:
+        HelpDialog(self).exec()
 
     def _build_file_menu(self) -> None:
         # QMenu.addMenu() parents the submenu in C++, but without a Python-side
