@@ -45,7 +45,9 @@ class AppearanceStore(QObject):
             theme_name = default_theme_name()
         font_family = self._settings.value(_FONT_FAMILY_KEY, DEFAULT_FONT_FAMILY)
         font_size = int(self._settings.value(_FONT_SIZE_KEY, DEFAULT_FONT_SIZE))
-        return Appearance(theme_name=theme_name, font_family=font_family, font_size=font_size)
+        return Appearance(
+            theme_name=theme_name, font_family=font_family, font_size=font_size
+        )
 
     def save(self, appearance: Appearance) -> None:
         self.current = appearance

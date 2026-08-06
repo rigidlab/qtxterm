@@ -66,6 +66,33 @@ Presets are stored as JSON, so you can hand-edit or back them up:
 - Windows — `%LOCALAPPDATA%\qtxterm\presets.json`
 - Linux — `~/.config/qtxterm/presets.json`
 
+## Appearance
+
+**File → Preferences...** sets the color theme, font, and font size.
+
+| Theme | Look |
+|---|---|
+| Qt Default | The original terminal colors, with your platform's native window chrome left untouched |
+| VS Code Dark High Contrast | Pure black ground, saturated ANSI colors — VS Code's `hc-black` |
+| VS Code Light+ | VS Code's default light theme |
+| Solarized Dark | The classic low-contrast dark palette |
+| Solarized Light | Solarized on its cream ground |
+
+Everything except **Qt Default** themes the whole window — menus, tabs,
+sidebar, and dialogs — not only the terminal grid. **Qt Default** deliberately
+leaves the native look alone.
+
+Changes apply immediately to every open tab, and are remembered for next time.
+
+## What else is remembered
+
+The window's size and position, and whether the Commands sidebar is showing,
+are restored the next time you open qtxterm — alongside the appearance
+settings above. They live next to your presets:
+
+- Windows — `%LOCALAPPDATA%\qtxterm\window_state.ini`
+- Linux — `~/.config/qtxterm/window_state.ini`
+
 ## How multiline presets run
 
 Each line is typed into the terminal followed by Enter. Lines run strictly in

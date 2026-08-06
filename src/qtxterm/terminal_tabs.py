@@ -56,10 +56,16 @@ class TerminalTabWidget(QTabWidget):
         self._prev_tab_shortcut = bind("Ctrl+Shift+Tab", self._activate_prev_tab)
 
     def new_tab(
-        self, shell: str | list[str] | None = None, pty_session: PtySession | None = None
+        self,
+        shell: str | list[str] | None = None,
+        pty_session: PtySession | None = None,
     ) -> TerminalWidget:
-        appearance = self._appearance_store.current if self._appearance_store else Appearance()
-        widget = TerminalWidget(shell=shell, pty_session=pty_session, appearance=appearance)
+        appearance = (
+            self._appearance_store.current if self._appearance_store else Appearance()
+        )
+        widget = TerminalWidget(
+            shell=shell, pty_session=pty_session, appearance=appearance
+        )
         widget.title_changed.connect(
             lambda title, w=widget: self._update_tab_title(w, title)
         )

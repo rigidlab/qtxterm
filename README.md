@@ -8,6 +8,9 @@ terminals via embedded xterm.js and backed by real PTYs.
 - **Commands** — reusable one-liners, sent to the terminal you're working in,
   as one-click sidebar buttons
 - **Macros** — multi-step scripts that open and run in a fresh tab
+- Color themes (VS Code Dark High Contrast, Solarized, ...) applied across the
+  whole window, plus font and font size, from **File → Preferences...**
+- Window size and sidebar visibility are remembered between sessions
 
 ## Install and run
 

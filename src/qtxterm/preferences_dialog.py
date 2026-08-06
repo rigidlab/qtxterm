@@ -26,6 +26,9 @@ class PreferencesDialog(QDialog):
     def __init__(self, store: AppearanceStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preferences")
+        # Wide enough that the longest theme name ("VS Code Dark High
+        # Contrast") and typical font names aren't elided in their combos.
+        self.setMinimumWidth(360)
         self._store = store
 
         layout = QVBoxLayout(self)

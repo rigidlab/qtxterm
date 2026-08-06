@@ -39,7 +39,7 @@ def test_save_emits_changed(tmp_path: Path) -> None:
     calls = []
     store.changed.connect(lambda: calls.append(True))
 
-    store.save(Appearance(theme_name="VS Code Dark+"))
+    store.save(Appearance(theme_name="VS Code Dark High Contrast"))
 
     assert calls == [True]
 

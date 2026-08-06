@@ -34,12 +34,12 @@ def test_ok_saves_selected_appearance_and_notifies(qtbot, tmp_path: Path) -> Non
     calls = []
     store.changed.connect(lambda: calls.append(True))
 
-    dialog._theme_combo.setCurrentText("VS Code Dark+")
+    dialog._theme_combo.setCurrentText("VS Code Dark High Contrast")
     dialog._font_combo.setCurrentFont(QFont("Cascadia Mono"))
     dialog._size_spin.setValue(20)
     dialog._save()
 
-    assert store.current.theme_name == "VS Code Dark+"
+    assert store.current.theme_name == "VS Code Dark High Contrast"
     assert store.current.font_size == 20
     assert calls == [True]
 

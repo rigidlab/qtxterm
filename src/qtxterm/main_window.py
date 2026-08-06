@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QDockWidget, QMainWindow, QStyle
+from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QStyle
 
 from qtxterm.appearance import AppearanceStore
 from qtxterm.help_dialog import HelpDialog
 from qtxterm.preferences_dialog import PreferencesDialog
 from qtxterm.preset_menu import CommandsMenu, MacrosMenu
 from qtxterm.presets import PresetStore
+from qtxterm.qt_theme import apply_qt_theme
 from qtxterm.shells import known_shells
 from qtxterm.sidebar import CommandSidebar
 from qtxterm.terminal_tabs import TerminalTabWidget
@@ -26,7 +27,11 @@ class MainWindow(QMainWindow):
         self.resize(1000, 650)
 
         self._appearance_store = AppearanceStore(self._settings)
-        self._tabs = TerminalTabWidget(parent=self, appearance_store=self._appearance_store)
+        self._appearance_store.changed.connect(self._apply_qt_theme)
+        self._apply_qt_theme()
+        self._tabs = TerminalTabWidget(
+            parent=self, appearance_store=self._appearance_store
+        )
         self._tabs.all_tabs_closed.connect(self.close)
         self.setCentralWidget(self._tabs)
 
@@ -81,6 +86,11 @@ class MainWindow(QMainWindow):
         self._restore_window_state()
 
         self._tabs.new_tab()
+
+    def _apply_qt_theme(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            apply_qt_theme(app, self._appearance_store.current.theme)
 
     def _restore_window_state(self) -> None:
         geometry = self._settings.value(_GEOMETRY_KEY)
