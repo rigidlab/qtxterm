@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="qtxterm">
+  <title>qtxterm</title>
+
+  <!-- Terminal window body. Near-black to match the VS Code Dark High
+       Contrast default; the border keeps the silhouette readable when the
+       icon sits on a dark taskbar. -->
+  <rect x="24" y="32" width="208" height="192" rx="26"
+        fill="#0d0d0d" stroke="#4a4a4a" stroke-width="5"/>
+
+  <!-- Title bar: three dots above a separator. Deliberately grey so the
+       green accent belongs to the prompt alone. -->
+  <circle cx="50" cy="52" r="5.5" fill="#4d4d4d"/>
+  <circle cx="72" cy="52" r="5.5" fill="#4d4d4d"/>
+  <circle cx="94" cy="52" r="5.5" fill="#4d4d4d"/>
+  <line x1="26" y1="72" x2="230" y2="72" stroke="#2b2b2b" stroke-width="3"/>
+
+  <!-- Prompt: chevron, a typed line, and a block cursor, all sharing the
+       baseline at y=182. -->
+  <polyline points="59,114 93,148 59,182"
+            fill="none" stroke="#2fe664" stroke-width="18"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="120" y="170" width="48" height="12" rx="6" fill="#5a5a5a"/>
+  <rect x="184" y="130" width="22" height="52" fill="#ffffff"/>
+</svg>

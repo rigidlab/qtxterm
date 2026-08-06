@@ -5,6 +5,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QStyle
 
 from qtxterm.appearance import AppearanceStore
+from qtxterm.branding import app_icon
 from qtxterm.help_dialog import HelpDialog
 from qtxterm.preferences_dialog import PreferencesDialog
 from qtxterm.preset_menu import CommandsMenu, MacrosMenu
@@ -24,6 +25,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._settings = settings or make_settings()
         self.setWindowTitle("qtxterm")
+        # Also set per-window, not just on QApplication: keeps the title bar
+        # icon correct for windows created outside app.main() (tests, embedding).
+        self.setWindowIcon(app_icon())
         self.resize(1000, 650)
 
         self._appearance_store = AppearanceStore(self._settings)

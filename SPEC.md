@@ -177,7 +177,15 @@ tabs/macros/sidebar complexity.
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed
 - PyInstaller specs (Windows `.exe`, Linux binary/AppImage)
-- App icon, settings persistence (last window size, default shell), themes (xterm.js theme presets)
+- [x] App icon (`src/qtxterm/branding.py`): an SVG terminal-window mark, plus a
+      simplified chevron+cursor variant used at 32px and below where the frame
+      and title dots blur. Both are registered as per-size pixmaps on one
+      `QIcon` - Qt's SVG icon engine keeps one entry per mode/state, so
+      `QIcon.addFile()` overwrites instead of keying by size and the
+      last-added file would win everywhere. Windows also needs an explicit
+      AppUserModelID, or the taskbar groups the app under python.exe and shows
+      the interpreter's icon regardless of `setWindowIcon()`.
+- Settings persistence (last window size, default shell), themes (xterm.js theme presets)
 
 ## Execution semantics: multiline presets vs. a real script
 
