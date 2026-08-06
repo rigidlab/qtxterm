@@ -6,7 +6,7 @@ terminals via embedded xterm.js and backed by real PTYs.
 - Multiple terminal tabs with tmux-style labels that track the shell's title
 - On Windows, open PowerShell, Command Prompt, Git Bash, or WSL from **File → New Terminal**
 - **Commands** — reusable one-liners, sent to the terminal you're working in,
-  as one-click sidebar buttons or from the Commands menu
+  as one-click sidebar buttons
 - **Macros** — multi-step scripts that open and run in a fresh tab
 
 ## Install and run

@@ -1,5 +1,7 @@
-"""CommandsMenu/MacrosMenu: each shows only its own target category, grouped,
-and runs presets via TerminalTabWidget (mocked so no real shell spawns)."""
+"""CommandsMenu/MacrosMenu: the Macros menu lists its presets grouped; the
+Commands menu is management-only (New/Manage/Show Sidebar) since Commands
+run from the sidebar instead. Runs presets via TerminalTabWidget (mocked so
+no real shell spawns)."""
 
 from __future__ import annotations
 
@@ -39,12 +41,15 @@ def test_only_new_tab_presets_appear_in_macros_menu(qtbot, tmp_path: Path) -> No
     assert "Manage Presets..." in action_texts
 
 
-def test_only_active_presets_appear_in_commands_menu(qtbot, tmp_path: Path) -> None:
+def test_commands_menu_lists_no_individual_presets(qtbot, tmp_path: Path) -> None:
+    """Commands run from the sidebar, not this menu - it's management-only,
+    regardless of how many Command presets exist."""
     store = make_store(
         tmp_path,
         [
-            Preset(name="Command", lines=["echo one"], target="active"),
-            Preset(name="Macro", lines=["echo one", "echo two"], target="new_tab"),
+            Preset(name="Status", lines=["git status"], group="Git"),
+            Preset(name="Clear", lines=["clear"]),
+            Preset(name="Macro", lines=["a", "b"], target="new_tab"),
         ],
     )
     tabs = TerminalTabWidget()
@@ -53,24 +58,8 @@ def test_only_active_presets_appear_in_commands_menu(qtbot, tmp_path: Path) -> N
 
     action_texts = [a.text() for a in menu.actions()]
 
-    assert "Command" in action_texts
-    assert "Macro" not in action_texts
-    assert "New Command..." in action_texts
-    assert "Manage Presets..." in action_texts
-
-
-def test_commands_menu_includes_presets_not_pinned_to_sidebar(qtbot, tmp_path: Path) -> None:
-    """Unlike the sidebar, the Commands menu is the full list - it doesn't
-    filter on show_in_sidebar."""
-    store = make_store(
-        tmp_path,
-        [Preset(name="Hidden From Sidebar", lines=["echo x"], show_in_sidebar=False)],
-    )
-    tabs = TerminalTabWidget()
-    qtbot.addWidget(tabs)
-    menu = CommandsMenu(store, tabs)
-
-    assert "Hidden From Sidebar" in [a.text() for a in menu.actions()]
+    assert action_texts == ["New Command...", "Manage Presets..."]
+    assert "Git" not in action_texts
 
 
 def test_macros_are_grouped_into_submenus(qtbot, tmp_path: Path) -> None:
@@ -92,25 +81,6 @@ def test_macros_are_grouped_into_submenus(qtbot, tmp_path: Path) -> None:
     assert "Ad Hoc" in [a.text() for a in menu.actions()]
 
 
-def test_commands_are_grouped_into_submenus(qtbot, tmp_path: Path) -> None:
-    store = make_store(
-        tmp_path,
-        [
-            Preset(name="Status", lines=["git status"], group="Git"),
-            Preset(name="Pull", lines=["git pull"], group="Git"),
-            Preset(name="Clear", lines=["clear"]),
-        ],
-    )
-    tabs = TerminalTabWidget()
-    qtbot.addWidget(tabs)
-    menu = CommandsMenu(store, tabs)
-
-    submenu_action = next(a for a in menu.actions() if a.text() == "Git")
-    git_menu = submenu_action.menu()
-    assert [a.text() for a in git_menu.actions()] == ["Status", "Pull"]
-    assert "Clear" in [a.text() for a in menu.actions()]
-
-
 def test_running_a_macro_calls_run_in_new_tab(qtbot, tmp_path: Path) -> None:
     store = make_store(
         tmp_path, [Preset(name="Deploy", lines=["a", "b"], target="new_tab")]
@@ -127,16 +97,18 @@ def test_running_a_macro_calls_run_in_new_tab(qtbot, tmp_path: Path) -> None:
     assert calls == [(None, ["a", "b"])]
 
 
-def test_running_a_command_calls_run_in_active(qtbot, tmp_path: Path) -> None:
-    store = make_store(tmp_path, [Preset(name="Status", lines=["git status"])])
+def test_commands_menu_run_sends_to_active_terminal(qtbot, tmp_path: Path) -> None:
+    """CommandsMenu._run is exercised by the sidebar (via the same
+    PresetStore/TerminalTabWidget wiring) rather than a menu action, since
+    Commands no longer list here."""
+    store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
     calls = []
     tabs.run_in_active = lambda lines: calls.append(lines)
     menu = CommandsMenu(store, tabs)
 
-    action = next(a for a in menu.actions() if a.text() == "Status")
-    action.trigger()
+    menu._run(Preset(name="Status", lines=["git status"]))
 
     assert calls == [["git status"]]
 
@@ -153,16 +125,16 @@ def test_store_changes_auto_reload_the_macros_menu(qtbot, tmp_path: Path) -> Non
     assert "New Macro Item" in [a.text() for a in menu.actions()]
 
 
-def test_store_changes_auto_reload_the_commands_menu(qtbot, tmp_path: Path) -> None:
+def test_store_changes_reload_the_commands_menu_without_error(qtbot, tmp_path: Path) -> None:
     store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
     menu = CommandsMenu(store, tabs)
-    assert "New Command Item" not in [a.text() for a in menu.actions()]
 
     store.add(Preset(name="New Command Item", lines=["echo hi"]))
 
-    assert "New Command Item" in [a.text() for a in menu.actions()]
+    assert "New Command Item" not in [a.text() for a in menu.actions()]
+    assert [a.text() for a in menu.actions()] == ["New Command...", "Manage Presets..."]
 
 
 def test_sidebar_toggle_action_present_and_survives_reload(qtbot, tmp_path: Path) -> None:

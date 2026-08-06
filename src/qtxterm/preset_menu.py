@@ -12,9 +12,10 @@ from qtxterm.terminal_tabs import TerminalTabWidget
 
 class _PresetCategoryMenu(QMenu):
     """Shared menu behavior for one Preset category (Commands or Macros):
-    lists presets matching `target`, grouped by `group`, plus New.../Manage
-    Presets... actions. Subclasses only differ in `target` and what running
-    a preset actually does (see `_run`).
+    optionally lists presets matching `target` (grouped by `group`), plus
+    New.../Manage Presets... actions. Subclasses differ in `target`,
+    whether presets are listed (see `list_presets`), and what running a
+    preset actually does (see `_run`).
     """
 
     def __init__(
@@ -25,12 +26,14 @@ class _PresetCategoryMenu(QMenu):
         store: PresetStore,
         tabs: TerminalTabWidget,
         parent: QWidget | None = None,
+        list_presets: bool = True,
     ) -> None:
         super().__init__(title, parent)
         self._target = target
         self._new_label = new_label
         self._store = store
         self._tabs = tabs
+        self._list_presets = list_presets
         self._store.changed.connect(self.reload)
         self.reload()
 
@@ -46,26 +49,30 @@ class _PresetCategoryMenu(QMenu):
         # here for as long as this reload()'s menu contents are current.
         self._submenus: list[QMenu] = []
 
-        matching = [p for p in self._store.presets if p.target == self._target]
-        groups: dict[str | None, list[Preset]] = {}
-        for preset in matching:
-            groups.setdefault(preset.group, []).append(preset)
+        if self._list_presets:
+            matching = [p for p in self._store.presets if p.target == self._target]
+            groups: dict[str | None, list[Preset]] = {}
+            for preset in matching:
+                groups.setdefault(preset.group, []).append(preset)
 
-        ordered_group_names = [name for name in groups if name is None] + sorted(
-            name for name in groups if name is not None
-        )
-        for group_name in ordered_group_names:
-            if group_name is None:
-                target_menu = self
-            else:
-                target_menu = self.addMenu(group_name)
-                self._submenus.append(target_menu)
-            for preset in groups[group_name]:
-                action = target_menu.addAction(preset.name)
-                action.triggered.connect(lambda _checked=False, p=preset: self._run(p))
+            ordered_group_names = [name for name in groups if name is None] + sorted(
+                name for name in groups if name is not None
+            )
+            for group_name in ordered_group_names:
+                if group_name is None:
+                    target_menu = self
+                else:
+                    target_menu = self.addMenu(group_name)
+                    self._submenus.append(target_menu)
+                for preset in groups[group_name]:
+                    action = target_menu.addAction(preset.name)
+                    action.triggered.connect(
+                        lambda _checked=False, p=preset: self._run(p)
+                    )
 
-        if matching:
-            self.addSeparator()
+            if matching:
+                self.addSeparator()
+
         new_action = self.addAction(self._new_label)
         new_action.triggered.connect(self._new_preset)
         manage_action = self.addAction("Manage Presets...")
@@ -85,11 +92,13 @@ class _PresetCategoryMenu(QMenu):
 
 
 class CommandsMenu(_PresetCategoryMenu):
-    """Menu of Command-category presets (target: active), grouped by `group`.
+    """Command-category menu (target: active): New/Manage actions plus the
+    sidebar toggle - not a listing of individual Commands.
 
-    Lists every Command, not just ones pinned to the sidebar - this is the
-    comprehensive access point; the sidebar is the curated quick-access one.
-    Running one sends it to the active terminal, same as a sidebar click.
+    Commands run from the sidebar (the curated, quick-access surface), not
+    from this menu - listing every Command here too was redundant with it.
+    Running one still sends it to the active terminal, same as a sidebar
+    click, for callers that reuse `_run` (e.g. tests, `_new_preset`).
     """
 
     def __init__(
@@ -100,7 +109,15 @@ class CommandsMenu(_PresetCategoryMenu):
         parent: QWidget | None = None,
     ) -> None:
         self._sidebar_toggle_action = sidebar_toggle_action
-        super().__init__("&Commands", "active", "New Command...", store, tabs, parent)
+        super().__init__(
+            "&Commands",
+            "active",
+            "New Command...",
+            store,
+            tabs,
+            parent,
+            list_presets=False,
+        )
 
     def _run(self, preset: Preset) -> None:
         self._tabs.run_in_active(preset.lines)

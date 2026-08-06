@@ -36,25 +36,28 @@ serve different jobs, and each preset is one or the other:
 ## Running them
 
 - **Sidebar buttons** — one click sends that Command to the active terminal.
-  The sidebar is a curated shortcut list; only Commands you've ticked
-  "Show in sidebar" appear there.
-- **Commands menu** — every Command, including ones not pinned to the sidebar.
+  This is the only place Commands run from; the Commands menu itself is
+  management-only (New Command..., Manage Presets..., Show Sidebar) — it
+  doesn't list them.
 - **Macros menu** — every Macro. Picking one opens a new tab and runs it.
 
-Show or hide the sidebar with **Commands → Show Sidebar**. It has no close
-button, so it can't be dismissed with no way back.
+Show or hide the sidebar with **Commands → Show Sidebar**. Closing it from
+its own title-bar button works too — either way it just hides, and the menu
+item flips back to unchecked so you can bring it back.
 
 ## Creating and editing presets
 
-Open **Commands → Manage Presets...** (or the same item under Macros).
+Open **Manage Presets...** under the Commands menu to manage Commands, or
+under the Macros menu to manage Macros — each opens scoped to its own
+category, so there's no way to create a Command from the Macros dialog
+or vice versa.
 
 | Field | What it does |
 |---|---|
 | Name | Label shown in menus and on sidebar buttons |
 | Group | Optional. Groups presets into sidebar sections and menu submenus |
-| Type | **Command** (active terminal) or **Macro** (new tab) |
 | Commands | One shell line per row |
-| Show in sidebar | Pin as a sidebar button. Commands only — Macros never appear there |
+| Show in sidebar | Commands only — pins it as a sidebar button. Macros never appear there |
 
 Changes save immediately, and the sidebar and both menus refresh straight away.
 
