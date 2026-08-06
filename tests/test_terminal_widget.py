@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from urllib.parse import parse_qs
+
 from conftest import FakePtySession
 
+from qtxterm.appearance import Appearance
 from qtxterm.terminal_widget import TerminalWidget
 
 
@@ -80,3 +83,28 @@ def test_run_when_ready_waits_for_pty_started(qtbot) -> None:
     widget._bridge.ready(80, 24)
 
     assert called == [True]
+
+
+def test_terminal_url_encodes_appearance_as_query_params() -> None:
+    appearance = Appearance(theme_name="Solarized Dark", font_family="Cascadia Mono", font_size=18)
+
+    url = TerminalWidget._terminal_url(appearance)
+
+    query = parse_qs(url.query())
+    assert query["fontFamily"] == ["Cascadia Mono"]
+    assert query["fontSize"] == ["18"]
+    assert '"background": "#002b36"' in query["theme"][0] or "#002b36" in query["theme"][0]
+
+
+def test_apply_appearance_runs_javascript_with_theme_and_font(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+
+    widget.apply_appearance(Appearance(theme_name="VS Code Light+", font_size=22))
+
+    assert len(calls) == 1
+    assert "applyAppearance" in calls[0]
+    assert "#ffffff" in calls[0]
+    assert '"fontSize": 22' in calls[0]

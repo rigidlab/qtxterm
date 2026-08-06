@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from conftest import FakePtySession
+from pathlib import Path
 
+from conftest import FakePtySession
+from PySide6.QtCore import QSettings
+
+from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.terminal_tabs import TerminalTabWidget
 
 
@@ -11,6 +15,11 @@ def make_tabs(qtbot) -> TerminalTabWidget:
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
     return tabs
+
+
+def make_appearance_store(tmp_path: Path) -> AppearanceStore:
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    return AppearanceStore(settings)
 
 
 def test_new_tab_becomes_active_and_labeled_by_index(qtbot) -> None:
@@ -107,3 +116,20 @@ def test_run_in_new_tab_feeds_lines_once_pty_starts(qtbot) -> None:
     widget._bridge.ready(80, 24)
 
     assert fake_pty.write_calls == ["echo one\r\n", "echo two\r\n"]
+
+
+def test_appearance_store_change_reapplies_to_all_open_tabs(qtbot, tmp_path: Path) -> None:
+    store = make_appearance_store(tmp_path)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+    a = tabs.new_tab(pty_session=FakePtySession())
+    b = tabs.new_tab(pty_session=FakePtySession())
+    applied_a, applied_b = [], []
+    a.apply_appearance = lambda appearance: applied_a.append(appearance)
+    b.apply_appearance = lambda appearance: applied_b.append(appearance)
+
+    new_appearance = Appearance(theme_name="Solarized Dark")
+    store.save(new_appearance)
+
+    assert applied_a == [new_appearance]
+    assert applied_b == [new_appearance]

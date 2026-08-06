@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Signal
+from PySide6.QtCore import QUrl, QUrlQuery, Signal
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from qtxterm.appearance import Appearance
 from qtxterm.pty_backend import PtySession, create_pty_session, default_shell
 from qtxterm.terminal_bridge import TerminalBridge
 
@@ -32,6 +34,7 @@ class TerminalWidget(QWidget):
         shell: str | list[str] | None = None,
         parent: QWidget | None = None,
         pty_session: PtySession | None = None,
+        appearance: Appearance | None = None,
     ) -> None:
         super().__init__(parent)
         if shell is None:
@@ -60,7 +63,33 @@ class TerminalWidget(QWidget):
         self._pty.output_ready.connect(self._bridge.output.emit)
         self._pty.exited.connect(self._bridge.exited.emit)
 
-        self._view.load(QUrl.fromLocalFile(str(ASSETS_DIR / "terminal.html")))
+        self._view.load(self._terminal_url(appearance or Appearance()))
+
+    @staticmethod
+    def _terminal_url(appearance: Appearance) -> QUrl:
+        # Passed as query params (rather than a post-load bridge call) so
+        # the terminal renders in the right theme/font from its very first
+        # frame - no flash of the default look before JS catches up.
+        url = QUrl.fromLocalFile(str(ASSETS_DIR / "terminal.html"))
+        query = QUrlQuery()
+        query.addQueryItem("theme", json.dumps(appearance.theme.to_xterm_dict()))
+        query.addQueryItem("fontFamily", appearance.font_family)
+        query.addQueryItem("fontSize", str(appearance.font_size))
+        url.setQuery(query)
+        return url
+
+    def apply_appearance(self, appearance: Appearance) -> None:
+        """Live-update an already-open tab's theme/font without reloading it."""
+        payload = json.dumps(
+            {
+                "theme": appearance.theme.to_xterm_dict(),
+                "fontFamily": appearance.font_family,
+                "fontSize": appearance.font_size,
+            }
+        )
+        self._view.page().runJavaScript(
+            f"window.applyAppearance && window.applyAppearance({payload});"
+        )
 
     @property
     def default_title(self) -> str:

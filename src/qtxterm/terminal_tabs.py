@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
 
+from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.pty_backend import PtySession
 from qtxterm.terminal_widget import TerminalWidget
 
@@ -18,9 +19,16 @@ class TerminalTabWidget(QTabWidget):
 
     all_tabs_closed = Signal()
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        appearance_store: AppearanceStore | None = None,
+    ) -> None:
         super().__init__(parent)
         self._titles: dict[TerminalWidget, str] = {}
+        self._appearance_store = appearance_store
+        if self._appearance_store is not None:
+            self._appearance_store.changed.connect(self._apply_appearance_to_all_tabs)
 
         self.setTabsClosable(True)
         self.setMovable(True)
@@ -50,7 +58,8 @@ class TerminalTabWidget(QTabWidget):
     def new_tab(
         self, shell: str | list[str] | None = None, pty_session: PtySession | None = None
     ) -> TerminalWidget:
-        widget = TerminalWidget(shell=shell, pty_session=pty_session)
+        appearance = self._appearance_store.current if self._appearance_store else Appearance()
+        widget = TerminalWidget(shell=shell, pty_session=pty_session, appearance=appearance)
         widget.title_changed.connect(
             lambda title, w=widget: self._update_tab_title(w, title)
         )
@@ -60,6 +69,11 @@ class TerminalTabWidget(QTabWidget):
         self.setCurrentIndex(index)
         self._renumber()
         return widget
+
+    def _apply_appearance_to_all_tabs(self) -> None:
+        appearance = self._appearance_store.current
+        for i in range(self.count()):
+            self.widget(i).apply_appearance(appearance)
 
     def close_tab_at(self, index: int) -> None:
         widget = self.widget(index)

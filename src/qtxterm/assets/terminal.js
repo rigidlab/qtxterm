@@ -1,14 +1,32 @@
 (function () {
+  const params = new URLSearchParams(location.search);
+  const themeParam = params.get("theme");
+  const theme = themeParam
+    ? JSON.parse(themeParam)
+    : { background: "#1e1e1e", foreground: "#d4d4d4" };
+  const fontFamily =
+    params.get("fontFamily") || "Consolas, 'Cascadia Mono', monospace";
+  const fontSize = parseInt(params.get("fontSize"), 10) || 14;
+
   const term = new Terminal({
     cursorBlink: true,
-    fontFamily: "Consolas, 'Cascadia Mono', monospace",
-    fontSize: 14,
-    theme: { background: "#1e1e1e", foreground: "#d4d4d4" },
+    fontFamily,
+    fontSize,
+    theme,
   });
   const fitAddon = new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.open(document.getElementById("terminal"));
   fitAddon.fit();
+
+  // Called from Python (TerminalWidget.apply_appearance) to live-update an
+  // already-open tab without reloading the page.
+  window.applyAppearance = function (options) {
+    term.options.theme = options.theme;
+    term.options.fontFamily = options.fontFamily;
+    term.options.fontSize = options.fontSize;
+    fitAddon.fit();
+  };
 
   new QWebChannel(qt.webChannelTransport, function (channel) {
     const bridge = channel.objects.bridge;
