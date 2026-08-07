@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import QMenu, QWidget
 
-from qtxterm.preset_editor import PresetEditorDialog
+from qtxterm.preset_editor import PresetEditorDialog, editor_title
 from qtxterm.presets import (
     CATEGORY_COMMANDS,
     CATEGORY_MACROS,
@@ -86,7 +86,7 @@ def add_preset_actions(menu: QMenu, presets: list[Preset], run) -> None:
 class _PresetCategoryMenu(QMenu):
     """Shared menu behavior for one Preset category (Commands or Macros):
     optionally lists presets matching `target` (grouped by `group`), plus
-    New.../Manage Presets... actions. Subclasses differ in `target`,
+    New.../Manage <category>... actions. Subclasses differ in `target`,
     whether presets are listed (see `list_presets`), and what running a
     preset actually does (see `_run`).
     """
@@ -124,7 +124,10 @@ class _PresetCategoryMenu(QMenu):
 
         new_action = self.addAction(self._new_label)
         new_action.triggered.connect(self._new_preset)
-        manage_action = self.addAction("Manage Presets...")
+        # Reuses the dialog's own window title so the menu item and the window
+        # it opens can't drift apart. "Preset" is an internal umbrella term -
+        # what the user sees is the category they're actually in.
+        manage_action = self.addAction(f"{editor_title(self._category)}...")
         manage_action.triggered.connect(self._open_editor)
 
     def _new_preset(self) -> None:

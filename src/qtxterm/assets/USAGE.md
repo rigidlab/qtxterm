@@ -46,7 +46,7 @@ serve different jobs, and each preset is one or the other:
 - **Macros menu** — every Macro. Picking one opens a new tab and runs it.
 
 The Commands menu in the menu bar is management-only (New Command...,
-Manage Presets..., Show Sidebar) — it doesn't list individual Commands.
+Manage Commands..., Show Sidebar) — it doesn't list individual Commands.
 
 Show or hide the sidebar with **Commands → Show Sidebar**. Closing it from
 its own title-bar button works too — either way it just hides, and the menu
@@ -91,12 +91,12 @@ before this feature
 existed keeps its own presets — open **Manage Selection Actions...** and
 press **Add Examples**.
 
-## Creating and editing presets
+## Creating and editing
 
-Open **Manage Presets...** under the Commands menu to manage Commands, or
-under the Macros menu to manage Macros — each opens scoped to its own
-category, so there's no way to create a Command from the Macros dialog
-or vice versa.
+Each menu manages its own category: **Manage Commands...** under Commands,
+**Manage Macros...** under Macros, **Manage Selection Actions...** under
+Selection. Each dialog opens scoped to that category, so there's no way to
+create a Command from the Macros dialog or vice versa.
 
 | Field | What it does |
 |---|---|

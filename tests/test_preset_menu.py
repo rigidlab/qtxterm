@@ -56,7 +56,7 @@ def test_only_new_tab_presets_appear_in_macros_menu(qtbot, tmp_path: Path) -> No
     assert "Macro" in action_texts
     assert "Command" not in action_texts
     assert "New Macro..." in action_texts
-    assert "Manage Presets..." in action_texts
+    assert "Manage Macros..." in action_texts
 
 
 def test_commands_menu_lists_no_individual_presets(qtbot, tmp_path: Path) -> None:
@@ -76,7 +76,7 @@ def test_commands_menu_lists_no_individual_presets(qtbot, tmp_path: Path) -> Non
 
     action_texts = [a.text() for a in menu.actions()]
 
-    assert action_texts == ["New Command...", "Manage Presets..."]
+    assert action_texts == ["New Command...", "Manage Commands..."]
     assert "Git" not in action_texts
 
 
@@ -152,7 +152,10 @@ def test_store_changes_reload_the_commands_menu_without_error(qtbot, tmp_path: P
     store.add(Preset(name="New Command Item", lines=["echo hi"]))
 
     assert "New Command Item" not in [a.text() for a in menu.actions()]
-    assert [a.text() for a in menu.actions()] == ["New Command...", "Manage Presets..."]
+    assert [a.text() for a in menu.actions()] == [
+        "New Command...",
+        "Manage Commands...",
+    ]
 
 
 def test_sidebar_toggle_action_present_and_survives_reload(qtbot, tmp_path: Path) -> None:
@@ -481,7 +484,7 @@ def test_selection_menu_is_management_only(qtbot, tmp_path: Path) -> None:
 
     texts = [a.text() for a in menu.actions() if not a.isSeparator()]
 
-    assert texts == ["New Selection Action...", "Manage Presets..."]
+    assert texts == ["New Selection Action...", "Manage Selection Actions..."]
     assert "Search" not in texts
 
 
@@ -502,6 +505,8 @@ def test_selection_menu_new_opens_the_selection_editor(qtbot, tmp_path, monkeypa
     monkeypatch.setattr(preset_menu.PresetEditorDialog, "exec", lambda self: 0)
 
     next(a for a in menu.actions() if a.text() == "New Selection Action...").trigger()
-    next(a for a in menu.actions() if a.text() == "Manage Presets...").trigger()
+    next(
+        a for a in menu.actions() if a.text() == "Manage Selection Actions..."
+    ).trigger()
 
     assert opened == [(CATEGORY_SELECTION, True), (CATEGORY_SELECTION, False)]

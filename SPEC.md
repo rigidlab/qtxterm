@@ -167,7 +167,7 @@ tabs/macros/sidebar complexity.
 - [x] `MacrosMenu` refactored into a shared `_PresetCategoryMenu` base
       (`src/qtxterm/preset_menu.py`, replaces `macros_menu.py`); `CommandsMenu`
       only supplies its target (`active`), run behavior (`run_in_active`), and
-      labels - grouping/reload/New/Manage Presets logic is shared
+      labels - grouping/reload/New/Manage logic is shared
 - [x] Lists every `target: active` preset, not just sidebar-pinned ones - the
       sidebar stays the curated quick-access view, this menu is the full list
 - [x] pytest suite (renamed to `test_preset_menu.py`, covers both menus);
@@ -235,8 +235,8 @@ tabs/macros/sidebar complexity.
       needs a live selection, which a menu bar item can't offer, so that half
       lives in the terminal's right-click `Selection` submenu instead.
 - [x] Defaults are only seeded on first run, so pre-existing installs get an
-      empty right-click `Selection`; `Selection -> Manage Presets... ->
-      Add Examples`
+      empty right-click `Selection`; `Selection -> Manage Selection
+      Actions... -> Add Examples`
       adds the built-in examples by name without duplicating.
 
 ### Phase 5 — Packaging & polish

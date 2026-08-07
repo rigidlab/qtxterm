@@ -18,7 +18,7 @@ class CommandSidebar(QWidget):
     Always sends to the active terminal - see Preset.target docstring for why
     this only ever shows target: active presets (Commands), never Macros.
 
-    Editing presets lives in the Commands menu ("Manage Presets...") instead
+    Editing presets lives in the Commands menu ("Manage Commands...") instead
     of a button here - the sidebar is just the quick-access button list.
     """
 

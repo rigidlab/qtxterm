@@ -36,6 +36,13 @@ _CATEGORY_TITLES = {
     CATEGORY_MACROS: "Manage Macros",
     CATEGORY_SELECTION: "Manage Selection Actions",
 }
+
+
+def editor_title(category: str) -> str:
+    """The dialog's window title, also used for the menu item that opens it."""
+    return _CATEGORY_TITLES[category]
+
+
 _NEW_NAMES = {
     CATEGORY_COMMANDS: "New Command",
     CATEGORY_MACROS: "New Macro",
@@ -70,10 +77,10 @@ class PresetEditorDialog(QDialog):
     """Add/edit/delete presets for a single category.
 
     Scoped to `category` - opened from the Commands menu it only
-    lists/creates Commands, from the Macros menu only Macros, from Use
-    Selection only Selection Actions. There is no way to change a preset's
-    category from here, so it can't be used to sneak one category's preset
-    into another's menu.
+    lists/creates Commands, from the Macros menu only Macros, from the
+    Selection menu only Selection Actions. There is no way to change a
+    preset's category from here, so it can't be used to sneak one category's
+    preset into another's menu.
     """
 
     def __init__(
@@ -85,7 +92,7 @@ class PresetEditorDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._category = category
-        self.setWindowTitle(_CATEGORY_TITLES[category])
+        self.setWindowTitle(editor_title(category))
         self.resize(620, 420)
         self._store = store
         self._current_index: int | None = None
