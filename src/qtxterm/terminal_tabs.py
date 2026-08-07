@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
 
@@ -18,6 +18,9 @@ class TerminalTabWidget(QTabWidget):
     """
 
     all_tabs_closed = Signal()
+    # Re-emitted from whichever tab was right-clicked, so listeners wire up
+    # once here instead of per-tab.
+    context_menu_requested = Signal(QPoint)
 
     def __init__(
         self,
@@ -69,6 +72,7 @@ class TerminalTabWidget(QTabWidget):
         widget.title_changed.connect(
             lambda title, w=widget: self._update_tab_title(w, title)
         )
+        widget.context_menu_requested.connect(self.context_menu_requested)
         self._titles[widget] = widget.default_title
 
         index = self.addTab(widget, "")

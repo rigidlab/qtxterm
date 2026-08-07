@@ -8,7 +8,12 @@ from qtxterm.appearance import AppearanceStore
 from qtxterm.branding import app_icon
 from qtxterm.help_dialog import HelpDialog
 from qtxterm.preferences_dialog import PreferencesDialog
-from qtxterm.preset_menu import CommandsMenu, MacrosMenu
+from qtxterm.preset_menu import (
+    CommandsMenu,
+    MacrosMenu,
+    SelectionMenu,
+    TerminalContextMenu,
+)
 from qtxterm.presets import PresetStore
 from qtxterm.qt_theme import apply_qt_theme
 from qtxterm.shells import known_shells
@@ -83,6 +88,18 @@ class MainWindow(QMainWindow):
         self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)
         self.menuBar().addMenu(self._macros_menu)
 
+        self._selection_menu = SelectionMenu(
+            self._preset_store, self._tabs, parent=self
+        )
+        self.menuBar().addMenu(self._selection_menu)
+
+        # One menu shared by every tab - it rebuilds itself on store changes,
+        # so there's nothing per-tab to keep in sync.
+        self._terminal_context_menu = TerminalContextMenu(
+            self._preset_store, self._tabs, parent=self
+        )
+        self._tabs.context_menu_requested.connect(self._show_terminal_context_menu)
+
         self._build_help_menu()
 
         # After all dock/menu wiring so restoring dock visibility triggers
@@ -90,6 +107,9 @@ class MainWindow(QMainWindow):
         self._restore_window_state()
 
         self._tabs.new_tab()
+
+    def _show_terminal_context_menu(self, global_pos) -> None:
+        self._terminal_context_menu.exec(global_pos)
 
     def _apply_qt_theme(self) -> None:
         app = QApplication.instance()

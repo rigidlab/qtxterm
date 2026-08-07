@@ -26,6 +26,14 @@
   term.open(document.getElementById("terminal"));
   fitAddon.fit();
 
+  // Called from Python (TerminalWidget.paste). Routed through term.paste()
+  // rather than written straight to the PTY so bracketed paste mode is
+  // honored - editors and shells that enable it need the text wrapped, or a
+  // multi-line paste is read as a series of typed commands.
+  window.pasteText = function (text) {
+    term.paste(text);
+  };
+
   // Called from Python (TerminalWidget.apply_appearance) to live-update an
   // already-open tab without reloading the page.
   window.applyAppearance = function (options) {
@@ -41,6 +49,7 @@
 
     term.onData((data) => bridge.sendInput(data));
     term.onTitleChange((title) => bridge.setTitle(title));
+    term.onSelectionChange(() => bridge.setSelection(term.getSelection()));
 
     bridge.output.connect((data) => term.write(data));
     bridge.exited.connect((code) => {

@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, QUrlQuery, Signal
+from PySide6.QtCore import QPoint, Qt, QUrl, QUrlQuery, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -28,6 +29,9 @@ class TerminalWidget(QWidget):
 
     title_changed = Signal(str)
     pty_started = Signal()
+    # Global position, so a listener can pop a menu up without knowing where
+    # this widget sits.
+    context_menu_requested = Signal(QPoint)
 
     def __init__(
         self,
@@ -45,8 +49,13 @@ class TerminalWidget(QWidget):
             self._command = list(shell)
         self._pty = pty_session or create_pty_session()
         self.is_pty_started = False
+        self._selection = ""
 
         self._view = QWebEngineView(self)
+        # Without this the view shows Chromium's own menu (Back, Reload, View
+        # Source), which is meaningless for a terminal.
+        self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._view.customContextMenuRequested.connect(self._on_context_menu_requested)
         self._bridge = TerminalBridge(self)
         self._channel = QWebChannel(self)
         self._channel.registerObject("bridge", self._bridge)
@@ -60,6 +69,7 @@ class TerminalWidget(QWidget):
         self._bridge.input_received.connect(self._pty.write)
         self._bridge.resize_requested.connect(self._pty.resize)
         self._bridge.title_changed.connect(self.title_changed.emit)
+        self._bridge.selection_changed.connect(self._on_selection_changed)
         self._pty.output_ready.connect(self._bridge.output.emit)
         self._pty.exited.connect(self._bridge.exited.emit)
 
@@ -92,6 +102,15 @@ class TerminalWidget(QWidget):
         )
 
     @property
+    def shell_name(self) -> str:
+        """Short name of the shell this tab is running, e.g. 'powershell'.
+
+        Selection Actions need it: how to feed a file to a command's stdin
+        differs per shell (see selection_actions.feed_from_file).
+        """
+        return shell_short_name(self._command[0])
+
+    @property
     def default_title(self) -> str:
         """Short label derived from the shell, used until the shell sets its own title."""
         return shell_short_name(self._command[0])
@@ -100,6 +119,35 @@ class TerminalWidget(QWidget):
         self._pty.start(self._command, cols, rows)
         self.is_pty_started = True
         self.pty_started.emit()
+
+    def _on_context_menu_requested(self, pos: QPoint) -> None:
+        self.context_menu_requested.emit(self._view.mapToGlobal(pos))
+
+    def _on_selection_changed(self, text: str) -> None:
+        self._selection = text
+
+    @property
+    def selection(self) -> str:
+        """The terminal's current selection, as last pushed by xterm.js."""
+        return self._selection
+
+    def copy_selection(self) -> bool:
+        """Put the selection on the clipboard. False if nothing is selected."""
+        if not self._selection:
+            return False
+        QGuiApplication.clipboard().setText(self._selection)
+        return True
+
+    def paste(self, text: str) -> None:
+        """Feed `text` to the terminal as if pasted with the mouse or keyboard."""
+        if not text:
+            return
+        self._view.page().runJavaScript(
+            f"window.pasteText && window.pasteText({json.dumps(text)});"
+        )
+
+    def paste_from_clipboard(self) -> None:
+        self.paste(QGuiApplication.clipboard().text())
 
     def send_command(self, text: str) -> None:
         """Write a line to the PTY and submit it, as if the user typed it + Enter."""

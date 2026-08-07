@@ -5,12 +5,30 @@ no real shell spawns)."""
 
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtWidgets import QMenu
 
-from qtxterm.preset_menu import CommandsMenu, MacrosMenu
-from qtxterm.presets import Preset, PresetStore
+from PySide6.QtWidgets import QDialog
+
+from qtxterm import preset_menu, selection_actions
+from qtxterm.preset_menu import (
+    CommandsMenu,
+    MacrosMenu,
+    SelectionMenu,
+    TerminalContextMenu,
+    selection_preview,
+)
+from qtxterm.presets import (
+    CATEGORY_SELECTION,
+    INPUT_SELECTION,
+    KIND_URL,
+    Preset,
+    PresetStore,
+)
 from qtxterm.terminal_tabs import TerminalTabWidget
 
 
@@ -161,3 +179,329 @@ def test_commands_menu_without_sidebar_toggle_action_omits_it(qtbot, tmp_path: P
     menu = CommandsMenu(store, tabs)
 
     assert "Show Sidebar" not in [a.text() for a in menu.actions()]
+
+
+def run_menu_of(menu: TerminalContextMenu):
+    action = next(a for a in menu.actions() if a.text() == "Command")
+    return action.menu()
+
+
+def test_terminal_context_menu_lists_commands_grouped(qtbot, tmp_path: Path) -> None:
+    store = make_store(
+        tmp_path,
+        [
+            Preset(name="Status", lines=["git status"], group="Git"),
+            Preset(name="Pull", lines=["git pull"], group="Git"),
+            Preset(name="Clear", lines=["clear"]),
+            Preset(name="Deploy", lines=["a", "b"], target="new_tab"),
+        ],
+    )
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+
+    run_menu = run_menu_of(menu)
+    texts = [a.text() for a in run_menu.actions()]
+    assert "Clear" in texts
+    assert "Git" in texts
+    assert "Deploy" not in texts  # a Macro, not a Command
+
+    git_menu = next(a for a in run_menu.actions() if a.text() == "Git").menu()
+    assert [a.text() for a in git_menu.actions()] == ["Status", "Pull"]
+
+
+def test_terminal_context_menu_lists_commands_not_pinned_to_the_sidebar(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_store(
+        tmp_path, [Preset(name="Hidden", lines=["echo hi"], show_in_sidebar=False)]
+    )
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+
+    assert "Hidden" in [a.text() for a in run_menu_of(menu).actions()]
+
+
+def test_terminal_context_menu_action_sends_to_active_terminal(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_store(tmp_path, [Preset(name="Status", lines=["git status"])])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    calls = []
+    tabs.run_in_active = lambda lines: calls.append(lines)
+    menu = TerminalContextMenu(store, tabs)
+
+    next(a for a in run_menu_of(menu).actions() if a.text() == "Status").trigger()
+
+    assert calls == [["git status"]]
+
+
+def test_terminal_context_menu_shows_a_disabled_hint_when_empty(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+
+    actions = run_menu_of(menu).actions()
+    assert [a.text() for a in actions] == ["No commands yet"]
+    assert actions[0].isEnabled() is False
+
+
+def test_terminal_context_menu_reloads_on_store_change(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+
+    store.add(Preset(name="Fresh", lines=["echo hi"]))
+
+    assert "Fresh" in [a.text() for a in run_menu_of(menu).actions()]
+
+
+def test_reloading_does_not_accumulate_submenus(qtbot, tmp_path: Path) -> None:
+    """Submenus are parented to the menu (see add_submenu), so clear() alone
+    would orphan one QMenu child per reload rather than disposing of it."""
+    store = make_store(tmp_path, [Preset(name="Status", lines=["a"], group="Git")])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+    baseline = len(menu.findChildren(QMenu))
+
+    for _ in range(5):
+        menu.reload()
+    # deleteLater() only takes effect when the event loop processes
+    # DeferredDelete, which processEvents() alone does not do.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+    assert len(menu.findChildren(QMenu)) == baseline
+
+
+def test_submenu_survives_a_throwaway_action_menu_lookup(qtbot, tmp_path: Path) -> None:
+    """QAction.menu() binds the submenu's lifetime to the returned wrapper
+    unless the submenu has an explicit C++ parent - so a discarded lookup
+    used to destroy it for every other holder too."""
+    store = make_store(tmp_path, [Preset(name="Status", lines=["a"])])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = TerminalContextMenu(store, tabs)
+
+    def throwaway_lookup() -> None:
+        next(a for a in menu.actions() if a.text() == "Command").menu()
+
+    throwaway_lookup()
+    gc.collect()
+
+    assert [a.text() for a in run_menu_of(menu).actions()] == ["Status"]
+
+
+class FakeTerminal:
+    def __init__(self, selection: str = "") -> None:
+        self.selection = selection
+        self.copied = 0
+        self.pasted = 0
+
+    def copy_selection(self) -> bool:
+        self.copied += 1
+        return bool(self.selection)
+
+    def paste_from_clipboard(self) -> None:
+        self.pasted += 1
+
+
+def context_menu_with(qtbot, tmp_path: Path, terminal, presets=None):
+    store = make_store(tmp_path, presets or [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    tabs.active_terminal = lambda: terminal
+    return TerminalContextMenu(store, tabs)
+
+
+def action_named(menu: TerminalContextMenu, name: str):
+    return next(a for a in menu.actions() if a.text() == name)
+
+
+def test_context_menu_has_copy_and_paste_above_run_command(qtbot, tmp_path: Path):
+    menu = context_menu_with(qtbot, tmp_path, FakeTerminal())
+
+    texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+    assert texts == ["Copy", "Paste", "Command", "Selection"]
+
+
+def test_copy_is_disabled_without_a_selection(qtbot, tmp_path: Path) -> None:
+    menu = context_menu_with(qtbot, tmp_path, FakeTerminal(selection=""))
+
+    menu.refresh_enabled_state()
+
+    assert action_named(menu, "Copy").isEnabled() is False
+
+
+def test_copy_is_enabled_and_copies_when_text_is_selected(qtbot, tmp_path: Path):
+    terminal = FakeTerminal(selection="hello")
+    menu = context_menu_with(qtbot, tmp_path, terminal)
+
+    menu.refresh_enabled_state()
+    copy = action_named(menu, "Copy")
+    assert copy.isEnabled() is True
+    copy.trigger()
+
+    assert terminal.copied == 1
+
+
+def test_paste_follows_the_clipboard_and_pastes(qtbot, tmp_path: Path) -> None:
+    terminal = FakeTerminal()
+    menu = context_menu_with(qtbot, tmp_path, terminal)
+
+    QGuiApplication.clipboard().setText("")
+    menu.refresh_enabled_state()
+    assert action_named(menu, "Paste").isEnabled() is False
+
+    QGuiApplication.clipboard().setText("something")
+    menu.refresh_enabled_state()
+    paste = action_named(menu, "Paste")
+    assert paste.isEnabled() is True
+    paste.trigger()
+
+    assert terminal.pasted == 1
+
+
+def test_copy_and_paste_disabled_with_no_open_tab(qtbot, tmp_path: Path) -> None:
+    menu = context_menu_with(qtbot, tmp_path, None)
+    QGuiApplication.clipboard().setText("something")
+
+    menu.refresh_enabled_state()
+
+    assert action_named(menu, "Copy").isEnabled() is False
+    assert action_named(menu, "Paste").isEnabled() is False
+
+
+def test_enabled_state_refreshes_when_the_menu_opens(qtbot, tmp_path: Path) -> None:
+    """Selection and clipboard change without the store changing, so the
+    refresh has to hang off aboutToShow rather than reload()."""
+    terminal = FakeTerminal(selection="")
+    menu = context_menu_with(qtbot, tmp_path, terminal)
+    assert action_named(menu, "Copy").isEnabled() is False
+
+    terminal.selection = "now selected"
+    menu.aboutToShow.emit()
+
+    assert action_named(menu, "Copy").isEnabled() is True
+
+
+def test_use_selection_lists_selection_actions_and_manage_entries(qtbot, tmp_path):
+    menu = context_menu_with(
+        qtbot,
+        tmp_path,
+        FakeTerminal(selection="some text"),
+        presets=[
+            Preset(name="Search", lines=["https://x/?q={selection}"],
+                   input=INPUT_SELECTION, kind=KIND_URL),
+            Preset(name="A Command", lines=["git status"]),
+        ],
+    )
+
+    submenu = next(a for a in menu.actions() if a.text() == "Selection").menu()
+    texts = [a.text() for a in submenu.actions() if not a.isSeparator()]
+
+    assert "Search" in texts
+    assert "A Command" not in texts  # a Command, not a Selection Action
+    # Creating/editing lives in the Selection menu bar entry, not here.
+    assert "New Selection Action..." not in texts
+    assert "Manage Selection Actions..." not in texts
+
+
+def test_use_selection_is_disabled_without_a_selection(qtbot, tmp_path: Path) -> None:
+    menu = context_menu_with(qtbot, tmp_path, FakeTerminal(selection=""))
+
+    menu.refresh_enabled_state()
+
+    assert next(a for a in menu.actions() if a.text() == "Selection").isEnabled() is False
+
+
+def test_use_selection_previews_the_selected_text(qtbot, tmp_path: Path) -> None:
+    terminal = FakeTerminal(selection="  git push   origin main\n")
+    menu = context_menu_with(qtbot, tmp_path, terminal)
+
+    menu.refresh_enabled_state()
+
+    assert menu._preview_action.text() == 'Selected: "git push origin main"'
+    assert menu._preview_action.isEnabled() is False
+
+
+def test_selection_preview_collapses_and_truncates() -> None:
+    assert selection_preview("") == "Nothing selected"
+    assert selection_preview("a\n  b\tc") == 'Selected: "a b c"'
+    long_preview = selection_preview("x" * 200)
+    assert long_preview.endswith('…"')
+    assert len(long_preview) < 60
+
+
+def test_running_a_selection_action_passes_the_live_selection(qtbot, tmp_path, monkeypatch):
+    opened = []
+    monkeypatch.setattr(
+        selection_actions.QDesktopServices, "openUrl", lambda url: opened.append(url)
+    )
+    terminal = FakeTerminal(selection="needle")
+    menu = context_menu_with(
+        qtbot,
+        tmp_path,
+        terminal,
+        presets=[
+            Preset(name="Search", lines=["https://x/?q={selection}"],
+                   input=INPUT_SELECTION, kind=KIND_URL)
+        ],
+    )
+
+    submenu = next(a for a in menu.actions() if a.text() == "Selection").menu()
+    next(a for a in submenu.actions() if a.text() == "Search").trigger()
+
+    assert opened[0].toEncoded().data().decode() == "https://x/?q=needle"
+
+
+def test_selection_menu_is_management_only(qtbot, tmp_path: Path) -> None:
+    """Running an action needs a live selection, which a menu bar item can't
+    offer - it carries the management half instead, like CommandsMenu."""
+    store = make_store(
+        tmp_path,
+        [
+            Preset(
+                name="Search",
+                lines=["https://x/?q={selection}"],
+                input=INPUT_SELECTION,
+                kind=KIND_URL,
+            )
+        ],
+    )
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = SelectionMenu(store, tabs)
+
+    texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+
+    assert texts == ["New Selection Action...", "Manage Presets..."]
+    assert "Search" not in texts
+
+
+def test_selection_menu_new_opens_the_selection_editor(qtbot, tmp_path, monkeypatch):
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = SelectionMenu(store, tabs)
+    opened = []
+    monkeypatch.setattr(
+        preset_menu.PresetEditorDialog,
+        "__init__",
+        lambda self, s, p=None, category=None, create_new=False: (
+            opened.append((category, create_new)),
+            QDialog.__init__(self, p),
+        )[1],
+    )
+    monkeypatch.setattr(preset_menu.PresetEditorDialog, "exec", lambda self: 0)
+
+    next(a for a in menu.actions() if a.text() == "New Selection Action...").trigger()
+    next(a for a in menu.actions() if a.text() == "Manage Presets...").trigger()
+
+    assert opened == [(CATEGORY_SELECTION, True), (CATEGORY_SELECTION, False)]

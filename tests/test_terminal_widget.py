@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs
 
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QGuiApplication
+
 from conftest import FakePtySession
 
 from qtxterm.appearance import Appearance
@@ -108,3 +111,66 @@ def test_apply_appearance_runs_javascript_with_theme_and_font(qtbot) -> None:
     assert "applyAppearance" in calls[0]
     assert "#ffffff" in calls[0]
     assert '"fontSize": 22' in calls[0]
+
+
+def test_right_click_emits_context_menu_requested_in_global_coords(qtbot) -> None:
+    """The view's own menu policy is Custom, so Chromium's Back/Reload menu
+    never appears; the widget re-emits the request instead."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    assert widget._view.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
+
+    local = QPoint(12, 34)
+    with qtbot.waitSignal(widget.context_menu_requested, timeout=1000) as blocker:
+        widget._view.customContextMenuRequested.emit(local)
+
+    assert blocker.args == [widget._view.mapToGlobal(local)]
+
+
+def test_selection_from_the_bridge_is_cached_for_copy(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    assert widget.selection == ""
+    assert widget.copy_selection() is False
+
+    widget._bridge.setSelection("selected text")
+
+    assert widget.selection == "selected text"
+    assert widget.copy_selection() is True
+    assert QGuiApplication.clipboard().text() == "selected text"
+
+
+def test_paste_routes_through_xterm_so_bracketed_paste_is_honored(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+
+    widget.paste("echo hi\nls")
+
+    assert len(calls) == 1
+    assert "window.pasteText" in calls[0]
+    assert r'"echo hi\nls"' in calls[0]
+
+
+def test_paste_of_empty_text_is_a_no_op(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+
+    widget.paste("")
+
+    assert calls == []
+
+
+def test_paste_from_clipboard_uses_the_clipboard_text(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+    QGuiApplication.clipboard().setText("from clipboard")
+
+    widget.paste_from_clipboard()
+
+    assert "from clipboard" in calls[0]

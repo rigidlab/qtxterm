@@ -173,6 +173,72 @@ tabs/macros/sidebar complexity.
 - [x] pytest suite (renamed to `test_preset_menu.py`, covers both menus);
       verified end-to-end
 
+### Phase 4d — Terminal right-click menu ✅ done
+- [x] Right-clicking a terminal opens a context menu with a `Command`
+      submenu of every `target: active` preset, grouped by `group`; picking
+      one sends it to that terminal. Lists all Commands, not just
+      sidebar-pinned ones - the sidebar stays the curated view.
+- [x] Copy/Paste in the same menu. Copy reads a cached selection that
+      xterm.js pushes over the bridge on every `onSelectionChange`, rather
+      than fetching it on demand: `runJavaScript` is async, so an on-demand
+      read would resolve too late to enable or disable a menu item that is
+      already being shown. Paste calls `term.paste()` in JS instead of
+      writing to the PTY directly, so bracketed paste mode is honored and a
+      multi-line clipboard isn't read as a series of typed commands.
+      Availability is refreshed on `aboutToShow` - selection and clipboard
+      both change without the preset store changing.
+- [x] `QWebEngineView` needs `CustomContextMenu` policy or it shows
+      Chromium's own Back/Reload/View Source menu. The request is re-emitted
+      as `TerminalWidget.context_menu_requested` (global pos) and forwarded
+      by `TerminalTabWidget`, so `MainWindow` wires one shared menu instead
+      of one per tab.
+- [x] Fixed along the way: `QMenu.addMenu(str)` gives PySide6 ownership of
+      the new submenu, and `QAction.menu()` then ties its lifetime to the
+      returned wrapper - so a discarded `action.menu()` lookup destroys the
+      submenu for *every* holder, including a parent that deliberately kept a
+      reference. Submenus are now built with an explicit C++ parent
+      (`add_submenu`), which also made the old reference-retention lists
+      unnecessary; `clear_menu` disposes of them on reload so rebuilding
+      doesn't orphan a QMenu per change.
+
+### Phase 4e — Selection Actions ✅ done
+- [x] Third preset category alongside Commands and Macros, keyed off a new
+      `input` field (`none` | `selection`); `category_of()` is now the single
+      place the split is decided, replacing scattered `target ==` checks.
+      Reachable from the terminal right-click menu under `Selection`,
+      which is disabled without a live selection and shows a truncated
+      preview of what will be sent.
+- [x] `kind` (`url` | `stdin`) decides how the selection travels, because
+      each route needs different escaping. The selection is **never**
+      interpolated into a command line: that route (`arg`) is deliberately
+      not offered, since it would mean owning a per-shell quoting matrix
+      across PowerShell/cmd/bash/WSL, and would still break on multi-line
+      selections and on Windows' ~8191-char command-line cap.
+  - `url` - percent-encoded with `safe=""` into a `{selection}` placeholder
+    and opened via QDesktopServices; never touches a shell. Capped at 1500
+    chars, below the ~2083 practical URL ceiling.
+  - `stdin` - written to a temp file the command reads on standard input.
+- [x] Fixed along the way: `<` is **not** portable, contrary to the original
+      design. Windows PowerShell reserves it ("The '<' operator is reserved
+      for future use"), so `feed_from_file()` is per-shell: `Get-Content -Raw
+      | cmd` for powershell/pwsh, `type | cmd` for cmd, `< path` for
+      POSIX shells, and `< /mnt/c/...` for WSL, whose Linux side can't see a
+      Windows path. Only the generated path is interpolated, never the
+      selection, so the safety property is unchanged. Caught by running it
+      against a real PowerShell tab - unit tests all passed with the broken
+      form.
+- [x] Temp files are swept at startup (24h old), not on tab close: the
+      command reading one may outlive the tab.
+- [x] Menu bar order is now File, Commands, Macros, Selection, Help - one
+      menu per preset category. `SelectionMenu` is management-only, the same
+      shape as `CommandsMenu` and for the same reason: running an action
+      needs a live selection, which a menu bar item can't offer, so that half
+      lives in the terminal's right-click `Selection` submenu instead.
+- [x] Defaults are only seeded on first run, so pre-existing installs get an
+      empty right-click `Selection`; `Selection -> Manage Presets... ->
+      Add Examples`
+      adds the built-in examples by name without duplicating.
+
 ### Phase 5 — Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed

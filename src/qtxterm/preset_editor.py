@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListWidget,
     QPlainTextEdit,
@@ -13,41 +15,82 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from qtxterm.presets import Preset, PresetStore
+from qtxterm.presets import (
+    CATEGORY_COMMANDS,
+    CATEGORY_MACROS,
+    CATEGORY_SELECTION,
+    INPUT_NONE,
+    INPUT_SELECTION,
+    KIND_SHELL,
+    KIND_STDIN,
+    KIND_URL,
+    SELECTION_PLACEHOLDER,
+    Preset,
+    PresetStore,
+    category_of,
+    default_selection_actions,
+)
 
 _CATEGORY_TITLES = {
-    "active": "Manage Commands",
-    "new_tab": "Manage Macros",
+    CATEGORY_COMMANDS: "Manage Commands",
+    CATEGORY_MACROS: "Manage Macros",
+    CATEGORY_SELECTION: "Manage Selection Actions",
 }
 _NEW_NAMES = {
-    "active": "New Command",
-    "new_tab": "New Macro",
+    CATEGORY_COMMANDS: "New Command",
+    CATEGORY_MACROS: "New Macro",
+    CATEGORY_SELECTION: "New Selection Action",
+}
+_LINES_LABELS = {
+    CATEGORY_COMMANDS: "Commands (one per line)",
+    CATEGORY_MACROS: "Commands (one per line)",
+    CATEGORY_SELECTION: "Command / URL",
+}
+_KIND_CHOICES = [
+    ("Open a URL in the browser", KIND_URL),
+    ("Send to a command's input", KIND_STDIN),
+]
+_TARGET_CHOICES = [
+    ("New tab", "new_tab"),
+    ("Active terminal", "active"),
+]
+_KIND_HINTS = {
+    KIND_URL: (
+        f"URL template. {SELECTION_PLACEHOLDER} is replaced with the selected "
+        "text, percent-encoded."
+    ),
+    KIND_STDIN: (
+        "Shell command. The selected text is written to a temp file and fed "
+        "to the last line on standard input."
+    ),
 }
 
 
 class PresetEditorDialog(QDialog):
-    """Add/edit/delete presets for a single category (Commands or Macros).
+    """Add/edit/delete presets for a single category.
 
-    Scoped to `target` - opened from the Commands menu it only lists/creates
-    Commands, opened from the Macros menu only Macros. There is no way to
-    change a preset's category from here, so it can't be used to sneak a
-    Command into the Macros menu or vice versa.
+    Scoped to `category` - opened from the Commands menu it only
+    lists/creates Commands, from the Macros menu only Macros, from Use
+    Selection only Selection Actions. There is no way to change a preset's
+    category from here, so it can't be used to sneak one category's preset
+    into another's menu.
     """
 
     def __init__(
         self,
         store: PresetStore,
         parent: QWidget | None = None,
-        target: str = "active",
+        category: str = CATEGORY_COMMANDS,
         create_new: bool = False,
     ) -> None:
         super().__init__(parent)
-        self._target = target
-        self.setWindowTitle(_CATEGORY_TITLES[target])
-        self.resize(560, 380)
+        self._category = category
+        self.setWindowTitle(_CATEGORY_TITLES[category])
+        self.resize(620, 420)
         self._store = store
         self._current_index: int | None = None
-        self._is_command = target == "active"
+        self._is_command = category == CATEGORY_COMMANDS
+        self._is_selection = category == CATEGORY_SELECTION
 
         layout = QHBoxLayout(self)
 
@@ -63,6 +106,16 @@ class PresetEditorDialog(QDialog):
         button_row.addWidget(new_button)
         button_row.addWidget(delete_button)
         left.addLayout(button_row)
+        if self._is_selection:
+            # Defaults are only seeded on first run, so an install that
+            # predates Selection Actions has no other way to get the worked
+            # examples without hand-editing presets.json.
+            restore_button = QPushButton("Add Examples")
+            restore_button.setToolTip(
+                "Add the built-in example Selection Actions that aren't already here"
+            )
+            restore_button.clicked.connect(self._add_examples)
+            left.addWidget(restore_button)
         layout.addLayout(left, 1)
 
         form_widget = QWidget()
@@ -71,9 +124,25 @@ class PresetEditorDialog(QDialog):
         self._group_edit = QLineEdit()
         self._lines_edit = QPlainTextEdit()
         self._sidebar_check = QCheckBox("Show in sidebar")
+        self._kind_combo = QComboBox()
+        self._target_combo = QComboBox()
+        self._hint_label = QLabel()
+        self._hint_label.setWordWrap(True)
+
         form.addRow("Name", self._name_edit)
         form.addRow("Group", self._group_edit)
-        form.addRow("Commands (one per line)", self._lines_edit)
+        if self._is_selection:
+            for label, value in _KIND_CHOICES:
+                self._kind_combo.addItem(label, value)
+            self._kind_combo.currentIndexChanged.connect(self._on_kind_changed)
+            for label, value in _TARGET_CHOICES:
+                self._target_combo.addItem(label, value)
+            form.addRow("Does", self._kind_combo)
+            self._target_row_label = QLabel("Runs in")
+            form.addRow(self._target_row_label, self._target_combo)
+        form.addRow(_LINES_LABELS[category], self._lines_edit)
+        if self._is_selection:
+            form.addRow("", self._hint_label)
         # Macros never show in the sidebar - see Preset.target docstring.
         if self._is_command:
             form.addRow("", self._sidebar_check)
@@ -82,15 +151,31 @@ class PresetEditorDialog(QDialog):
         form.addRow(save_button)
         layout.addWidget(form_widget, 2)
 
+        if self._is_selection:
+            self._on_kind_changed()
         self._reload_list()
         if create_new:
             self._new_preset()
 
+    def _selected_kind(self) -> str:
+        return self._kind_combo.currentData() or KIND_URL
+
+    def _on_kind_changed(self) -> None:
+        """A url action opens a browser, so 'which terminal' doesn't apply."""
+        kind = self._selected_kind()
+        self._hint_label.setText(_KIND_HINTS[kind])
+        is_stdin = kind == KIND_STDIN
+        self._target_combo.setVisible(is_stdin)
+        self._target_row_label.setVisible(is_stdin)
+
     def _indexed_presets(self) -> list[tuple[int, Preset]]:
+        # Compared by category rather than membership in a filtered list:
+        # Preset is a plain dataclass, so two identical presets are equal and
+        # `in` would match the wrong one.
         return [
             (i, preset)
             for i, preset in enumerate(self._store.presets)
-            if preset.target == self._target
+            if category_of(preset) == self._category
         ]
 
     def _reload_list(self) -> None:
@@ -119,21 +204,52 @@ class PresetEditorDialog(QDialog):
         self._group_edit.setText(preset.group or "")
         self._lines_edit.setPlainText("\n".join(preset.lines))
         self._sidebar_check.setChecked(preset.show_in_sidebar)
+        if self._is_selection:
+            self._select_data(self._kind_combo, preset.kind)
+            self._select_data(self._target_combo, preset.target)
+            self._on_kind_changed()
+
+    @staticmethod
+    def _select_data(combo: QComboBox, value: str) -> None:
+        index = combo.findData(value)
+        if index >= 0:
+            combo.setCurrentIndex(index)
 
     def _new_preset(self) -> None:
-        if self._target == "new_tab":
+        if self._category == CATEGORY_SELECTION:
             preset = Preset(
-                name=_NEW_NAMES["new_tab"],
+                name=_NEW_NAMES[CATEGORY_SELECTION],
+                lines=[f"https://www.google.com/search?q={SELECTION_PLACEHOLDER}"],
+                input=INPUT_SELECTION,
+                kind=KIND_URL,
+            )
+        elif self._category == CATEGORY_MACROS:
+            preset = Preset(
+                name=_NEW_NAMES[CATEGORY_MACROS],
                 lines=["echo step one", "echo step two"],
                 target="new_tab",
             )
         else:
             preset = Preset(
-                name=_NEW_NAMES["active"], lines=["echo hello"], target="active"
+                name=_NEW_NAMES[CATEGORY_COMMANDS],
+                lines=["echo hello"],
+                target="active",
             )
         self._store.add(preset)
         self._reload_list()
         self._list.setCurrentRow(len(self._indexed_presets()) - 1)
+
+    def _add_examples(self) -> None:
+        """Add built-in examples whose names aren't taken, skipping the rest.
+
+        Matched by name so pressing it twice doesn't duplicate, and so an
+        example you've edited is left alone.
+        """
+        existing = {p.name for p in self._store.presets}
+        for preset in default_selection_actions():
+            if preset.name not in existing:
+                self._store.add(preset)
+        self._reload_list()
 
     def _delete_preset(self) -> None:
         if self._current_index is None:
@@ -149,13 +265,30 @@ class PresetEditorDialog(QDialog):
             line for line in self._lines_edit.toPlainText().splitlines() if line.strip()
         ] or ["echo"]
         show_in_sidebar = self._is_command and self._sidebar_check.isChecked()
-        preset = Preset(
-            name=self._name_edit.text().strip() or "Unnamed",
-            group=self._group_edit.text().strip() or None,
-            lines=lines,
-            target=self._target,
-            show_in_sidebar=show_in_sidebar,
-        )
+        if self._is_selection:
+            kind = self._selected_kind()
+            preset = Preset(
+                name=self._name_edit.text().strip() or "Unnamed",
+                group=self._group_edit.text().strip() or None,
+                lines=lines,
+                input=INPUT_SELECTION,
+                kind=kind,
+                # A url action never reaches a terminal; pin it to new_tab so
+                # the stored value is at least meaningless-but-consistent.
+                target="new_tab"
+                if kind == KIND_URL
+                else (self._target_combo.currentData() or "new_tab"),
+            )
+        else:
+            preset = Preset(
+                name=self._name_edit.text().strip() or "Unnamed",
+                group=self._group_edit.text().strip() or None,
+                lines=lines,
+                target="active" if self._is_command else "new_tab",
+                show_in_sidebar=show_in_sidebar,
+                input=INPUT_NONE,
+                kind=KIND_SHELL,
+            )
         self._store.update(self._current_index, preset)
         saved_index = self._current_index
         self._reload_list()

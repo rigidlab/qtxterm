@@ -36,14 +36,60 @@ serve different jobs, and each preset is one or the other:
 ## Running them
 
 - **Sidebar buttons** — one click sends that Command to the active terminal.
-  This is the only place Commands run from; the Commands menu itself is
-  management-only (New Command..., Manage Presets..., Show Sidebar) — it
-  doesn't list them.
+  The sidebar is the curated view: only Commands you've pinned with *Show in
+  sidebar* appear there.
+- **Right-click in a terminal → Command** — every Command, grouped the
+  same way as the sidebar, without leaving the terminal you're typing in.
+  Unlike the sidebar this lists *all* of them, pinned or not. Picking one
+  sends it to that terminal. The same menu has **Copy** and **Paste** (see
+  below).
 - **Macros menu** — every Macro. Picking one opens a new tab and runs it.
+
+The Commands menu in the menu bar is management-only (New Command...,
+Manage Presets..., Show Sidebar) — it doesn't list individual Commands.
 
 Show or hide the sidebar with **Commands → Show Sidebar**. Closing it from
 its own title-bar button works too — either way it just hides, and the menu
 item flips back to unchecked so you can bring it back.
+
+## Copy and paste
+
+Right-click in a terminal for **Copy** and **Paste**.
+
+- **Copy** takes the text you've selected with the mouse. It's greyed out
+  when nothing is selected.
+- **Paste** inserts the clipboard at the cursor without pressing Enter for
+  you, so you can check a pasted command before running it. Multi-line
+  clipboard text is handed to the terminal as a paste, not as typing, so
+  shells and editors that use bracketed paste treat it correctly.
+
+## Selection Actions
+
+Select text in a terminal, right-click, and pick **Selection** to run
+something against it. The submenu shows what you selected at the top, so you
+can see the payload before sending it. Two built-in examples ship:
+
+- **Search Google** — opens your browser on a search for the selected text.
+- **Explain with Claude** — opens a new tab running `claude -p`, with the
+  selection as its input.
+
+Each action is one of two kinds, chosen in **Manage Selection Actions...**:
+
+| Kind | What it does | Where the selection goes |
+|---|---|---|
+| Open a URL | Substitutes into a URL template and opens the browser | Percent-encoded into `{selection}` |
+| Send to a command's input | Runs a shell command in a tab | Standard input, via a temp file |
+
+The selection is never pasted into a command line. That keeps text
+containing quotes, `;`, `&&` or backticks from being executed as part of the
+command, and means multi-line and very long selections work — both of which
+break if text is spliced into a command. URL actions cap the selection at
+1500 characters, since browsers and search engines reject longer URLs.
+
+If the right-click **Selection** submenu is empty — an install created
+before this feature
+existed keeps its own presets — open **Manage Selection Actions...** and
+press **Add Examples**.
 
 ## Creating and editing presets
 

@@ -7,17 +7,38 @@ from pathlib import Path
 import platformdirs
 from PySide6.QtCore import QObject, Signal
 
+INPUT_NONE = "none"
+INPUT_SELECTION = "selection"
+
+KIND_SHELL = "shell"
+KIND_URL = "url"
+KIND_STDIN = "stdin"
+
+CATEGORY_COMMANDS = "commands"
+CATEGORY_MACROS = "macros"
+CATEGORY_SELECTION = "selection"
+
+# The placeholder a url-kind template must contain to receive the selection.
+SELECTION_PLACEHOLDER = "{selection}"
+
 
 @dataclasses.dataclass
 class Preset:
     """A named, reusable shell command (or sequence of commands).
 
-    `target` is a strict category, not just an execution detail (see
-    SPEC.md "Data Model"): "active" is a Command, shown in the sidebar and
-    sent to whichever terminal you're already working in. "new_tab" is a
-    Macro, shown in the Macros menu and run in a fresh tab, for anything
-    long-running or disruptive (a dev server, a build). A preset is one or
-    the other, never both.
+    Every preset belongs to exactly one category (see SPEC.md "Data Model"),
+    decided by `input` and then `target`:
+
+    - Command (input none, target "active") - sent to whichever terminal
+      you're already working in, and shown in the sidebar.
+    - Macro (input none, target "new_tab") - run in a fresh tab, for
+      anything long-running or disruptive (a dev server, a build).
+    - Selection Action (input "selection") - takes the terminal's selected
+      text as its input. `kind` decides how that text travels, because each
+      route needs different escaping: "url" percent-encodes it into a
+      template and opens a browser (never touching a shell), "stdin" hands
+      it to a command on standard input via a temp file. Interpolating it
+      into a command line is deliberately not offered - see SPEC.md.
     """
 
     name: str
@@ -25,24 +46,70 @@ class Preset:
     group: str | None = None
     target: str = ""
     show_in_sidebar: bool = False
+    input: str = INPUT_NONE
+    kind: str = KIND_SHELL
 
     def __post_init__(self) -> None:
         if not self.target:
             self.target = "active" if len(self.lines) == 1 else "new_tab"
+        # A url action opens a browser, so "which terminal" is meaningless -
+        # and it must never be pinned to the sidebar as if it were a Command.
+        if self.input == INPUT_SELECTION:
+            self.show_in_sidebar = False
+
+
+def category_of(preset: Preset) -> str:
+    """The single category `preset` belongs to."""
+    if preset.input == INPUT_SELECTION:
+        return CATEGORY_SELECTION
+    return CATEGORY_COMMANDS if preset.target == "active" else CATEGORY_MACROS
+
+
+def in_category(presets: list[Preset], category: str) -> list[Preset]:
+    return [p for p in presets if category_of(p) == category]
+
+
+def default_selection_actions() -> list[Preset]:
+    """Worked examples of both kinds, one per route the selection can take.
+
+    Separate from default_presets() because defaults are only seeded on
+    first run: an install that predates Selection Actions would otherwise
+    have no way to discover them, so the editor offers these for restore.
+    """
+    return [
+        Preset(
+            name="Search Google",
+            lines=["https://www.google.com/search?q={selection}"],
+            input=INPUT_SELECTION,
+            kind=KIND_URL,
+        ),
+        Preset(
+            name="Explain with Claude",
+            lines=["claude -p 'Explain this terminal output, briefly.'"],
+            input=INPUT_SELECTION,
+            kind=KIND_STDIN,
+            target="new_tab",
+        ),
+    ]
 
 
 def default_presets() -> list[Preset]:
     return [
-        Preset(name="Git Status", lines=["git status"], group="Git", show_in_sidebar=True),
+        Preset(
+            name="Git Status", lines=["git status"], group="Git", show_in_sidebar=True
+        ),
         Preset(name="Git Pull", lines=["git pull"], group="Git", show_in_sidebar=True),
         Preset(name="Clear", lines=["clear"], show_in_sidebar=True),
+        *default_selection_actions(),
     ]
 
 
 def default_presets_path() -> Path:
     # appauthor=False: no vendor subfolder (Windows would otherwise nest
     # under "qtxterm/qtxterm" since appauthor defaults to the app name).
-    return Path(platformdirs.user_config_dir("qtxterm", appauthor=False)) / "presets.json"
+    return (
+        Path(platformdirs.user_config_dir("qtxterm", appauthor=False)) / "presets.json"
+    )
 
 
 class PresetStore(QObject):
@@ -83,7 +150,9 @@ class PresetStore(QObject):
         Macro and belongs in the Macros menu (Phase 4), never the sidebar,
         even if show_in_sidebar was left set from before it became a Macro.
         """
-        return [p for p in self.presets if p.show_in_sidebar and p.target == "active"]
+        return [
+            p for p in in_category(self.presets, CATEGORY_COMMANDS) if p.show_in_sidebar
+        ]
 
     def add(self, preset: Preset) -> None:
         self.presets.append(preset)

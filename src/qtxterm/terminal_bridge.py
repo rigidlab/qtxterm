@@ -18,6 +18,7 @@ class TerminalBridge(QObject):
     resize_requested = Signal(int, int)
     terminal_ready = Signal(int, int)
     title_changed = Signal(str)
+    selection_changed = Signal(str)
 
     @Slot(str)
     def sendInput(self, data: str) -> None:
@@ -34,3 +35,14 @@ class TerminalBridge(QObject):
     @Slot(str)
     def setTitle(self, title: str) -> None:
         self.title_changed.emit(title)
+
+    @Slot(str)
+    def setSelection(self, text: str) -> None:
+        """Pushed by xterm.js on every selection change.
+
+        Python caches it (see TerminalWidget) so Copy can act synchronously -
+        reading the selection on demand would mean an async runJavaScript
+        round trip, which is too late to enable or disable a menu item that
+        is about to be shown.
+        """
+        self.selection_changed.emit(text)

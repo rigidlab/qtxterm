@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from conftest import FakePtySession
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QPoint, QSettings
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.terminal_tabs import TerminalTabWidget
@@ -133,3 +133,15 @@ def test_appearance_store_change_reapplies_to_all_open_tabs(qtbot, tmp_path: Pat
 
     assert applied_a == [new_appearance]
     assert applied_b == [new_appearance]
+
+
+def test_tab_context_menu_request_is_re_emitted_by_the_tab_widget(qtbot) -> None:
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    widget = tabs.new_tab(pty_session=FakePtySession())
+
+    pos = QPoint(5, 6)
+    with qtbot.waitSignal(tabs.context_menu_requested, timeout=1000) as blocker:
+        widget.context_menu_requested.emit(pos)
+
+    assert blocker.args == [pos]
