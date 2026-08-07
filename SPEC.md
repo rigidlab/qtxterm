@@ -229,7 +229,7 @@ tabs/macros/sidebar complexity.
       form.
 - [x] Temp files are swept at startup (24h old), not on tab close: the
       command reading one may outlive the tab.
-- [x] Menu bar order is now File, Commands, Macros, Selection, Help - one
+- [x] Menu bar order is now File, Macros, Commands, Selection, Help - one
       menu per preset category. `SelectionMenu` is management-only, the same
       shape as `CommandsMenu` and for the same reason: running an action
       needs a live selection, which a menu bar item can't offer, so that half

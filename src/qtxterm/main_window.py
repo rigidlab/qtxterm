@@ -77,6 +77,9 @@ class MainWindow(QMainWindow):
         sidebar_toggle_action.setChecked(True)
         sidebar_toggle_action.toggled.connect(self._sidebar_dock.setVisible)
         self._sidebar_dock.visibilityChanged.connect(sidebar_toggle_action.setChecked)
+        self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)
+        self.menuBar().addMenu(self._macros_menu)
+
         self._commands_menu = CommandsMenu(
             self._preset_store,
             self._tabs,
@@ -84,9 +87,6 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         self.menuBar().addMenu(self._commands_menu)
-
-        self._macros_menu = MacrosMenu(self._preset_store, self._tabs, parent=self)
-        self.menuBar().addMenu(self._macros_menu)
 
         self._selection_menu = SelectionMenu(
             self._preset_store, self._tabs, parent=self

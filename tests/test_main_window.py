@@ -148,3 +148,16 @@ def test_help_menu_usage_action_opens_the_dialog(
     assert opened == [window]
 
     window.close()
+
+
+def test_menu_bar_order(qtbot, tmp_path: Path) -> None:
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    assert [a.text() for a in window.menuBar().actions()] == [
+        "&File",
+        "&Macros",
+        "&Commands",
+        "&Selection",
+        "&Help",
+    ]
