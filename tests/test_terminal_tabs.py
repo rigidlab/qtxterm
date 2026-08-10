@@ -42,13 +42,37 @@ def test_multiple_tabs_are_numbered_in_order(qtbot) -> None:
     assert tabs.active_terminal() is tabs.widget(1)
 
 
-def test_title_changed_updates_tab_label_in_place(qtbot) -> None:
+def test_tab_label_stays_the_shell_name_when_the_title_changes(qtbot) -> None:
+    """Shells emit wildly different OSC titles - Git Bash sends
+    "MINGW64:/c/Users/dev/git/qtxterm", cmd its own full exe path - which
+    made tabs unreadably wide."""
     tabs = make_tabs(qtbot)
     widget = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
 
-    widget.title_changed.emit("~/git/mterm")
+    widget.title_changed.emit("MINGW64:/c/Users/dev/git/qtxterm")
 
-    assert tabs.tabText(0) == "0:~/git/mterm"
+    assert tabs.tabText(0) == "0:bash"
+
+
+def test_title_changed_goes_to_the_tab_tooltip(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    widget = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    widget.title_changed.emit("MINGW64:/c/Users/dev/git/qtxterm")
+
+    assert tabs.tabToolTip(0) == "MINGW64:/c/Users/dev/git/qtxterm"
+
+
+def test_tooltip_follows_the_tab_when_an_earlier_one_closes(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    second = tabs.new_tab(shell="/bin/zsh", pty_session=FakePtySession())
+    second.title_changed.emit("~/second")
+
+    tabs.close_tab_at(tabs.indexOf(first))
+    second.title_changed.emit("~/second/moved")
+
+    assert tabs.tabToolTip(0) == "~/second/moved"
 
 
 def test_closing_a_tab_shuts_down_its_pty_and_renumbers_remaining(qtbot) -> None:

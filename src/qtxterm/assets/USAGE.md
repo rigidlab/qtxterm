@@ -13,8 +13,10 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 
 Only shells actually installed on your machine appear under **New Terminal**.
 
-Tabs are labelled tmux-style as `index:title`, and the title tracks whatever the
-shell reports — usually the current directory or running command.
+Tabs are labelled tmux-style as `index:shell` — `0:powershell`, `1:bash`,
+`2:cmd`. Hover a tab to see what the shell is reporting (usually the current
+directory or running command); that goes in the tooltip rather than the
+label, since some shells report a full path and would stretch the tab bar.
 
 `Ctrl+Shift+T` and `Ctrl+Shift+W` are used instead of plain `Ctrl+T`/`Ctrl+W`
 on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so

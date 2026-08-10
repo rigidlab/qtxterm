@@ -10,7 +10,7 @@ from qtxterm.terminal_widget import TerminalWidget
 
 
 class TerminalTabWidget(QTabWidget):
-    """Tab container for TerminalWidgets, with tmux-style "{index}:{title}" labels.
+    """Tab container for TerminalWidgets, labelled tmux-style "{index}:{shell}".
 
     Shortcuts deliberately avoid plain Ctrl+W/Ctrl+T: Ctrl+W is bash/readline's
     "delete previous word", so binding it to "close tab" would break normal
@@ -28,6 +28,7 @@ class TerminalTabWidget(QTabWidget):
         appearance_store: AppearanceStore | None = None,
     ) -> None:
         super().__init__(parent)
+        # Shell name per tab, fixed for the tab's lifetime - see new_tab().
         self._titles: dict[TerminalWidget, str] = {}
         self._appearance_store = appearance_store
         if self._appearance_store is not None:
@@ -69,8 +70,14 @@ class TerminalTabWidget(QTabWidget):
         widget = TerminalWidget(
             shell=shell, pty_session=pty_session, appearance=appearance
         )
+        # Deliberately not wired to the tab label. Shells set wildly
+        # different OSC titles - Git Bash sends
+        # "MINGW64:/c/Users/dev/git/qtxterm", cmd sends its own full exe
+        # path - which made tabs unreadably wide. The label stays the shell's
+        # name; the live title goes in the tooltip so the cwd is still there
+        # when you want it.
         widget.title_changed.connect(
-            lambda title, w=widget: self._update_tab_title(w, title)
+            lambda title, w=widget: self._update_tab_tooltip(w, title)
         )
         widget.context_menu_requested.connect(self.context_menu_requested)
         self._titles[widget] = widget.default_title
@@ -131,9 +138,10 @@ class TerminalTabWidget(QTabWidget):
     def active_terminal(self) -> TerminalWidget | None:
         return self.currentWidget()
 
-    def _update_tab_title(self, widget: TerminalWidget, title: str) -> None:
-        self._titles[widget] = title
-        self._renumber()
+    def _update_tab_tooltip(self, widget: TerminalWidget, title: str) -> None:
+        index = self.indexOf(widget)
+        if index != -1:
+            self.setTabToolTip(index, title)
 
     def _renumber(self) -> None:
         for i in range(self.count()):

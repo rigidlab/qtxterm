@@ -93,7 +93,7 @@ tabs/macros/sidebar complexity.
 ### Phase 2 — Tabs ✅ done
 - [x] `TerminalTabWidget(QTabWidget)` central widget, each tab = one `TerminalWidget` + `PtySession`
 - [x] New tab (`+` corner button, Ctrl+Shift+T), close tab (per-tab "x", Ctrl+Shift+W), Ctrl+Tab/Ctrl+Shift+Tab to switch — deliberately not plain Ctrl+T/W, which would fight bash/readline's Ctrl+W word-delete
-- [x] Tab labels: tmux-style `"{index}:{title}"`, live-updated from the shell's OSC title sequence (`xterm.js onTitleChange` -> bridge), renumbered on add/close/reorder
+- [x] Tab labels: tmux-style `"{index}:{shell}"` (`bash`, `cmd`, `powershell`), renumbered on add/close/reorder. Deliberately *not* the shell's OSC title: Git Bash sends `MINGW64:/c/Users/dev/git/qtxterm` and cmd its own full exe path, which made tabs unreadably wide. The live OSC title (`xterm.js onTitleChange` -> bridge) becomes the tab's tooltip instead, so the cwd is still reachable
 - [x] `active_terminal()` tracks the current tab's `TerminalWidget` for later command/macro targeting
 - [x] Closing the last tab closes the window; closing the window (titlebar X) shuts down every tab's PTY, not just the active one
 - [x] pytest-qt suite: tab creation/labeling/renumbering, active-terminal tracking, all-tabs-closed vs close-all-tabs semantics, next/prev wraparound
