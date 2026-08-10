@@ -239,6 +239,24 @@ tabs/macros/sidebar complexity.
       Actions... -> Add Examples`
       adds the built-in examples by name without duplicating.
 
+### Phase 4f — Default shell preference + per-distro WSL ✅ done
+- [x] `File -> Preferences...` gains a Default shell combo: System default,
+      or any detected shell. Resolved in `TerminalTabWidget.new_tab()` rather
+      than by callers, so every route to a new tab (+ button, Ctrl+Shift+T,
+      Macros, Selection Actions) honours it; an explicit `shell=` argument
+      (File -> New Terminal) still wins.
+- [x] `ShellPreferenceStore` persists the shell's *label*, not its resolved
+      argv: readable in the ini, portable between machines, and it degrades
+      to the system default if that shell is uninstalled later - a stored
+      argv would simply fail to spawn.
+- [x] `known_shells()` now lists every installed WSL distro separately
+      (`WSL: Ubuntu-22.04`) instead of silently picking the first one;
+      data-only Docker distros stay filtered out.
+- [x] `selection_actions.default_shell_name()` removed - `shell_name_for()`
+      asks `tabs.default_shell_name()` instead, so a stdin action opening a
+      new tab picks the redirection form for the shell that tab will
+      actually run.
+
 ### Phase 5 — Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed

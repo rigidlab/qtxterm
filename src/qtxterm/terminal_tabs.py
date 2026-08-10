@@ -5,8 +5,9 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
 
 from qtxterm.appearance import Appearance, AppearanceStore
-from qtxterm.pty_backend import PtySession
-from qtxterm.terminal_widget import TerminalWidget
+from qtxterm.pty_backend import PtySession, default_shell
+from qtxterm.shell_prefs import ShellPreferenceStore
+from qtxterm.terminal_widget import TerminalWidget, shell_short_name
 
 
 class TerminalTabWidget(QTabWidget):
@@ -26,8 +27,10 @@ class TerminalTabWidget(QTabWidget):
         self,
         parent: QWidget | None = None,
         appearance_store: AppearanceStore | None = None,
+        shell_store: ShellPreferenceStore | None = None,
     ) -> None:
         super().__init__(parent)
+        self._shell_store = shell_store
         # Shell name per tab, fixed for the tab's lifetime - see new_tab().
         self._titles: dict[TerminalWidget, str] = {}
         self._appearance_store = appearance_store
@@ -67,6 +70,12 @@ class TerminalTabWidget(QTabWidget):
         appearance = (
             self._appearance_store.current if self._appearance_store else Appearance()
         )
+        # Resolved here rather than by callers: every route into a new tab
+        # (the + button, Ctrl+Shift+T, macros, selection actions) passes
+        # shell=None for "the default", and all of them should honour the
+        # preference.
+        if shell is None:
+            shell = self.preferred_shell()
         widget = TerminalWidget(
             shell=shell, pty_session=pty_session, appearance=appearance
         )
@@ -110,6 +119,22 @@ class TerminalTabWidget(QTabWidget):
         """Shut down every tab's PTY, e.g. when the whole window is closing."""
         for i in range(self.count()):
             self.widget(i).shutdown()
+
+    def preferred_shell(self) -> str | list[str] | None:
+        """The configured default shell, or None to let the OS decide."""
+        return self._shell_store.resolve() if self._shell_store else None
+
+    def default_shell_name(self) -> str:
+        """Short name of the shell a new tab would open, e.g. 'bash'.
+
+        Selection Actions targeting a new tab need it to know how to feed a
+        file to stdin, which differs per shell.
+        """
+        preferred = self.preferred_shell()
+        if preferred is None:
+            return shell_short_name(default_shell())
+        command = preferred if isinstance(preferred, str) else preferred[0]
+        return shell_short_name(command)
 
     def run_in_active(self, lines: list[str]) -> None:
         """Send each line to the active terminal's PTY. No-op if there's no tab."""

@@ -13,26 +13,50 @@ from PySide6.QtWidgets import (
 )
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.shell_prefs import (
+    SYSTEM_DEFAULT,
+    ShellPreferenceStore,
+    system_default_label,
+)
+from qtxterm.shells import known_shells
 from qtxterm.themes import THEMES
 
 
 class PreferencesDialog(QDialog):
-    """Terminal appearance preferences: color theme, font, font size.
+    """Terminal preferences: default shell, color theme, font, font size.
 
     Saving applies immediately to every open tab (AppearanceStore.changed)
-    and persists for the next launch.
+    and persists for the next launch. The default shell only affects tabs
+    opened afterwards - existing ones keep the shell they spawned with.
     """
 
-    def __init__(self, store: AppearanceStore, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        store: AppearanceStore,
+        parent: QWidget | None = None,
+        shell_store: ShellPreferenceStore | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preferences")
         # Wide enough that the longest theme name ("VS Code Dark High
         # Contrast") and typical font names aren't elided in their combos.
         self.setMinimumWidth(360)
         self._store = store
+        self._shell_store = shell_store
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
+
+        if shell_store is not None:
+            self._shell_combo = QComboBox()
+            # Data, not text: WSL entries carry an argv list, and the label
+            # is what gets persisted.
+            self._shell_combo.addItem(system_default_label(), SYSTEM_DEFAULT)
+            for label, _command in known_shells():
+                self._shell_combo.addItem(label, label)
+            index = self._shell_combo.findData(shell_store.label)
+            self._shell_combo.setCurrentIndex(max(index, 0))
+            form.addRow("Default shell", self._shell_combo)
 
         self._theme_combo = QComboBox()
         self._theme_combo.addItems(list(THEMES))
@@ -59,6 +83,8 @@ class PreferencesDialog(QDialog):
         layout.addWidget(buttons)
 
     def _save(self) -> None:
+        if self._shell_store is not None:
+            self._shell_store.save(self._shell_combo.currentData())
         self._store.save(
             Appearance(
                 theme_name=self._theme_combo.currentText(),

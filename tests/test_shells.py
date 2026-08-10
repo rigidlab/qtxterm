@@ -63,7 +63,7 @@ def test_git_bash_ignores_system32_shim(monkeypatch) -> None:
     assert all(label != "Git Bash" for label, _ in result)
 
 
-def test_includes_wsl_with_first_real_distro(monkeypatch) -> None:
+def test_includes_every_installed_wsl_distro(monkeypatch) -> None:
     monkeypatch.setattr(shells.sys, "platform", "win32")
     monkeypatch.setattr(shells.os, "environ", {})
     monkeypatch.setattr(
@@ -79,7 +79,9 @@ def test_includes_wsl_with_first_real_distro(monkeypatch) -> None:
 
     result = shells.known_shells()
 
-    assert ("WSL", [r"C:\Windows\System32\wsl.exe", "-d", "Ubuntu"]) in result
+    wsl = r"C:\Windows\System32\wsl.exe"
+    assert ("WSL: Ubuntu", [wsl, "-d", "Ubuntu"]) in result
+    assert ("WSL: Ubuntu-24.04", [wsl, "-d", "Ubuntu-24.04"]) in result
 
 
 def test_wsl_skips_non_interactive_docker_distros(monkeypatch) -> None:
@@ -101,7 +103,8 @@ def test_wsl_skips_non_interactive_docker_distros(monkeypatch) -> None:
 
     result = shells.known_shells()
 
-    assert ("WSL", [r"C:\Windows\System32\wsl.exe", "-d", "Ubuntu"]) in result
+    assert ("WSL: Ubuntu", [r"C:\Windows\System32\wsl.exe", "-d", "Ubuntu"]) in result
+    assert all("docker" not in label for label, _ in result)
 
 
 def test_wsl_omitted_when_no_real_distro_installed(monkeypatch) -> None:
@@ -120,7 +123,7 @@ def test_wsl_omitted_when_no_real_distro_installed(monkeypatch) -> None:
 
     result = shells.known_shells()
 
-    assert all(label != "WSL" for label, _ in result)
+    assert all(not label.startswith("WSL") for label, _ in result)
 
 
 def test_wsl_omitted_when_listing_distros_fails(monkeypatch) -> None:
@@ -139,7 +142,7 @@ def test_wsl_omitted_when_listing_distros_fails(monkeypatch) -> None:
 
     result = shells.known_shells()
 
-    assert all(label != "WSL" for label, _ in result)
+    assert all(not label.startswith("WSL") for label, _ in result)
 
 
 def test_excludes_shells_that_are_not_found(monkeypatch) -> None:

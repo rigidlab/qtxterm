@@ -206,13 +206,20 @@ def test_shell_name_for_uses_the_active_tab_for_active_targets() -> None:
         def active_terminal(self):
             return Terminal()
 
+        def default_shell_name(self):
+            return "powershell"
+
     active = Preset(name="a", lines=["x"], kind=KIND_STDIN, target="active")
     assert selection_actions.shell_name_for(active, Tabs()) == "bash"
 
 
-def test_shell_name_for_uses_the_default_shell_for_new_tabs(monkeypatch) -> None:
-    monkeypatch.setattr(selection_actions, "default_shell_name", lambda: "powershell")
+def test_shell_name_for_asks_the_tabs_what_a_new_tab_would_open() -> None:
+    """Not the OS default: Preferences can point new tabs at another shell."""
+
+    class Tabs:
+        def default_shell_name(self):
+            return "powershell"
 
     new_tab = Preset(name="a", lines=["x"], kind=KIND_STDIN, target="new_tab")
 
-    assert selection_actions.shell_name_for(new_tab, None) == "powershell"
+    assert selection_actions.shell_name_for(new_tab, Tabs()) == "powershell"

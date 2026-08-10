@@ -8,7 +8,9 @@ from conftest import FakePtySession
 from PySide6.QtCore import QPoint, QSettings
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.pty_backend import default_shell
 from qtxterm.terminal_tabs import TerminalTabWidget
+from qtxterm.terminal_widget import shell_short_name
 
 
 def make_tabs(qtbot) -> TerminalTabWidget:
@@ -169,3 +171,48 @@ def test_tab_context_menu_request_is_re_emitted_by_the_tab_widget(qtbot) -> None
         widget.context_menu_requested.emit(pos)
 
     assert blocker.args == [pos]
+
+
+class FakeShellStore:
+    def __init__(self, command) -> None:
+        self._command = command
+
+    def resolve(self):
+        return self._command
+
+
+def test_new_tab_uses_the_preferred_shell_when_none_is_given(qtbot) -> None:
+    tabs = TerminalTabWidget(shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"]))
+    qtbot.addWidget(tabs)
+    pty = FakePtySession()
+
+    widget = tabs.new_tab(pty_session=pty)
+    widget._bridge.ready(80, 24)
+
+    assert pty.start_calls[0][0] == ["/usr/bin/wsl", "-d", "Ubuntu"]
+
+
+def test_an_explicit_shell_still_wins_over_the_preference(qtbot) -> None:
+    tabs = TerminalTabWidget(shell_store=FakeShellStore("/bin/zsh"))
+    qtbot.addWidget(tabs)
+    pty = FakePtySession()
+
+    widget = tabs.new_tab(shell="/bin/bash", pty_session=pty)
+    widget._bridge.ready(80, 24)
+
+    assert pty.start_calls[0][0] == ["/bin/bash"]
+
+
+def test_default_shell_name_reflects_the_preference(qtbot) -> None:
+    """Selection Actions targeting a new tab need this to pick the right way
+    to feed a file to stdin."""
+    tabs = TerminalTabWidget(shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"]))
+    qtbot.addWidget(tabs)
+
+    assert tabs.default_shell_name() == "wsl"
+
+
+def test_default_shell_name_falls_back_to_the_os_shell(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    assert tabs.default_shell_name() == shell_short_name(default_shell())

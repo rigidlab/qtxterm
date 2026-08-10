@@ -7,11 +7,14 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 | Action | How |
 |---|---|
 | New tab (default shell) | `Ctrl+Shift+T`, or the `+` button at the right of the tab bar |
-| New tab (specific shell) | **File → New Terminal →** PowerShell / Command Prompt / Git Bash / WSL |
+| New tab (specific shell) | **File → New Terminal →** PowerShell / Command Prompt / Git Bash / WSL: *distro* |
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 
-Only shells actually installed on your machine appear under **New Terminal**.
+Only shells actually installed on your machine appear under **New Terminal**,
+and every installed WSL distro gets its own entry (`WSL: Ubuntu-22.04`).
+Docker Desktop's `docker-desktop` and `docker-desktop-data` are left out —
+they're data-only and give no usable shell.
 
 Tabs are labelled tmux-style as `index:shell` — `0:powershell`, `1:bash`,
 `2:cmd`. Hover a tab to see what the shell is reporting (usually the current
@@ -88,10 +91,9 @@ command, and means multi-line and very long selections work — both of which
 break if text is spliced into a command. URL actions cap the selection at
 1500 characters, since browsers and search engines reject longer URLs.
 
-If the right-click **Selection** submenu is empty — an install created
-before this feature
-existed keeps its own presets — open **Manage Selection Actions...** and
-press **Add Examples**.
+If the right-click **Selection** submenu is empty — an install created before
+this feature existed keeps its own presets — open **Manage Selection
+Actions...** and press **Add Examples**.
 
 ## Creating and editing
 
@@ -114,9 +116,24 @@ Presets are stored as JSON, so you can hand-edit or back them up:
 - Windows — `%LOCALAPPDATA%\qtxterm\presets.json`
 - Linux — `~/.config/qtxterm/presets.json`
 
-## Appearance
+## Preferences
 
-**File → Preferences...** sets the color theme, font, and font size.
+**File → Preferences...** sets the default shell, color theme, font, and
+font size.
+
+### Default shell
+
+Which shell new tabs open with — the startup tab, the `+` button,
+`Ctrl+Shift+T`, and Macros. **System default** follows the OS
+(`powershell.exe` on Windows, `$SHELL` elsewhere); otherwise pick any
+detected shell, including a specific WSL distro. Existing tabs keep the
+shell they started with, and **File → New Terminal** still opens whichever
+shell you pick there regardless of this setting.
+
+If the chosen shell later disappears — a WSL distro you removed — new tabs
+quietly fall back to the system default rather than failing to open.
+
+### Appearance
 
 | Theme | Look |
 |---|---|

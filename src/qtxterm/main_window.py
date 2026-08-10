@@ -16,6 +16,7 @@ from qtxterm.preset_menu import (
 )
 from qtxterm.presets import PresetStore
 from qtxterm.qt_theme import apply_qt_theme
+from qtxterm.shell_prefs import ShellPreferenceStore
 from qtxterm.shells import known_shells
 from qtxterm.sidebar import CommandSidebar
 from qtxterm.terminal_tabs import TerminalTabWidget
@@ -38,8 +39,11 @@ class MainWindow(QMainWindow):
         self._appearance_store = AppearanceStore(self._settings)
         self._appearance_store.changed.connect(self._apply_qt_theme)
         self._apply_qt_theme()
+        self._shell_store = ShellPreferenceStore(self._settings)
         self._tabs = TerminalTabWidget(
-            parent=self, appearance_store=self._appearance_store
+            parent=self,
+            appearance_store=self._appearance_store,
+            shell_store=self._shell_store,
         )
         self._tabs.all_tabs_closed.connect(self.close)
         self.setCentralWidget(self._tabs)
@@ -170,7 +174,9 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
 
     def show_preferences(self) -> None:
-        PreferencesDialog(self._appearance_store, self).exec()
+        PreferencesDialog(
+            self._appearance_store, self, shell_store=self._shell_store
+        ).exec()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
         self._save_window_state()

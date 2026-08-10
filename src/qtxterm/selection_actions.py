@@ -129,25 +129,19 @@ def stdin_lines(preset: Preset, selection: str, shell_name: str) -> list[str]:
     return [*setup, feed_from_file(consumer, path, shell_name)]
 
 
-def default_shell_name() -> str:
-    # Imported lazily: this module is pure enough to test on its own, and
-    # the terminal stack pulls in QtWebEngine.
-    from qtxterm.pty_backend import default_shell
-    from qtxterm.terminal_widget import shell_short_name
-
-    return shell_short_name(default_shell())
-
-
 def shell_name_for(preset: Preset, tabs) -> str:
     """Which shell will actually run this action's command.
 
-    A new-tab action gets the default shell; an active-terminal one gets
-    whatever that tab is running, which may be any of the four.
+    A new-tab action gets whatever shell a new tab would open with -
+    asked of the tab widget, since Preferences can override the OS default.
+    An active-terminal one gets whatever that tab is running.
     """
     if preset.target == "new_tab":
-        return default_shell_name()
+        # Asks the tab widget, not the OS: a configured default shell
+        # (Preferences) is what a new tab will actually open with.
+        return tabs.default_shell_name()
     terminal = tabs.active_terminal()
-    return terminal.shell_name if terminal is not None else default_shell_name()
+    return terminal.shell_name if terminal is not None else tabs.default_shell_name()
 
 
 def run_selection_action(

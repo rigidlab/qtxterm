@@ -34,9 +34,7 @@ def known_shells() -> list[tuple[str, str | list[str]]]:
     if git_bash:
         shells.append(("Git Bash", git_bash))
 
-    wsl_command = _find_wsl_command()
-    if wsl_command:
-        shells.append(("WSL", wsl_command))
+    shells.extend(_wsl_shells())
 
     return shells
 
@@ -62,34 +60,42 @@ def _find_git_bash() -> str | None:
     return None
 
 
-def _find_wsl_command() -> list[str] | None:
-    """Find wsl.exe plus an explicit, real distro to launch.
+def wsl_distros() -> list[str]:
+    """Every installed WSL distro that can actually give you a shell.
 
-    Deliberately doesn't just spawn bare `wsl.exe`: that launches whatever
-    WSL considers the "default" distro, which can be misconfigured to a
-    non-interactive, data-only distro (e.g. Docker Desktop sets its own
-    "docker-desktop-data" as default on some setups) - bare wsl.exe would
-    then fail outright with no usable shell. Listing distros and picking a
-    real one explicitly (`wsl.exe -d <name>`) works regardless of whatever
-    the system default happens to be.
+    Data-only distros are filtered out: Docker Desktop installs
+    "docker-desktop"/"docker-desktop-data", which aren't interactive and can
+    even be WSL's configured default, so launching them gives no usable
+    shell.
     """
     wsl = shutil.which("wsl.exe")
     if not wsl:
-        return None
+        return []
 
     try:
         result = subprocess.run(
             [wsl, "-l", "-q"], capture_output=True, timeout=5, check=False
         )
     except (OSError, subprocess.TimeoutExpired):
-        return None
+        return []
 
     # wsl.exe -l -q prints UTF-16LE, regardless of the console's own encoding.
-    distros = [
-        line.strip()
+    return [
+        stripped
         for line in result.stdout.decode("utf-16-le", errors="ignore").splitlines()
-        if line.strip() and line.strip() not in _NON_INTERACTIVE_WSL_DISTROS
+        if (stripped := line.strip()) and stripped not in _NON_INTERACTIVE_WSL_DISTROS
     ]
-    if not distros:
-        return None
-    return [wsl, "-d", distros[0]]
+
+
+def _wsl_shells() -> list[tuple[str, list[str]]]:
+    """One entry per installed distro, each launched explicitly by name.
+
+    Deliberately never bare `wsl.exe`: that launches whatever WSL considers
+    the default distro, which may be a data-only one (see wsl_distros) and
+    would fail outright. `wsl.exe -d <name>` works regardless of the system
+    default.
+    """
+    wsl = shutil.which("wsl.exe")
+    if not wsl:
+        return []
+    return [(f"WSL: {distro}", [wsl, "-d", distro]) for distro in wsl_distros()]
