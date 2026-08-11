@@ -8,6 +8,7 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 |---|---|
 | New tab (default shell) | `Ctrl+Shift+T`, or the `+` button at the right of the tab bar |
 | New tab (specific shell) | **File → New Terminal →** PowerShell / Command Prompt / Git Bash / WSL: *distro* |
+| New browser tab | **File → New Browser** |
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 
@@ -26,6 +27,18 @@ on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so
 reusing it for "close tab" would break normal shell line-editing.
 
 Closing the last tab closes the window.
+
+## Browser tabs
+
+**File → New Browser** opens a web page in a tab beside your terminals. Type
+in the address bar and press Enter: a full URL loads as-is, a bare host like
+`example.com` or `localhost:8080` gets `https://`, and anything else — words
+with spaces, say — becomes a search rather than a broken URL. The `←` `→` `⟳`
+buttons are back, forward, and reload.
+
+Browser tabs are labelled by host (`1:example.com`), with the page title in
+the tooltip. Commands and Selection Actions do nothing while a browser tab is
+active — there's no shell to send them to; switch to a terminal tab first.
 
 ## Commands vs. Macros
 

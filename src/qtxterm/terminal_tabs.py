@@ -5,6 +5,7 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.browser_widget import BrowserWidget
 from qtxterm.pty_backend import PtySession, default_shell
 from qtxterm.shell_prefs import ShellPreferenceStore
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
@@ -89,8 +90,24 @@ class TerminalTabWidget(QTabWidget):
             lambda title, w=widget: self._update_tab_tooltip(w, title)
         )
         widget.context_menu_requested.connect(self.context_menu_requested)
-        self._titles[widget] = widget.default_title
 
+        return self._add_tab(widget)
+
+    def new_browser_tab(self, url: str | None = None) -> BrowserWidget:
+        """Open a web page in a tab alongside the terminals."""
+        widget = BrowserWidget(url=url)
+        # Unlike a terminal, a browser tab's live title is worth showing: the
+        # host is short and is exactly what identifies the tab, where a
+        # shell's OSC title was a full path. The page title goes in the
+        # tooltip.
+        widget.host_changed.connect(lambda host, w=widget: self._set_tab_title(w, host))
+        widget.title_changed.connect(
+            lambda title, w=widget: self._update_tab_tooltip(w, title)
+        )
+        return self._add_tab(widget)
+
+    def _add_tab(self, widget):
+        self._titles[widget] = widget.default_title
         index = self.addTab(widget, "")
         self.setCurrentIndex(index)
         self._renumber()
@@ -116,7 +133,7 @@ class TerminalTabWidget(QTabWidget):
             self._renumber()
 
     def close_all_tabs(self) -> None:
-        """Shut down every tab's PTY, e.g. when the whole window is closing."""
+        """Shut every tab down (PTYs, loading pages) as the window closes."""
         for i in range(self.count()):
             self.widget(i).shutdown()
 
@@ -161,9 +178,21 @@ class TerminalTabWidget(QTabWidget):
         return widget
 
     def active_terminal(self) -> TerminalWidget | None:
-        return self.currentWidget()
+        """The current tab if it's a terminal, else None.
 
-    def _update_tab_tooltip(self, widget: TerminalWidget, title: str) -> None:
+        Type-checked rather than just returning currentWidget(): with
+        browser tabs in the mix, callers that send commands (sidebar,
+        Command submenu, Selection Actions) would otherwise try to write to
+        a web page.
+        """
+        widget = self.currentWidget()
+        return widget if isinstance(widget, TerminalWidget) else None
+
+    def _set_tab_title(self, widget, title: str) -> None:
+        self._titles[widget] = title
+        self._renumber()
+
+    def _update_tab_tooltip(self, widget, title: str) -> None:
         index = self.indexOf(widget)
         if index != -1:
             self.setTabToolTip(index, title)

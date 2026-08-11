@@ -216,3 +216,71 @@ def test_default_shell_name_falls_back_to_the_os_shell(qtbot) -> None:
     tabs = make_tabs(qtbot)
 
     assert tabs.default_shell_name() == shell_short_name(default_shell())
+
+
+def test_new_browser_tab_is_labelled_and_added(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    browser = tabs.new_browser_tab(url="about:blank")
+
+    assert tabs.tabText(tabs.indexOf(browser)) == "0:browser"
+    assert tabs.currentWidget() is browser
+
+
+def test_browser_tab_label_follows_the_host(qtbot) -> None:
+    """Unlike a shell's OSC title, a host is short and identifies the tab."""
+    tabs = make_tabs(qtbot)
+    browser = tabs.new_browser_tab(url="about:blank")
+
+    browser.host_changed.emit("example.com")
+    browser.title_changed.emit("Example Domain")
+
+    assert tabs.tabText(0) == "0:example.com"
+    assert tabs.tabToolTip(0) == "Example Domain"
+
+
+def test_active_terminal_is_none_when_a_browser_tab_is_current(qtbot) -> None:
+    """Otherwise the sidebar and Command submenu would write to a web page."""
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    browser = tabs.new_browser_tab(url="about:blank")
+
+    assert tabs.currentWidget() is browser
+    assert tabs.active_terminal() is None
+
+
+def test_running_a_command_with_a_browser_tab_active_is_a_no_op(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty = FakePtySession()
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=pty)
+    terminal._bridge.ready(80, 24)
+    pty.write_calls.clear()
+    tabs.new_browser_tab(url="about:blank")
+
+    tabs.run_in_active(["git status"])
+
+    assert pty.write_calls == []
+
+
+def test_closing_a_browser_tab_shuts_it_down_and_renumbers(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    browser = tabs.new_browser_tab(url="about:blank")
+
+    tabs.close_tab_at(tabs.indexOf(browser))
+
+    assert tabs.count() == 1
+    assert tabs.tabText(0) == "0:bash"
+
+
+def test_appearance_changes_skip_browser_tabs_without_error(qtbot, tmp_path) -> None:
+    settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    store = AppearanceStore(settings)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.new_browser_tab(url="about:blank")
+
+    store.save(Appearance(theme_name="Solarized Dark"))
+
+    assert tabs.count() == 2

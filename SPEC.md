@@ -257,6 +257,26 @@ tabs/macros/sidebar complexity.
       new tab picks the redirection form for the shell that tab will
       actually run.
 
+### Phase 4g — Browser tabs ✅ done
+- [x] `File -> New Browser` opens a `BrowserWidget` (address bar +
+      QWebEngineView + back/forward/reload) as a tab beside the terminals.
+- [x] `normalize_url()` guesses between "go here" and "look this up": a
+      scheme loads verbatim, a dotted host (or localhost[:port]) gets
+      https://, anything else becomes a search - `https://hello%20world` is
+      never what was meant.
+- [x] Address bar follows `urlChanged`, not only typed input, so it tracks
+      links clicked in the page and redirects.
+- [x] Tab label is the host, live-updated - unlike a shell's OSC title, a
+      host is short and is exactly what identifies the tab. Page title goes
+      in the tooltip.
+- [x] `active_terminal()` is now type-checked instead of returning
+      `currentWidget()`: with browser tabs in the mix, the sidebar, Command
+      submenu and Selection Actions would otherwise try to write to a web
+      page. They no-op while a browser tab is active.
+- [x] No `QWebChannel` is registered on a browsed page, unlike terminal.html
+      - a web page must never reach `TerminalBridge` and be able to write to
+      a PTY.
+
 ### Phase 5 — Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed
@@ -293,6 +313,38 @@ how. Verified empirically:
   can keep interacting with.
 
 ## Open Questions / Deferred
+
+### Stable `Preset.id` — proposed, not implemented
+Give every preset a `id: str` (uuid4 hex), assigned in `__post_init__` when
+absent, and key `PresetStore.update()`/`delete()` off it instead of list
+position. One namespace across all three categories, since they share one
+dataclass and one `presets.json`.
+
+Three problems it fixes, the first two of which exist today:
+
+- **Index is not identity.** `update(index, preset)` / `delete(index)` key off
+  list position, and `PresetEditorDialog` holds a store index (`_current_index`)
+  across reloads. If the list mutates underneath — a second dialog, a `changed`
+  signal — that index silently addresses a *different* preset, and the edit or
+  delete lands on the wrong one with no error.
+- **Value equality is not identity.** `Preset` is a plain dataclass, so two
+  presets with identical fields compare equal. This already bit
+  `_indexed_presets()`, where `preset in filtered_list` matched the wrong entry
+  and had to be rewritten to compare by category instead.
+- **Name is not identity.** Names aren't unique, and the `SidebarLayout` design
+  above refers to presets by name (`preset_refs: list[str]`), so a rename would
+  orphan its button. Anything else that references presets later — keyboard
+  bindings, recently-used, layouts — needs a handle that survives renames *and*
+  survives a category change (flipping `target` turns a Command into a Macro;
+  the id should not move).
+
+Migration is additive: entries without an `id` get one on load and the file is
+saved once. Existing `presets.json` files keep working and stay hand-editable.
+
+Worth doing before anything references presets externally — the cost grows with
+every preset a user accumulates, while today it is ~15 lines plus test updates
+against a handful of presets.
+
 - Multi-step macro *scripting* (wait-for-pattern, conditional branching) —
   deferred; would mean either running presets as a real temp script file (true
   script semantics, but a subshell, so `cd` wouldn't persist) or Expect-style

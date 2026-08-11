@@ -166,6 +166,10 @@ class MainWindow(QMainWindow):
             )
 
         self._file_menu.addSeparator()
+        browser_action = self._file_menu.addAction("New Browser")
+        browser_action.triggered.connect(lambda: self._tabs.new_browser_tab())
+
+        self._file_menu.addSeparator()
         preferences_action = self._file_menu.addAction("Preferences...")
         preferences_action.triggered.connect(self.show_preferences)
 
