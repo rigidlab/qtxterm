@@ -53,6 +53,58 @@ Stored as a single JSON file under the platformdirs user config dir
   presets, with Run / Edit / New / Delete. Clicking one always opens a fresh
   tab, spawns a PTY, and feeds `lines` into it in sequence. (Phase 4.)
 
+### Why the split survives — decided, revisit at ~20 presets
+
+The obvious objection is that Commands and Macros do the same thing: feed
+lines to a shell. The only mechanical difference is which tab receives them.
+That reading makes the categories look like an execution detail promoted to a
+taxonomy, and it argues for one "Command" with a `run in: active | new tab`
+field.
+
+The split holds because the real distinction is **the interaction pattern,
+not the execution target** — where it runs falls out of that, not the other
+way round:
+
+- **Command — contextual and frequent.** You're looking at a terminal and you
+  reach for it. That is a button beside the terminal. `Command` and `sidebar
+  button` are close to synonymous; running in the active tab is a consequence
+  of being a thing you click *while working in that tab*.
+- **Macro — occasional, and it launches something that goes elsewhere.** You
+  are not mid-flow in a terminal when you start a dev server. That is a menu
+  item, and a fresh tab is a consequence of it being disruptive.
+
+Two things follow, and both are deliberate:
+
+- **A Command need not be a sidebar button.** `show_in_sidebar` keeps the
+  sidebar a curated subset; the right-click `Command` submenu lists all of
+  them. "Button" is a property of a Command, not a synonym for it.
+- **Commands stay out of the menu bar.** The menu bar is the surface furthest
+  from the terminal, which contradicts the contextual argument above, and it
+  would be a third surface to keep in sync (sidebar, right-click, menu bar).
+  Individual Command listings were removed from the Commands menu in `4ce011c`
+  for exactly this reason. If the underlying need turns out to be *keyboard*
+  access, the answer is per-preset keyboard shortcuts, not menu items — that
+  serves the contextual model instead of fighting it.
+
+Known costs, accepted for now:
+
+- A Macro cannot be pinned to the sidebar, even if it is your most-used
+  action.
+- Macros are absent from the terminal right-click menu, where Commands appear.
+- The Commands menu bar entry lists nothing while the Macros one lists
+  everything, so two menus for one concept behave differently.
+
+**Revisit when** there are enough presets for these to bite — roughly 20, or
+sooner if a concrete case appears (wanting a one-click "start dev server"
+button). The unified design needs no storage change: `target` and
+`show_in_sidebar` already exist, so it is a presentation change and cheap to
+reverse in either direction. What is *not* cheap later is stable identity —
+see the `Preset.id` note under Open Questions.
+
+Selection Actions are a genuinely different category and are unaffected by
+any of this: they consume the terminal's selection, and a `url` one never
+touches a shell at all. The durable line is *takes input* vs *doesn't*.
+
 ### Sidebar Layout (separate from preset content)
 
 Layout is a distinct, user-editable arrangement on top of the preset list —
