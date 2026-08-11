@@ -53,7 +53,13 @@ Stored as a single JSON file under the platformdirs user config dir
   presets, with Run / Edit / New / Delete. Clicking one always opens a fresh
   tab, spawns a PTY, and feeds `lines` into it in sequence. (Phase 4.)
 
-### Why the split survives — decided, revisit at ~20 presets
+### Why the split survives — settled
+
+**Decision: keep the Commands/Macros separation, and only Commands appear as
+sidebar buttons.** Considered and rejected: collapsing both into one type
+with a `run in: active | new tab` field, and a separate Button/layout entity
+on top of presets. What is in the code today is the intended design, not an
+interim state.
 
 The obvious objection is that Commands and Macros do the same thing: feed
 lines to a shell. The only mechanical difference is which tab receives them.
@@ -86,20 +92,21 @@ Two things follow, and both are deliberate:
   access, the answer is per-preset keyboard shortcuts, not menu items — that
   serves the contextual model instead of fighting it.
 
-Known costs, accepted for now:
+Known costs, accepted deliberately — these are consequences of the decision,
+not oversights to be "fixed":
 
 - A Macro cannot be pinned to the sidebar, even if it is your most-used
-  action.
+  action. Buttons are for Commands; a Macro that you reach for constantly is
+  a sign it wanted to be a Command.
 - Macros are absent from the terminal right-click menu, where Commands appear.
 - The Commands menu bar entry lists nothing while the Macros one lists
   everything, so two menus for one concept behave differently.
 
-**Revisit when** there are enough presets for these to bite — roughly 20, or
-sooner if a concrete case appears (wanting a one-click "start dev server"
-button). The unified design needs no storage change: `target` and
-`show_in_sidebar` already exist, so it is a presentation change and cheap to
-reverse in either direction. What is *not* cheap later is stable identity —
-see the `Preset.id` note under Open Questions.
+If it is ever reopened, note that unification needs **no storage change**:
+`target` and `show_in_sidebar` already exist, so it is a presentation change,
+cheap to reverse in either direction. The plausible trigger would be a
+concrete case the split cannot serve — most likely wanting a one-click "start
+dev server" button.
 
 Selection Actions are a genuinely different category and are unaffected by
 any of this: they consume the terminal's selection, and a `url` one never
@@ -366,36 +373,52 @@ how. Verified empirically:
 
 ## Open Questions / Deferred
 
-### Stable `Preset.id` — proposed, not implemented
-Give every preset a `id: str` (uuid4 hex), assigned in `__post_init__` when
+### Stable `Preset.id` — proposed, low priority, not implemented
+Give every preset an `id: str` (uuid4 hex), assigned in `__post_init__` when
 absent, and key `PresetStore.update()`/`delete()` off it instead of list
 position. One namespace across all three categories, since they share one
 dataclass and one `presets.json`.
 
-Three problems it fixes, the first two of which exist today:
+**This is future-proofing, not a bug fix.** Nothing here is reproducible
+through normal use today:
 
-- **Index is not identity.** `update(index, preset)` / `delete(index)` key off
-  list position, and `PresetEditorDialog` holds a store index (`_current_index`)
-  across reloads. If the list mutates underneath — a second dialog, a `changed`
-  signal — that index silently addresses a *different* preset, and the edit or
-  delete lands on the wrong one with no error.
-- **Value equality is not identity.** `Preset` is a plain dataclass, so two
-  presets with identical fields compare equal. This already bit
-  `_indexed_presets()`, where `preset in filtered_list` matched the wrong entry
-  and had to be rewritten to compare by category instead.
-- **Name is not identity.** Names aren't unique, and the `SidebarLayout` design
-  above refers to presets by name (`preset_refs: list[str]`), so a rename would
-  orphan its button. Anything else that references presets later — keyboard
-  bindings, recently-used, layouts — needs a handle that survives renames *and*
-  survives a category change (flipping `target` turns a Command into a Macro;
-  the id should not move).
+- **Index is not identity — latent, not live.** `update(index, preset)` /
+  `delete(index)` key off list position, and `PresetEditorDialog` holds a
+  store index (`_current_index`) across reloads. That is safe only because
+  the editor is modal (`dialog.exec()`) and there is one window per process,
+  so nothing can reorder the list underneath it. The invariant holds by
+  circumstance rather than by construction, which is the actual objection.
+  The one case that breaks now is **two app instances**: both hold the whole
+  list in memory and rewrite the entire file on save, so the later save
+  clobbers the earlier. An id alone would not fix that — it needs
+  merge-on-write — but it turns "lost an edit" into "edited the right
+  preset".
+- **Value equality is not identity — already worked around.** `Preset` is a
+  plain dataclass, so two presets with identical fields compare equal. This
+  bit `_indexed_presets()`, where `preset in filtered_list` matched the wrong
+  entry; it was rewritten to compare by category. Fixed instance, same class
+  of problem.
+- **Name is not identity — only matters if references appear.** Names aren't
+  unique, and the `SidebarLayout` sketch above refers to presets by name
+  (`preset_refs: list[str]`), so a rename would orphan its button. This is
+  the real trigger, and it only fires once something *outside* `presets.json`
+  points at a preset.
 
-Migration is additive: entries without an `id` get one on load and the file is
-saved once. Existing `presets.json` files keep working and stay hand-editable.
+**Current status: no such references exist.** Buttons are `show_in_sidebar`,
+a field on the preset itself (see the split rationale above), so nothing
+stores a handle to a preset. That removes the main argument for doing this
+now. Even the lighter version of sidebar arrangement — an `order` field on
+the preset — needs no ids.
 
-Worth doing before anything references presets externally — the cost grows with
-every preset a user accumulates, while today it is ~15 lines plus test updates
-against a handful of presets.
+Do it **before**, not after, if any of these land: a separate
+`sidebar_layout.json`, per-preset keyboard bindings, recently-used tracking,
+or anything else referencing a preset from elsewhere. Retrofitting then means
+migrating the references as well as the presets. Otherwise it can wait
+indefinitely.
+
+Migration is additive whenever it happens: entries without an `id` get one on
+load and the file is saved once. Existing `presets.json` files keep working
+and stay hand-editable.
 
 - Multi-step macro *scripting* (wait-for-pattern, conditional branching) —
   deferred; would mean either running presets as a real temp script file (true
