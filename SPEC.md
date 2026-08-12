@@ -371,6 +371,41 @@ how. Verified empirically:
   live terminal's keyboard buffer; the tradeoff for running in a session you
   can keep interacting with.
 
+## Process cleanup on close — verified, no leak
+
+"If a terminal starts a long-running process, does closing the tab kill it?"
+Measured on Windows against real PTYs (`ping -n 600` to a unique address, so
+the process could be identified by command line):
+
+| Spawned how | Closing the tab / window |
+|---|---|
+| Direct child (`ping ...`) | killed |
+| Grandchild (`cmd /c ping ...`) | killed |
+| The shell itself | killed |
+| App hard-killed, no `closeEvent` (crash, Task Manager) | killed |
+| Detached (`Start-Process`, `start`) | **survives** |
+
+The mechanism is **not** `terminate(force=True)` in `WinPtySession.close()`.
+That kills the shell only, and on Windows killing a process orphans its
+children. What actually cleans up is **ConPTY teardown**: closing the
+pseudoconsole tears down the console and every process attached to it. That
+is also why the crash case is safe - process death closes the handles, so the
+pseudoconsole dies even though no cleanup code ran.
+
+The survivor is correct, not a bug: `Start-Process` explicitly creates a
+process *not* attached to the console, and killing it would break the
+documented contract of that command. Windows Terminal, cmd and PowerShell all
+behave the same way.
+
+Not verified on Linux. `PosixPtySession.close()` is the same
+`terminate(force=True)`, but the mechanism differs - closing the pty master
+sends `SIGHUP` to the foreground process group, which normally reaps
+children, while `setsid`/`nohup` processes survive. Same boundary, different
+plumbing; the POSIX backend has still never been run (see Phase 1).
+
+Worth re-checking if the PTY backend, the shutdown path, or the tab-close
+path is ever reworked.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented
