@@ -14,10 +14,11 @@
   <line x1="26" y1="72" x2="230" y2="72" stroke="#2b2b2b" stroke-width="3"/>
 
   <!-- Prompt: chevron and an underscore cursor sharing the baseline at
-       y=182. The chevron is a step dimmer than the cursor so the two read as
-       prompt and caret rather than one shape. -->
+       y=182. Green rather than white so the mark isn't mistaken for Windows
+       Terminal or Command Prompt, whose taskbar icons are also a white ">_"
+       on dark. The gap between the two is what separates prompt from caret. -->
   <polyline points="73,114 107,148 73,182"
-            fill="none" stroke="#e5e5e5" stroke-width="18"
+            fill="none" stroke="#2fe664" stroke-width="18"
             stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="136" y="168" width="56" height="14" rx="7" fill="#ffffff"/>
+  <rect x="136" y="168" width="56" height="14" rx="7" fill="#2fe664"/>
 </svg>

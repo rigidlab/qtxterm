@@ -9,7 +9,7 @@
   <!-- The gap between chevron and cursor is held wide on purpose: at 16px it
        is barely over a pixel, and any less closes up into one shape. -->
   <polyline points="51,74 107,128 51,182"
-            fill="none" stroke="#e5e5e5" stroke-width="30"
+            fill="none" stroke="#2fe664" stroke-width="30"
             stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="144" y="158" width="76" height="24" rx="12" fill="#ffffff"/>
+  <rect x="144" y="158" width="76" height="24" rx="12" fill="#2fe664"/>
 </svg>
