@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QTabWidget, QToolButton, QWidget
+from PySide6.QtWidgets import QInputDialog, QTabWidget, QToolButton, QWidget
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.browser_widget import BrowserWidget
@@ -32,8 +32,12 @@ class TerminalTabWidget(QTabWidget):
     ) -> None:
         super().__init__(parent)
         self._shell_store = shell_store
-        # Shell name per tab, fixed for the tab's lifetime - see new_tab().
-        self._titles: dict[TerminalWidget, str] = {}
+        # Two layers: the automatic name (shell name, or a browser tab's
+        # host) and an optional user-set one that overrides it. Kept apart so
+        # a rename isn't silently overwritten the next time the automatic name
+        # changes, and so clearing a rename can fall back to something current.
+        self._auto_titles: dict[QWidget, str] = {}
+        self._custom_titles: dict[QWidget, str] = {}
         self._appearance_store = appearance_store
         if self._appearance_store is not None:
             self._appearance_store.changed.connect(self._apply_appearance_to_all_tabs)
@@ -42,6 +46,7 @@ class TerminalTabWidget(QTabWidget):
         self.setMovable(True)
         self.tabCloseRequested.connect(self.close_tab_at)
         self.tabBar().tabMoved.connect(lambda *_args: self._renumber())
+        self.tabBarDoubleClicked.connect(self._prompt_rename)
 
         add_button = QToolButton(self)
         add_button.setText("+")
@@ -107,7 +112,7 @@ class TerminalTabWidget(QTabWidget):
         return self._add_tab(widget)
 
     def _add_tab(self, widget):
-        self._titles[widget] = widget.default_title
+        self._auto_titles[widget] = widget.default_title
         index = self.addTab(widget, "")
         self.setCurrentIndex(index)
         self._renumber()
@@ -124,7 +129,8 @@ class TerminalTabWidget(QTabWidget):
             return
         widget.shutdown()
         self.removeTab(index)
-        self._titles.pop(widget, None)
+        self._auto_titles.pop(widget, None)
+        self._custom_titles.pop(widget, None)
         widget.deleteLater()
 
         if self.count() == 0:
@@ -189,8 +195,39 @@ class TerminalTabWidget(QTabWidget):
         return widget if isinstance(widget, TerminalWidget) else None
 
     def _set_tab_title(self, widget, title: str) -> None:
-        self._titles[widget] = title
+        """Update the automatic name. A user rename still wins over it."""
+        self._auto_titles[widget] = title
         self._renumber()
+
+    def tab_title(self, index: int) -> str:
+        """The name shown for a tab, without the index prefix."""
+        widget = self.widget(index)
+        return self._custom_titles.get(widget) or self._auto_titles.get(widget, "")
+
+    def rename_tab(self, index: int, name: str) -> None:
+        """Give a tab a user-chosen name; blank restores the automatic one."""
+        widget = self.widget(index)
+        if widget is None:
+            return
+        stripped = name.strip()
+        if stripped:
+            self._custom_titles[widget] = stripped
+        else:
+            self._custom_titles.pop(widget, None)
+        self._renumber()
+
+    def _prompt_rename(self, index: int) -> None:
+        # -1 is a double-click on empty tab bar space, not on a tab.
+        if index < 0:
+            return
+        name, accepted = QInputDialog.getText(
+            self,
+            "Rename Tab",
+            "Tab name (leave blank to restore the default):",
+            text=self.tab_title(index),
+        )
+        if accepted:
+            self.rename_tab(index, name)
 
     def _update_tab_tooltip(self, widget, title: str) -> None:
         index = self.indexOf(widget)
@@ -199,8 +236,7 @@ class TerminalTabWidget(QTabWidget):
 
     def _renumber(self) -> None:
         for i in range(self.count()):
-            title = self._titles.get(self.widget(i), "")
-            self.setTabText(i, f"{i}:{title}")
+            self.setTabText(i, f"{i}:{self.tab_title(i)}")
 
     def _close_current_tab(self) -> None:
         index = self.currentIndex()

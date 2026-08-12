@@ -371,6 +371,18 @@ how. Verified empirically:
   live terminal's keyboard buffer; the tradeoff for running in a session you
   can keep interacting with.
 
+### Phase 4h — Tab rename ✅ done
+- [x] Double-click a tab to rename it (`QInputDialog`, prefilled with the
+      current name); blank restores the automatic name.
+- [x] Titles are two layers rather than one: `_auto_titles` (shell name, or a
+      browser tab's host) and `_custom_titles` (user-set, wins when present).
+      Kept apart so a rename isn't silently overwritten the next time the
+      automatic name changes - a browser tab renames itself on every
+      navigation - and so clearing a rename falls back to the *current*
+      automatic name, not the one the tab was born with.
+- [x] `tabBarDoubleClicked` fires with -1 for a double-click on empty tab bar
+      space; that is ignored rather than prompting for a nonexistent tab.
+
 ## Process cleanup on close — verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"

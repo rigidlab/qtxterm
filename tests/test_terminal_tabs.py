@@ -8,6 +8,7 @@ from conftest import FakePtySession
 from PySide6.QtCore import QPoint, QSettings
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm import terminal_tabs
 from qtxterm.pty_backend import default_shell
 from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.terminal_widget import shell_short_name
@@ -284,3 +285,106 @@ def test_appearance_changes_skip_browser_tabs_without_error(qtbot, tmp_path) -> 
     store.save(Appearance(theme_name="Solarized Dark"))
 
     assert tabs.count() == 2
+
+
+def test_rename_tab_replaces_the_name_but_keeps_the_index(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    tabs.rename_tab(0, "build server")
+
+    assert tabs.tabText(0) == "0:build server"
+    assert tabs.tab_title(0) == "build server"
+
+
+def test_rename_survives_renumbering(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.new_tab(shell="/bin/zsh", pty_session=FakePtySession())
+    tabs.rename_tab(1, "deploy")
+
+    tabs.close_tab_at(tabs.indexOf(first))
+
+    assert tabs.tabText(0) == "0:deploy"
+
+
+def test_blank_rename_restores_the_automatic_name(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.rename_tab(0, "temporary")
+
+    tabs.rename_tab(0, "   ")
+
+    assert tabs.tabText(0) == "0:bash"
+
+
+def test_a_rename_is_not_overwritten_by_automatic_updates(qtbot) -> None:
+    """A browser tab keeps renaming itself from the page host; a user rename
+    has to win over that."""
+    tabs = make_tabs(qtbot)
+    browser = tabs.new_browser_tab(url="about:blank")
+    tabs.rename_tab(0, "docs")
+
+    browser.host_changed.emit("example.com")
+
+    assert tabs.tabText(0) == "0:docs"
+
+
+def test_clearing_a_rename_falls_back_to_the_latest_automatic_name(qtbot) -> None:
+    """Not the name the tab was born with - the browser has navigated since."""
+    tabs = make_tabs(qtbot)
+    browser = tabs.new_browser_tab(url="about:blank")
+    browser.host_changed.emit("example.com")
+    tabs.rename_tab(0, "docs")
+
+    tabs.rename_tab(0, "")
+
+    assert tabs.tabText(0) == "0:example.com"
+
+
+def test_renaming_a_missing_tab_is_a_no_op(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    tabs.rename_tab(5, "nowhere")
+
+    assert tabs.count() == 0
+
+
+def test_double_click_on_empty_tab_bar_space_does_not_prompt(qtbot, monkeypatch) -> None:
+    """tabBarDoubleClicked fires with -1 when the click misses every tab."""
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    prompted = []
+    monkeypatch.setattr(
+        terminal_tabs.QInputDialog,
+        "getText",
+        lambda *a, **kw: (prompted.append(True), ("x", True))[1],
+    )
+
+    tabs._prompt_rename(-1)
+
+    assert prompted == []
+
+
+def test_double_click_prompts_and_applies_the_new_name(qtbot, monkeypatch) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    monkeypatch.setattr(
+        terminal_tabs.QInputDialog, "getText", lambda *a, **kw: ("renamed", True)
+    )
+
+    tabs.tabBarDoubleClicked.emit(0)
+
+    assert tabs.tabText(0) == "0:renamed"
+
+
+def test_cancelling_the_prompt_leaves_the_name_alone(qtbot, monkeypatch) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    monkeypatch.setattr(
+        terminal_tabs.QInputDialog, "getText", lambda *a, **kw: ("ignored", False)
+    )
+
+    tabs.tabBarDoubleClicked.emit(0)
+
+    assert tabs.tabText(0) == "0:bash"

@@ -11,6 +11,7 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 | New browser tab | **File → New Browser** |
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Rename a tab | Double-click the tab |
 
 Only shells actually installed on your machine appear under **New Terminal**,
 and every installed WSL distro gets its own entry (`WSL: Ubuntu-22.04`).
@@ -21,6 +22,13 @@ Tabs are labelled tmux-style as `index:shell` — `0:powershell`, `1:bash`,
 `2:cmd`. Hover a tab to see what the shell is reporting (usually the current
 directory or running command); that goes in the tooltip rather than the
 label, since some shells report a full path and would stretch the tab bar.
+
+Double-click a tab to rename it — useful once several tabs run the same
+shell and `0:powershell` / `1:powershell` stop telling them apart. The index
+prefix stays, and renumbering keeps your name attached to the right tab.
+Leave the box blank to go back to the automatic name. A rename sticks: a
+browser tab that keeps renaming itself from the page host won't overwrite
+it.
 
 `Ctrl+Shift+T` and `Ctrl+Shift+W` are used instead of plain `Ctrl+T`/`Ctrl+W`
 on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so
