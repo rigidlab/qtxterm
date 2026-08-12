@@ -13,7 +13,10 @@
     choose "Pin to taskbar".
 
 .PARAMETER Exe
-    Path to qtxterm.exe. Defaults to the uv tool install location.
+    Path to qtxtermw.exe. Defaults to the uv tool install location. Note the
+    trailing "w": that is the console-less entry point, so starting from the
+    shortcut doesn't leave a stray cmd window behind the app. Plain
+    qtxterm.exe is the console one, for running from a terminal.
 
 .PARAMETER Icon
     Path to the .ico. Defaults to the copy inside the installed package, and
@@ -21,14 +24,14 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Exe  = (Join-Path $env:USERPROFILE ".local\bin\qtxterm.exe"),
+    [string]$Exe  = (Join-Path $env:USERPROFILE ".local\bin\qtxtermw.exe"),
     [string]$Icon = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $Exe)) {
-    Write-Error "qtxterm.exe not found at $Exe. Run 'uv tool install .' first, or pass -Exe."
+    Write-Error "qtxtermw.exe not found at $Exe. Run 'uv tool install .' first, or pass -Exe."
 }
 
 if (-not $Icon) {

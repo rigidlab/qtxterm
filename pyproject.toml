@@ -11,12 +11,19 @@ dependencies = [
     "pywinpty>=2.0 ; sys_platform == 'win32'",
 ]
 
-[project.gui-scripts]
-# gui-scripts, not scripts: on Windows this generates a console-less launcher.
-# A console entry point would flash (and keep) a black cmd window behind the
-# app every time it's started from a shortcut or the taskbar.
-# For console output while debugging, run `uv run python -m qtxterm.app`.
+[project.scripts]
+# The dev entry point: run from a terminal, it inherits that terminal and
+# prints there. Deliberately console, because uv's *venv* pythonw.exe is a
+# console-subsystem trampoline - a gui-script in a venv therefore has no
+# console to inherit, so Windows allocates one and the default terminal app
+# pops up a window alongside the GUI.
 qtxterm = "qtxterm.app:main"
+
+[project.gui-scripts]
+# The shortcut/taskbar entry point, and what install-shortcut.ps1 targets.
+# Console-less, so starting the app from a shortcut doesn't leave a stray cmd
+# window behind it. Named after the python/pythonw convention.
+qtxtermw = "qtxterm.app:main"
 
 [build-system]
 requires = ["hatchling"]
