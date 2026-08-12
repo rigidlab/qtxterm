@@ -11,7 +11,11 @@ dependencies = [
     "pywinpty>=2.0 ; sys_platform == 'win32'",
 ]
 
-[project.scripts]
+[project.gui-scripts]
+# gui-scripts, not scripts: on Windows this generates a console-less launcher.
+# A console entry point would flash (and keep) a black cmd window behind the
+# app every time it's started from a shortcut or the taskbar.
+# For console output while debugging, run `uv run python -m qtxterm.app`.
 qtxterm = "qtxterm.app:main"
 
 [build-system]
