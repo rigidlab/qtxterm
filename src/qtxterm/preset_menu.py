@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMenu, QWidget
 
 from qtxterm.menu_prefs import (
     DEFAULT_ORDER,
+    SECTION_CLIPBOARD,
     SECTION_COMMAND,
     SECTION_LABELS,
     SECTION_PANE,
@@ -191,7 +192,8 @@ class CommandsMenu(_PresetCategoryMenu):
 
 
 class TerminalContextMenu(QMenu):
-    """Right-click menu for a terminal: Copy/Paste plus a Command submenu.
+    """Right-click menu for a terminal: Copy/Paste plus Pane, Command and
+    Selection submenus, in whatever order the user set (see menu_prefs).
 
     The Command submenu deliberately lists all Command presets, not just
     sidebar-pinned ones - the sidebar is the curated quick-access surface,
@@ -221,22 +223,33 @@ class TerminalContextMenu(QMenu):
     def reload(self) -> None:
         clear_menu(self)
 
-        self._copy_action = self.addAction("Copy")
-        self._copy_action.triggered.connect(self._copy)
-        self._paste_action = self.addAction("Paste")
-        self._paste_action.triggered.connect(self._paste)
-        self.addSeparator()
-
         builders = {
+            SECTION_CLIPBOARD: self._add_clipboard_section,
             SECTION_PANE: self._add_pane_section,
             SECTION_COMMAND: self._add_command_section,
             SECTION_SELECTION: self._add_selection_section,
         }
-        order = self._order_store.order if self._order_store else DEFAULT_ORDER
-        for section in normalise_order(list(order)):
+        order = normalise_order(
+            list(self._order_store.order if self._order_store else DEFAULT_ORDER)
+        )
+        for position, section in enumerate(order):
+            # Copy/Paste is the only section that isn't a submenu, so it is
+            # the only one that needs ruling off from its neighbours - two
+            # bare actions butting against a list of submenus read as part of
+            # it. Wherever it lands, it keeps its separators.
+            if section == SECTION_CLIPBOARD and position > 0:
+                self.addSeparator()
             builders[section]()
+            if section == SECTION_CLIPBOARD and position < len(order) - 1:
+                self.addSeparator()
 
         self.refresh_enabled_state()
+
+    def _add_clipboard_section(self) -> None:
+        self._copy_action = self.addAction("Copy")
+        self._copy_action.triggered.connect(self._copy)
+        self._paste_action = self.addAction("Paste")
+        self._paste_action.triggered.connect(self._paste)
 
     def _add_pane_section(self) -> None:
         self._pane_menu = add_submenu(self, SECTION_LABELS[SECTION_PANE])

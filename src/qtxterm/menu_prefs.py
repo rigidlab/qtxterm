@@ -6,16 +6,23 @@ from PySide6.QtCore import QObject, QSettings, Signal
 
 _CONTEXT_ORDER_KEY = "menu/context_order"
 
+SECTION_CLIPBOARD = "clipboard"
 SECTION_PANE = "pane"
 SECTION_COMMAND = "command"
 SECTION_SELECTION = "selection"
 
-# Copy/Paste is deliberately not in here. It stays pinned above the
-# submenus: it is the one thing in this menu people hit by muscle memory,
-# and every other terminal puts it first.
-DEFAULT_ORDER = [SECTION_PANE, SECTION_COMMAND, SECTION_SELECTION]
+# Copy/Paste leads by default - it is the one thing in this menu people hit
+# by muscle memory, and every other terminal puts it first - but it moves
+# like any other section.
+DEFAULT_ORDER = [
+    SECTION_CLIPBOARD,
+    SECTION_PANE,
+    SECTION_COMMAND,
+    SECTION_SELECTION,
+]
 
 SECTION_LABELS = {
+    SECTION_CLIPBOARD: "Copy/Paste",
     SECTION_PANE: "Pane",
     SECTION_COMMAND: "Command",
     SECTION_SELECTION: "Selection",

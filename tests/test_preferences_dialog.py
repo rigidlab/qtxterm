@@ -10,6 +10,7 @@ from PySide6.QtGui import QFont
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.menu_prefs import (
     DEFAULT_ORDER,
+    SECTION_CLIPBOARD,
     SECTION_COMMAND,
     SECTION_PANE,
     SECTION_SELECTION,
@@ -70,12 +71,19 @@ def make_order_store(tmp_path: Path) -> ContextMenuOrderStore:
 
 def test_order_editor_lists_the_current_order(qtbot, tmp_path: Path) -> None:
     order_store = make_order_store(tmp_path)
-    order_store.save([SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION])
+    order_store.save(
+        [SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION, SECTION_CLIPBOARD]
+    )
 
     dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
     qtbot.addWidget(dialog)
 
-    assert dialog._section_order() == [SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION]
+    assert dialog._section_order() == [
+        SECTION_COMMAND,
+        SECTION_PANE,
+        SECTION_SELECTION,
+        SECTION_CLIPBOARD,
+    ]
 
 
 def test_moving_a_section_up_and_saving_persists_it(qtbot, tmp_path: Path) -> None:
@@ -83,11 +91,16 @@ def test_moving_a_section_up_and_saving_persists_it(qtbot, tmp_path: Path) -> No
     dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
     qtbot.addWidget(dialog)
 
-    dialog._order_list.setCurrentRow(1)  # Command
+    dialog._order_list.setCurrentRow(1)  # Pane
     dialog._move_section(-1)
     dialog._save()
 
-    assert order_store.order == [SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION]
+    assert order_store.order == [
+        SECTION_PANE,
+        SECTION_CLIPBOARD,
+        SECTION_COMMAND,
+        SECTION_SELECTION,
+    ]
 
 
 def test_the_moved_row_keeps_the_selection(qtbot, tmp_path: Path) -> None:
@@ -97,7 +110,8 @@ def test_the_moved_row_keeps_the_selection(qtbot, tmp_path: Path) -> None:
     dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
     qtbot.addWidget(dialog)
 
-    dialog._order_list.setCurrentRow(2)  # Selection
+    dialog._order_list.setCurrentRow(3)  # Selection
+    dialog._move_section(-1)
     dialog._move_section(-1)
     dialog._move_section(-1)
 

@@ -624,20 +624,24 @@ opened a second tab left a PowerShell stack trace across the new pane —
       width — a pre-existing bug this path exposed.
 
 ### Phase 4n — Right-click menu order preference ✅ done
-Where Command and Pane sit in the terminal right-click menu is a matter of
+Where each group sits in the terminal right-click menu is a matter of
 which one you reach for, so it is a preference rather than a fixed opinion.
 
-- [x] `menu_prefs.ContextMenuOrderStore` persists the order of the three
-      submenus (`menu/context_order` in the ini) and emits `changed`, so the
+- [x] `menu_prefs.ContextMenuOrderStore` persists the order of the four
+      sections (`menu/context_order` in the ini) and emits `changed`, so the
       one shared `TerminalContextMenu` rebuilds itself the moment it's saved —
       same pattern as `PresetStore.changed`.
-- [x] **Copy/Paste stays pinned above them.** It's the one thing in this menu
-      people hit by muscle memory, and every other terminal puts it first.
-      Only the submenus move.
+- [x] Copy/Paste is a movable section too, not a pinned header. It still
+      *leads by default* - it's the one thing here people hit by muscle
+      memory, and every other terminal puts it first - but a preference that
+      exempts the entry you most want at the bottom isn't much of one.
+- [x] It's the only section that isn't a submenu, so it carries its own
+      separators wherever it lands: two bare actions butting straight against
+      a run of submenus read as part of the list above them.
 - [x] `normalise_order()` drops unknown sections and appends missing ones, so
-      a stale or hand-edited setting can never make a submenu disappear —
+      a stale or hand-edited setting can never make a section disappear —
       a silently vanishing menu item would be a miserable thing to debug.
-- [x] Up/Down buttons, not drag-and-drop: three rows are too few and too
+- [x] Up/Down buttons, not drag-and-drop: four rows are too few and too
       short a target for dragging to be worth its discoverability cost. The
       moved row keeps the selection, so Move Up twice moves one entry two
       places.

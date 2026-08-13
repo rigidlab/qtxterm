@@ -23,6 +23,7 @@ from qtxterm.preset_menu import (
     selection_preview,
 )
 from qtxterm.menu_prefs import (
+    SECTION_CLIPBOARD,
     SECTION_COMMAND,
     SECTION_PANE,
     SECTION_SELECTION,
@@ -550,7 +551,9 @@ def test_context_menu_submenus_follow_the_saved_order(qtbot, tmp_path: Path) -> 
     order_store = ContextMenuOrderStore(
         QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
     )
-    order_store.save([SECTION_SELECTION, SECTION_COMMAND, SECTION_PANE])
+    order_store.save(
+        [SECTION_SELECTION, SECTION_COMMAND, SECTION_PANE, SECTION_CLIPBOARD]
+    )
 
     menu = TerminalContextMenu(store, tabs, order_store=order_store)
 
@@ -574,21 +577,56 @@ def test_context_menu_reorders_itself_when_the_preference_changes(
     assert submenu_titles(menu) == ["Command", "Pane", "Selection"]
 
 
-def test_copy_and_paste_stay_pinned_above_the_submenus(qtbot, tmp_path: Path) -> None:
-    """Reordering must not push Copy/Paste down - they're the muscle-memory
-    entries in this menu."""
+def test_copy_and_paste_lead_by_default(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+
+    menu = TerminalContextMenu(store, tabs)
+
+    texts = [a.text() for a in menu.actions() if a.text()]
+    assert texts[:2] == ["Copy", "Paste"]
+
+
+def test_copy_and_paste_can_be_moved_below_the_submenus(qtbot, tmp_path: Path) -> None:
     store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
     order_store = ContextMenuOrderStore(
         QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
     )
-    order_store.save([SECTION_SELECTION, SECTION_PANE, SECTION_COMMAND])
+    order_store.save(
+        [SECTION_PANE, SECTION_COMMAND, SECTION_SELECTION, SECTION_CLIPBOARD]
+    )
 
     menu = TerminalContextMenu(store, tabs, order_store=order_store)
 
     texts = [a.text() for a in menu.actions() if a.text()]
-    assert texts[:2] == ["Copy", "Paste"]
+    assert texts == ["Pane", "Command", "Selection", "Copy", "Paste"]
+
+
+def test_moved_copy_paste_keeps_a_separator_from_the_submenus(
+    qtbot, tmp_path: Path
+) -> None:
+    """Two bare actions butting straight against a list of submenus read as
+    part of it."""
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    order_store = ContextMenuOrderStore(
+        QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    )
+    order_store.save(
+        [SECTION_PANE, SECTION_CLIPBOARD, SECTION_COMMAND, SECTION_SELECTION]
+    )
+
+    menu = TerminalContextMenu(store, tabs, order_store=order_store)
+
+    shape = [
+        "---" if a.isSeparator() else a.text()
+        for a in menu.actions()
+    ]
+    assert shape == ["Pane", "---", "Copy", "Paste", "---", "Command", "Selection"]
 
 
 def test_context_menu_without_an_order_store_uses_the_default_order(
