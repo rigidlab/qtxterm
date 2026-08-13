@@ -8,6 +8,13 @@ from PySide6.QtCore import QSettings
 from PySide6.QtGui import QFont
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.menu_prefs import (
+    DEFAULT_ORDER,
+    SECTION_COMMAND,
+    SECTION_PANE,
+    SECTION_SELECTION,
+    ContextMenuOrderStore,
+)
 from qtxterm.preferences_dialog import PreferencesDialog
 
 
@@ -54,3 +61,70 @@ def test_cancel_does_not_save(qtbot, tmp_path: Path) -> None:
     dialog.reject()
 
     assert store.current is original
+
+
+def make_order_store(tmp_path: Path) -> ContextMenuOrderStore:
+    settings = QSettings(str(tmp_path / "menu.ini"), QSettings.Format.IniFormat)
+    return ContextMenuOrderStore(settings)
+
+
+def test_order_editor_lists_the_current_order(qtbot, tmp_path: Path) -> None:
+    order_store = make_order_store(tmp_path)
+    order_store.save([SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION])
+
+    dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
+    qtbot.addWidget(dialog)
+
+    assert dialog._section_order() == [SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION]
+
+
+def test_moving_a_section_up_and_saving_persists_it(qtbot, tmp_path: Path) -> None:
+    order_store = make_order_store(tmp_path)
+    dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
+    qtbot.addWidget(dialog)
+
+    dialog._order_list.setCurrentRow(1)  # Command
+    dialog._move_section(-1)
+    dialog._save()
+
+    assert order_store.order == [SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION]
+
+
+def test_the_moved_row_keeps_the_selection(qtbot, tmp_path: Path) -> None:
+    """Otherwise pressing Move Up twice walks two different entries up one
+    place each, instead of moving one entry two places."""
+    order_store = make_order_store(tmp_path)
+    dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
+    qtbot.addWidget(dialog)
+
+    dialog._order_list.setCurrentRow(2)  # Selection
+    dialog._move_section(-1)
+    dialog._move_section(-1)
+
+    assert dialog._section_order()[0] == SECTION_SELECTION
+
+
+def test_moving_past_either_end_does_nothing(qtbot, tmp_path: Path) -> None:
+    order_store = make_order_store(tmp_path)
+    dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
+    qtbot.addWidget(dialog)
+    before = dialog._section_order()
+
+    dialog._order_list.setCurrentRow(0)
+    dialog._move_section(-1)
+    dialog._order_list.setCurrentRow(dialog._order_list.count() - 1)
+    dialog._move_section(1)
+
+    assert dialog._section_order() == before
+
+
+def test_cancel_leaves_the_saved_order_alone(qtbot, tmp_path: Path) -> None:
+    order_store = make_order_store(tmp_path)
+    dialog = PreferencesDialog(make_store(tmp_path), order_store=order_store)
+    qtbot.addWidget(dialog)
+
+    dialog._order_list.setCurrentRow(2)
+    dialog._move_section(-1)
+    dialog.reject()
+
+    assert order_store.order == DEFAULT_ORDER

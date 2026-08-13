@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -7,12 +8,17 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFontComboBox,
     QFormLayout,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.menu_prefs import SECTION_LABELS, ContextMenuOrderStore
 from qtxterm.shell_prefs import (
     SYSTEM_DEFAULT,
     ShellPreferenceStore,
@@ -21,9 +27,14 @@ from qtxterm.shell_prefs import (
 from qtxterm.shells import known_shells
 from qtxterm.themes import THEMES
 
+# Frame plus the viewport's own padding, so the last row is never clipped
+# into a scrollbar.
+_LIST_FRAME_ALLOWANCE = 8
+
 
 class PreferencesDialog(QDialog):
-    """Terminal preferences: default shell, color theme, font, font size.
+    """Terminal preferences: default shell, color theme, font, font size, and
+    the order of the terminal right-click menu's submenus.
 
     Saving applies immediately to every open tab (AppearanceStore.changed)
     and persists for the next launch. The default shell only affects tabs
@@ -35,6 +46,7 @@ class PreferencesDialog(QDialog):
         store: AppearanceStore,
         parent: QWidget | None = None,
         shell_store: ShellPreferenceStore | None = None,
+        order_store: ContextMenuOrderStore | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preferences")
@@ -43,6 +55,7 @@ class PreferencesDialog(QDialog):
         self.setMinimumWidth(360)
         self._store = store
         self._shell_store = shell_store
+        self._order_store = order_store
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -73,6 +86,9 @@ class PreferencesDialog(QDialog):
         self._size_spin.setValue(store.current.font_size)
         form.addRow("Font size", self._size_spin)
 
+        if order_store is not None:
+            form.addRow("Right-click menu", self._build_order_editor())
+
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(
@@ -82,7 +98,63 @@ class PreferencesDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _build_order_editor(self) -> QWidget:
+        """A short list of the right-click menu's submenus, with Up/Down.
+
+        Drag-and-drop reordering is tempting for three rows, but it is
+        undiscoverable and fiddly at this size; buttons say what they do.
+        Copy/Paste isn't listed because it stays pinned at the top - see
+        menu_prefs.DEFAULT_ORDER.
+        """
+        self._order_list = QListWidget()
+        for section in self._order_store.order:
+            item = QListWidgetItem(SECTION_LABELS[section])
+            item.setData(Qt.ItemDataRole.UserRole, section)
+            self._order_list.addItem(item)
+        self._order_list.setCurrentRow(0)
+        # Just tall enough for every row, so the list never scrolls and the
+        # dialog doesn't grow a second scrolling area inside a form.
+        row_height = self._order_list.sizeHintForRow(0)
+        self._order_list.setFixedHeight(
+            row_height * self._order_list.count() + _LIST_FRAME_ALLOWANCE
+        )
+
+        up = QPushButton("Move Up")
+        up.clicked.connect(lambda: self._move_section(-1))
+        down = QPushButton("Move Down")
+        down.clicked.connect(lambda: self._move_section(1))
+
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self._order_list, 1)
+        column = QVBoxLayout()
+        column.addWidget(up)
+        column.addWidget(down)
+        column.addStretch()
+        row.addLayout(column)
+        return container
+
+    def _move_section(self, offset: int) -> None:
+        row = self._order_list.currentRow()
+        target = row + offset
+        if row < 0 or not 0 <= target < self._order_list.count():
+            return
+        item = self._order_list.takeItem(row)
+        self._order_list.insertItem(target, item)
+        # Keep the selection on the row that moved, so pressing Move Up twice
+        # moves one entry two places rather than moving two entries.
+        self._order_list.setCurrentRow(target)
+
+    def _section_order(self) -> list[str]:
+        return [
+            self._order_list.item(row).data(Qt.ItemDataRole.UserRole)
+            for row in range(self._order_list.count())
+        ]
+
     def _save(self) -> None:
+        if self._order_store is not None:
+            self._order_store.save(self._section_order())
         if self._shell_store is not None:
             self._shell_store.save(self._shell_combo.currentData())
         self._store.save(

@@ -623,6 +623,29 @@ opened a second tab left a PowerShell stack trace across the new pane —
       refitted without telling the PTY, so the shell kept wrapping to the old
       width — a pre-existing bug this path exposed.
 
+### Phase 4n — Right-click menu order preference ✅ done
+Where Command and Pane sit in the terminal right-click menu is a matter of
+which one you reach for, so it is a preference rather than a fixed opinion.
+
+- [x] `menu_prefs.ContextMenuOrderStore` persists the order of the three
+      submenus (`menu/context_order` in the ini) and emits `changed`, so the
+      one shared `TerminalContextMenu` rebuilds itself the moment it's saved —
+      same pattern as `PresetStore.changed`.
+- [x] **Copy/Paste stays pinned above them.** It's the one thing in this menu
+      people hit by muscle memory, and every other terminal puts it first.
+      Only the submenus move.
+- [x] `normalise_order()` drops unknown sections and appends missing ones, so
+      a stale or hand-edited setting can never make a submenu disappear —
+      a silently vanishing menu item would be a miserable thing to debug.
+- [x] Up/Down buttons, not drag-and-drop: three rows are too few and too
+      short a target for dragging to be worth its discoverability cost. The
+      moved row keeps the selection, so Move Up twice moves one entry two
+      places.
+- [x] `QListWidget` picked up a themed border in `chrome_stylesheet()` for
+      the same reason menus and tabs did — Fusion's frame is invisible on a
+      dark theme, which left the rows reading as loose text in the form. Also
+      improves the Manage dialogs' lists.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented

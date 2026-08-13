@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QStyle
 from qtxterm.appearance import AppearanceStore
 from qtxterm.branding import app_icon
 from qtxterm.help_dialog import HelpDialog
+from qtxterm.menu_prefs import ContextMenuOrderStore
 from qtxterm.preferences_dialog import PreferencesDialog
 from qtxterm.preset_menu import (
     CommandsMenu,
@@ -41,6 +42,7 @@ class MainWindow(QMainWindow):
         self._appearance_store.changed.connect(self._apply_qt_theme)
         self._apply_qt_theme()
         self._shell_store = ShellPreferenceStore(self._settings)
+        self._menu_order_store = ContextMenuOrderStore(self._settings)
         self._tabs = TerminalTabWidget(
             parent=self,
             appearance_store=self._appearance_store,
@@ -103,7 +105,10 @@ class MainWindow(QMainWindow):
         # One menu shared by every tab - it rebuilds itself on store changes,
         # so there's nothing per-tab to keep in sync.
         self._terminal_context_menu = TerminalContextMenu(
-            self._preset_store, self._tabs, parent=self
+            self._preset_store,
+            self._tabs,
+            parent=self,
+            order_store=self._menu_order_store,
         )
         self._tabs.context_menu_requested.connect(self._show_terminal_context_menu)
 
@@ -188,7 +193,10 @@ class MainWindow(QMainWindow):
 
     def show_preferences(self) -> None:
         PreferencesDialog(
-            self._appearance_store, self, shell_store=self._shell_store
+            self._appearance_store,
+            self,
+            shell_store=self._shell_store,
+            order_store=self._menu_order_store,
         ).exec()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)

@@ -6,6 +6,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import QMenu, QWidget
 
+from qtxterm.menu_prefs import (
+    DEFAULT_ORDER,
+    SECTION_COMMAND,
+    SECTION_LABELS,
+    SECTION_PANE,
+    SECTION_SELECTION,
+    ContextMenuOrderStore,
+    normalise_order,
+)
 from qtxterm.preset_editor import PresetEditorDialog, editor_title
 from qtxterm.presets import (
     CATEGORY_COMMANDS,
@@ -191,12 +200,19 @@ class TerminalContextMenu(QMenu):
     """
 
     def __init__(
-        self, store: PresetStore, tabs: TerminalTabWidget, parent: QWidget | None = None
+        self,
+        store: PresetStore,
+        tabs: TerminalTabWidget,
+        parent: QWidget | None = None,
+        order_store: ContextMenuOrderStore | None = None,
     ) -> None:
         super().__init__(parent)
         self._store = store
         self._tabs = tabs
+        self._order_store = order_store
         self._store.changed.connect(self.reload)
+        if order_store is not None:
+            order_store.changed.connect(self.reload)
         # Selection and clipboard both change without the store changing, so
         # Copy/Paste availability is refreshed per open rather than in reload().
         self.aboutToShow.connect(self.refresh_enabled_state)
@@ -211,20 +227,32 @@ class TerminalContextMenu(QMenu):
         self._paste_action.triggered.connect(self._paste)
         self.addSeparator()
 
-        self._pane_menu = add_submenu(self, "Pane")
+        builders = {
+            SECTION_PANE: self._add_pane_section,
+            SECTION_COMMAND: self._add_command_section,
+            SECTION_SELECTION: self._add_selection_section,
+        }
+        order = self._order_store.order if self._order_store else DEFAULT_ORDER
+        for section in normalise_order(list(order)):
+            builders[section]()
+
+        self.refresh_enabled_state()
+
+    def _add_pane_section(self) -> None:
+        self._pane_menu = add_submenu(self, SECTION_LABELS[SECTION_PANE])
         self._build_pane_menu()
 
-        self._run_menu = add_submenu(self, "Command")
+    def _add_command_section(self) -> None:
+        self._run_menu = add_submenu(self, SECTION_LABELS[SECTION_COMMAND])
         commands = in_category(self._store.presets, CATEGORY_COMMANDS)
         add_preset_actions(self._run_menu, commands, self._run)
         if not commands:
             empty = self._run_menu.addAction("No commands yet")
             empty.setEnabled(False)
 
-        self._selection_menu = add_submenu(self, "Selection")
+    def _add_selection_section(self) -> None:
+        self._selection_menu = add_submenu(self, SECTION_LABELS[SECTION_SELECTION])
         self._build_selection_menu()
-
-        self.refresh_enabled_state()
 
     def _build_pane_menu(self) -> None:
         """Everything that acts on the pane layout, in one group.

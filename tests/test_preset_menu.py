@@ -8,7 +8,7 @@ from __future__ import annotations
 import gc
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtCore import QCoreApplication, QEvent, QSettings
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import QMenu
 
@@ -21,6 +21,12 @@ from qtxterm.preset_menu import (
     SelectionMenu,
     TerminalContextMenu,
     selection_preview,
+)
+from qtxterm.menu_prefs import (
+    SECTION_COMMAND,
+    SECTION_PANE,
+    SECTION_SELECTION,
+    ContextMenuOrderStore,
 )
 from qtxterm.presets import (
     CATEGORY_SELECTION,
@@ -531,3 +537,67 @@ def test_selection_menu_new_opens_the_selection_editor(qtbot, tmp_path, monkeypa
     ).trigger()
 
     assert opened == [(CATEGORY_SELECTION, True), (CATEGORY_SELECTION, False)]
+
+
+def submenu_titles(menu: TerminalContextMenu) -> list[str]:
+    return [a.text() for a in menu.actions() if a.menu() is not None]
+
+
+def test_context_menu_submenus_follow_the_saved_order(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    order_store = ContextMenuOrderStore(
+        QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    )
+    order_store.save([SECTION_SELECTION, SECTION_COMMAND, SECTION_PANE])
+
+    menu = TerminalContextMenu(store, tabs, order_store=order_store)
+
+    assert submenu_titles(menu) == ["Selection", "Command", "Pane"]
+
+
+def test_context_menu_reorders_itself_when_the_preference_changes(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    order_store = ContextMenuOrderStore(
+        QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    )
+    menu = TerminalContextMenu(store, tabs, order_store=order_store)
+    assert submenu_titles(menu) == ["Pane", "Command", "Selection"]
+
+    order_store.save([SECTION_COMMAND, SECTION_PANE, SECTION_SELECTION])
+
+    assert submenu_titles(menu) == ["Command", "Pane", "Selection"]
+
+
+def test_copy_and_paste_stay_pinned_above_the_submenus(qtbot, tmp_path: Path) -> None:
+    """Reordering must not push Copy/Paste down - they're the muscle-memory
+    entries in this menu."""
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    order_store = ContextMenuOrderStore(
+        QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    )
+    order_store.save([SECTION_SELECTION, SECTION_PANE, SECTION_COMMAND])
+
+    menu = TerminalContextMenu(store, tabs, order_store=order_store)
+
+    texts = [a.text() for a in menu.actions() if a.text()]
+    assert texts[:2] == ["Copy", "Paste"]
+
+
+def test_context_menu_without_an_order_store_uses_the_default_order(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_store(tmp_path, [])
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+
+    menu = TerminalContextMenu(store, tabs)
+
+    assert submenu_titles(menu) == ["Pane", "Command", "Selection"]

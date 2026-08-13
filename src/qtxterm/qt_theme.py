@@ -163,6 +163,10 @@ def chrome_stylesheet(ui: UiPalette) -> str:
     return f"""
         QMenu {{ border: 1px solid {border}; }}
         QTabWidget::pane {{ border: 1px solid {border}; }}
+        /* Same reason as menus: on a dark theme a Fusion list frame is
+           invisible against the dialog, so the rows read as loose text
+           floating in the form rather than as one editable list. */
+        QListWidget {{ border: 1px solid {border}; }}
         QTabBar::tab {{
             background: {ui.window};
             color: {ui.disabled_text};
