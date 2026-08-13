@@ -13,7 +13,34 @@
   const applyPageBackground = (background) => {
     document.body.style.background = background;
   };
+
+  // xterm.js scrolls a plain div, so the bar is Chromium's own. Restyled
+  // here rather than in terminal.html's stylesheet because Chromium does not
+  // resolve CSS custom properties inside ::-webkit-scrollbar-* pseudo
+  // elements - a var() rule silently uses its fallback, so the colour never
+  // followed the theme. Concrete values are written into a <style> element
+  // instead, and rewritten whenever the theme changes.
+  //
+  // The tint is the theme's own foreground: a fixed light thumb vanishes on
+  // light themes and vice versa. 0x66 is ~40% alpha, matching VS Code's
+  // terminal - quiet enough to ignore, strong enough to find.
+  const scrollbarStyle = document.createElement("style");
+  document.head.appendChild(scrollbarStyle);
+
+  const applyScrollbarTint = (foreground) => {
+    const fg = /^#[0-9a-f]{6}$/i.test(foreground || "") ? foreground : "#808080";
+    scrollbarStyle.textContent = `
+      .xterm-viewport::-webkit-scrollbar { width: 8px; }
+      .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+      .xterm-viewport::-webkit-scrollbar-thumb {
+        background: ${fg}66; border-radius: 4px;
+      }
+      .xterm-viewport::-webkit-scrollbar-thumb:hover { background: ${fg}b3; }
+    `;
+  };
+
   applyPageBackground(theme.background);
+  applyScrollbarTint(theme.foreground);
 
   const term = new Terminal({
     cursorBlink: true,
@@ -41,6 +68,7 @@
     term.options.fontFamily = options.fontFamily;
     term.options.fontSize = options.fontSize;
     applyPageBackground(options.theme.background);
+    applyScrollbarTint(options.theme.foreground);
     fitAddon.fit();
   };
 

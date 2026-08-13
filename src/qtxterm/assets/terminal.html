@@ -8,6 +8,11 @@
      pre-script ground, kept neutral so no theme flashes the wrong color. */
   html, body { margin: 0; padding: 0; height: 100%; }
   #terminal { height: 100%; }
+
+  /* The scrollbar is styled from terminal.js, not here: Chromium does not
+     resolve CSS custom properties inside ::-webkit-scrollbar-* pseudo
+     elements, so a var() rule silently falls back and never follows the
+     theme. */
 </style>
 </head>
 <body>
