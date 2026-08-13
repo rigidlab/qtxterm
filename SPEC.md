@@ -383,6 +383,36 @@ how. Verified empirically:
 - [x] `tabBarDoubleClicked` fires with -1 for a double-click on empty tab bar
       space; that is ignored rather than prompting for a nonexistent tab.
 
+### Phase 4i — Split panes, step 1: focus tracking ✅ done
+Groundwork only - no visible change. A tab still holds exactly one terminal.
+
+- [x] `active_terminal()` now means *the focused pane of the current tab*
+      rather than "the current tab". It walks the tab's subtree, prefers the
+      terminal last focused there, and falls back to the first one found.
+- [x] Focus is tracked via `QApplication.focusChanged` plus
+      `_owning_terminal()`, which walks up the parent chain. An event filter
+      per terminal would not do: keyboard focus inside a terminal lands on a
+      Chromium child widget, not on the `TerminalWidget`.
+- [x] `_terminals_in()` / `_panes_in()` make the appearance and shutdown loops
+      subtree-aware, so they already reach panes nested in a splitter.
+
+Why this landed first, on its own: it is the only part of splitting that can
+fail *silently*. If the active pane is wrong, a sidebar click sends `git
+status` to the wrong terminal with no error. Everything else about splitting
+(the splitter tree, close semantics, the active-pane border) fails visibly.
+
+Remaining, not started:
+- Split horizontal/vertical, close pane, the nested `QSplitter` tree.
+- A visible active-pane indicator. Once a tab holds several panes, "which one
+  will this command go to?" becomes a question the UI has to answer.
+- Pane-vs-tab close semantics (`Ctrl+Shift+W` becomes ambiguous), focus
+  navigation shortcuts, and tab labels with more than one pane.
+
+`QDockWidget` was considered and rejected for panes: docks are built for
+peripheral tool windows around a central widget, carry title bars you would
+not want on every pane, and bring float/drag-out behaviour that a splitter
+does not need. The sidebar stays a dock; terminals do not.
+
 ## Process cleanup on close — verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"

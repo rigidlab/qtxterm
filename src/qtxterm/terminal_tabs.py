@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QInputDialog, QTabWidget, QToolButton, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QInputDialog,
+    QTabWidget,
+    QToolButton,
+    QWidget,
+)
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.browser_widget import BrowserWidget
@@ -38,6 +44,12 @@ class TerminalTabWidget(QTabWidget):
         # changes, and so clearing a rename can fall back to something current.
         self._auto_titles: dict[QWidget, str] = {}
         self._custom_titles: dict[QWidget, str] = {}
+        # Which terminal was last focused inside each tab. Today a tab holds
+        # exactly one, so this is redundant - it exists so that when a tab can
+        # hold a tree of split panes, "the active terminal" is the pane you
+        # last typed in rather than an arbitrary one. Getting that wrong sends
+        # a sidebar command to the wrong pane, silently.
+        self._focused_terminals: dict[QWidget, TerminalWidget] = {}
         self._appearance_store = appearance_store
         if self._appearance_store is not None:
             self._appearance_store.changed.connect(self._apply_appearance_to_all_tabs)
@@ -55,6 +67,14 @@ class TerminalTabWidget(QTabWidget):
         self.setCornerWidget(add_button, Qt.Corner.TopRightCorner)
 
         self._install_shortcuts()
+
+        # focusChanged rather than an event filter per terminal: keyboard
+        # focus inside a terminal lands on a Chromium child widget, not on the
+        # TerminalWidget itself, so the owning terminal has to be found by
+        # walking up from whatever actually took focus.
+        app = QApplication.instance()
+        if app is not None:
+            app.focusChanged.connect(self._on_focus_changed)
 
     def _install_shortcuts(self) -> None:
         def bind(sequence: str, slot) -> QShortcut:
@@ -118,10 +138,49 @@ class TerminalTabWidget(QTabWidget):
         self._renumber()
         return widget
 
+    @staticmethod
+    def _terminals_in(container: QWidget | None) -> list[TerminalWidget]:
+        """Every terminal inside a tab, whether it is the tab or nested in it.
+
+        findChildren walks the whole subtree, so this already handles a tab
+        holding a tree of split panes.
+        """
+        if container is None:
+            return []
+        if isinstance(container, TerminalWidget):
+            return [container]
+        return container.findChildren(TerminalWidget)
+
+    def _panes_in(self, container: QWidget | None) -> list[QWidget]:
+        """The content widgets of a tab: its terminals, or the tab itself.
+
+        A browser tab has no terminals but still needs shutdown() and
+        apply_appearance() called on it.
+        """
+        return self._terminals_in(container) or ([container] if container else [])
+
+    def _on_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
+        terminal = self._owning_terminal(new)
+        if terminal is None:
+            return
+        for i in range(self.count()):
+            if terminal in self._terminals_in(self.widget(i)):
+                self._focused_terminals[self.widget(i)] = terminal
+                return
+
+    @staticmethod
+    def _owning_terminal(widget: QWidget | None) -> TerminalWidget | None:
+        while widget is not None:
+            if isinstance(widget, TerminalWidget):
+                return widget
+            widget = widget.parentWidget()
+        return None
+
     def _apply_appearance_to_all_tabs(self) -> None:
         appearance = self._appearance_store.current
         for i in range(self.count()):
-            self.widget(i).apply_appearance(appearance)
+            for pane in self._panes_in(self.widget(i)):
+                pane.apply_appearance(appearance)
 
     def close_tab_at(self, index: int) -> None:
         widget = self.widget(index)
@@ -131,6 +190,7 @@ class TerminalTabWidget(QTabWidget):
         self.removeTab(index)
         self._auto_titles.pop(widget, None)
         self._custom_titles.pop(widget, None)
+        self._focused_terminals.pop(widget, None)
         widget.deleteLater()
 
         if self.count() == 0:
@@ -141,7 +201,8 @@ class TerminalTabWidget(QTabWidget):
     def close_all_tabs(self) -> None:
         """Shut every tab down (PTYs, loading pages) as the window closes."""
         for i in range(self.count()):
-            self.widget(i).shutdown()
+            for pane in self._panes_in(self.widget(i)):
+                pane.shutdown()
 
     def preferred_shell(self) -> str | list[str] | None:
         """The configured default shell, or None to let the OS decide."""
@@ -191,8 +252,14 @@ class TerminalTabWidget(QTabWidget):
         Command submenu, Selection Actions) would otherwise try to write to
         a web page.
         """
-        widget = self.currentWidget()
-        return widget if isinstance(widget, TerminalWidget) else None
+        current = self.currentWidget()
+        if isinstance(current, TerminalWidget):
+            return current
+        terminals = self._terminals_in(current)
+        remembered = self._focused_terminals.get(current)
+        if remembered in terminals:
+            return remembered
+        return terminals[0] if terminals else None
 
     def _set_tab_title(self, widget, title: str) -> None:
         """Update the automatic name. A user rename still wins over it."""

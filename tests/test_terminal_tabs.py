@@ -6,12 +6,13 @@ from pathlib import Path
 
 from conftest import FakePtySession
 from PySide6.QtCore import QPoint, QSettings
+from PySide6.QtWidgets import QSplitter
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm import terminal_tabs
 from qtxterm.pty_backend import default_shell
 from qtxterm.terminal_tabs import TerminalTabWidget
-from qtxterm.terminal_widget import shell_short_name
+from qtxterm.terminal_widget import TerminalWidget, shell_short_name
 
 
 def make_tabs(qtbot) -> TerminalTabWidget:
@@ -388,3 +389,110 @@ def test_cancelling_the_prompt_leaves_the_name_alone(qtbot, monkeypatch) -> None
     tabs.tabBarDoubleClicked.emit(0)
 
     assert tabs.tabText(0) == "0:bash"
+
+
+def split_tab(tabs, *terminals) -> QSplitter:
+    """A tab holding several terminals, standing in for a future split pane."""
+    splitter = QSplitter()
+    for t in terminals:
+        splitter.addWidget(t)
+    index = tabs.addTab(splitter, "")
+    tabs.setCurrentIndex(index)
+    return splitter
+
+
+def test_terminals_in_finds_nested_panes(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    a = TerminalWidget(pty_session=FakePtySession())
+    b = TerminalWidget(pty_session=FakePtySession())
+    splitter = split_tab(tabs, a, b)
+
+    found = tabs._terminals_in(splitter)
+
+    assert set(found) == {a, b}
+
+
+def test_active_terminal_follows_focus_within_a_tab(qtbot) -> None:
+    """The crux of splitting: commands must go to the pane you last typed in,
+    not an arbitrary one."""
+    tabs = make_tabs(qtbot)
+    a = TerminalWidget(pty_session=FakePtySession())
+    b = TerminalWidget(pty_session=FakePtySession())
+    splitter = split_tab(tabs, a, b)
+
+    # Before focus tracking this returned None: a splitter tab isn't itself
+    # a TerminalWidget, so there was nothing for commands to target.
+    assert tabs.active_terminal() in (a, b)
+
+    tabs._on_focus_changed(None, b)
+    assert tabs.active_terminal() is b
+
+    tabs._on_focus_changed(None, a)
+    assert tabs.active_terminal() is a
+    assert tabs._focused_terminals[splitter] is a
+
+
+def test_focus_is_traced_up_from_a_child_widget(qtbot) -> None:
+    """Keyboard focus lands on a Chromium child, not the TerminalWidget."""
+    tabs = make_tabs(qtbot)
+    a = TerminalWidget(pty_session=FakePtySession())
+    b = TerminalWidget(pty_session=FakePtySession())
+    split_tab(tabs, a, b)
+
+    inner = b._view.focusProxy() or b._view
+    tabs._on_focus_changed(None, inner)
+
+    assert tabs.active_terminal() is b
+
+
+def test_focus_in_an_unrelated_widget_is_ignored(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    stray = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(stray)
+
+    tabs._on_focus_changed(None, stray)
+
+    assert tabs.active_terminal() is terminal
+    assert stray not in tabs._focused_terminals.values()
+
+
+def test_a_closed_pane_is_not_returned_as_active(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    a = TerminalWidget(pty_session=FakePtySession())
+    b = TerminalWidget(pty_session=FakePtySession())
+    split_tab(tabs, a, b)
+    tabs._on_focus_changed(None, b)
+
+    b.setParent(None)
+
+    assert tabs.active_terminal() is a
+
+
+def test_appearance_reaches_every_pane(qtbot, tmp_path) -> None:
+    settings = QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat)
+    store = AppearanceStore(settings)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+    a = TerminalWidget(pty_session=FakePtySession())
+    b = TerminalWidget(pty_session=FakePtySession())
+    split_tab(tabs, a, b)
+    applied = []
+    a.apply_appearance = lambda ap: applied.append(a)
+    b.apply_appearance = lambda ap: applied.append(b)
+
+    store.save(Appearance(theme_name="Solarized Dark"))
+
+    assert set(applied) == {a, b}
+
+
+def test_close_all_tabs_shuts_down_every_pane(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty_a, pty_b = FakePtySession(), FakePtySession()
+    a = TerminalWidget(pty_session=pty_a)
+    b = TerminalWidget(pty_session=pty_b)
+    split_tab(tabs, a, b)
+
+    tabs.close_all_tabs()
+
+    assert pty_a.closed and pty_b.closed
