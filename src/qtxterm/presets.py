@@ -21,6 +21,67 @@ CATEGORY_SELECTION = "selection"
 # The placeholder a url-kind template must contain to receive the selection.
 SELECTION_PLACEHOLDER = "{selection}"
 
+# A Macro's lines can be split into steps, each opening its own terminal.
+# The separator carries where that terminal goes, so the layout is authored
+# inline and needs no extra fields or editor controls:
+#
+#     npm run dev
+#     --- right
+#     npm run test:watch
+#     --- down
+#     git status
+#
+MACRO_STEP_SEPARATOR = "---"
+STEP_TAB = "tab"
+STEP_RIGHT = "right"
+STEP_DOWN = "down"
+_STEP_PLACEMENTS = {STEP_TAB, STEP_RIGHT, STEP_DOWN}
+
+
+@dataclasses.dataclass(frozen=True)
+class MacroStep:
+    """One terminal's worth of a Macro, and where it opens."""
+
+    lines: list[str]
+    placement: str = STEP_TAB
+
+
+def macro_steps(lines: list[str]) -> list[MacroStep]:
+    """Split a Macro's lines into the terminals it should open.
+
+    No separator means one step, which is what every Macro written before
+    this existed contains - so they keep opening a single tab.
+
+    The placement on a separator applies to the step *after* it; the first
+    step has nowhere to be relative to, so it always opens a tab. An
+    unrecognised word falls back to a tab rather than refusing to run: a
+    typo should cost you a pane arrangement, not the whole macro.
+    """
+    steps: list[MacroStep] = []
+    current: list[str] = []
+    placement = STEP_TAB
+
+    def flush() -> None:
+        if current:
+            steps.append(MacroStep(list(current), placement))
+        current.clear()
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == MACRO_STEP_SEPARATOR or stripped.startswith(
+            MACRO_STEP_SEPARATOR + " "
+        ):
+            flush()
+            word = stripped[len(MACRO_STEP_SEPARATOR) :].strip().lower()
+            placement = word if word in _STEP_PLACEMENTS else STEP_TAB
+        else:
+            current.append(line)
+    flush()
+
+    if steps:
+        steps[0] = MacroStep(steps[0].lines, STEP_TAB)
+    return steps
+
 
 @dataclasses.dataclass
 class Preset:

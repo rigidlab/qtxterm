@@ -779,3 +779,57 @@ def test_closing_a_browser_tab_still_shuts_it_down(qtbot) -> None:
 
     assert stopped == [True]
     assert tabs.count() == 0
+
+
+def test_run_macro_without_separators_opens_one_tab(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty = FakePtySession()
+
+    opened = tabs.run_macro(["echo one", "echo two"])
+    opened[0]._pty = pty
+    opened[0]._bridge.ready(80, 24)
+
+    assert len(opened) == 1
+    assert tabs.count() == 1
+
+
+def test_run_macro_opens_a_tab_per_separator(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    opened = tabs.run_macro(["echo one", "---", "echo two", "---", "echo three"])
+
+    assert len(opened) == 3
+    assert tabs.count() == 3
+
+
+def test_run_macro_splits_instead_of_opening_a_tab(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    opened = tabs.run_macro(["dev", "--- right", "tests", "--- down", "logs"])
+
+    assert len(opened) == 3
+    assert tabs.count() == 1                       # all three share one tab
+    assert len(tabs._panes_in(tabs.widget(0))) == 3
+
+
+def test_run_macro_mixes_tabs_and_panes(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    tabs.run_macro(["a", "--- right", "b", "---", "c"])
+
+    assert tabs.count() == 2
+    assert len(tabs._panes_in(tabs.widget(0))) == 2
+    assert len(tabs._panes_in(tabs.widget(1))) == 1
+
+
+def test_run_macro_feeds_each_step_its_own_lines(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    ptys = [FakePtySession(), FakePtySession()]
+
+    opened = tabs.run_macro(["first", "--- right", "second"])
+    for widget, pty in zip(opened, ptys):
+        widget._pty = pty
+        widget._bridge.ready(80, 24)
+
+    assert ptys[0].write_calls == ["first\r"]
+    assert ptys[1].write_calls == ["second\r"]

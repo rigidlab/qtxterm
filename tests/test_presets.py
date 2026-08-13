@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from qtxterm.presets import Preset, PresetStore
+from qtxterm.presets import macro_steps, Preset, PresetStore
 
 
 def test_target_defaults_to_active_for_single_line() -> None:
@@ -90,3 +90,58 @@ def test_add_update_delete_persist(tmp_path: Path) -> None:
 
     store.delete(0)
     assert PresetStore(path=path).presets == []
+
+
+def test_macro_without_a_separator_is_one_step() -> None:
+    """Every Macro written before steps existed must keep opening one tab."""
+    steps = macro_steps(["echo one", "echo two"])
+
+    assert [(s.placement, s.lines) for s in steps] == [("tab", ["echo one", "echo two"])]
+
+
+def test_a_separator_starts_another_tab() -> None:
+    steps = macro_steps(["npm run dev", "---", "git status"])
+
+    assert [(s.placement, s.lines) for s in steps] == [
+        ("tab", ["npm run dev"]),
+        ("tab", ["git status"]),
+    ]
+
+
+def test_separators_carry_where_the_step_opens() -> None:
+    steps = macro_steps(["a", "--- right", "b", "--- down", "c"])
+
+    assert [(s.placement, s.lines) for s in steps] == [
+        ("tab", ["a"]),
+        ("right", ["b"]),
+        ("down", ["c"]),
+    ]
+
+
+def test_the_first_step_always_opens_a_tab() -> None:
+    """It has nothing to be placed relative to."""
+    steps = macro_steps(["--- right", "a", "--- down", "b"])
+
+    assert steps[0].placement == "tab"
+    assert steps[1].placement == "down"
+
+
+def test_an_unknown_placement_falls_back_to_a_tab() -> None:
+    """A typo should cost a pane arrangement, not the whole macro."""
+    steps = macro_steps(["a", "--- sideways", "b"])
+
+    assert [s.placement for s in steps] == ["tab", "tab"]
+
+
+def test_empty_groups_are_dropped() -> None:
+    steps = macro_steps(["---", "a", "---", "---", "b", "---"])
+
+    assert [s.lines for s in steps] == [["a"], ["b"]]
+
+
+def test_a_separator_needs_to_be_the_whole_line() -> None:
+    """`echo ---` is a command, not a separator."""
+    steps = macro_steps(["echo ---", "git log --- graph"])
+
+    assert len(steps) == 1
+    assert steps[0].lines == ["echo ---", "git log --- graph"]

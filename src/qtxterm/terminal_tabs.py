@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.browser_widget import BrowserWidget
 from qtxterm.pane import PaneWidget
+from qtxterm.presets import STEP_RIGHT, STEP_TAB, macro_steps
 from qtxterm.pty_backend import PtySession, default_shell
 from qtxterm.shell_prefs import ShellPreferenceStore
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
@@ -549,13 +550,47 @@ class TerminalTabWidget(QTabWidget):
     ) -> TerminalWidget:
         """Open a new tab and feed it `lines` once its PTY has actually started."""
         widget = self.new_tab(shell=shell, pty_session=pty_session)
+        self._feed_when_ready(widget, lines)
+        return widget
 
+    @staticmethod
+    def _feed_when_ready(widget: TerminalWidget, lines: list[str]) -> None:
         def _feed() -> None:
             for line in lines:
                 widget.send_command(line)
 
         widget.run_when_ready(_feed)
-        return widget
+
+    def run_macro(
+        self, lines: list[str], shell: str | list[str] | None = None
+    ) -> list[TerminalWidget]:
+        """Run a Macro, which may lay itself out across tabs and panes.
+
+        The first step always opens a tab; each later step opens a tab of its
+        own or splits the one before it, per the separator that introduced it
+        (see presets.macro_steps). A Macro with no separators is one step, so
+        it behaves exactly as it did before this existed.
+
+        Splits chain off the pane just created rather than the tab's first
+        one - "right then down" gives a column beside the original, which is
+        what reading it top to bottom suggests.
+        """
+        opened: list[TerminalWidget] = []
+        for step in macro_steps(lines):
+            if step.placement == STEP_TAB or not opened:
+                widget = self.run_in_new_tab(shell, step.lines)
+            else:
+                orientation = (
+                    Qt.Orientation.Horizontal
+                    if step.placement == STEP_RIGHT
+                    else Qt.Orientation.Vertical
+                )
+                widget = self.split_active(orientation, shell=shell)
+                if widget is None:
+                    continue
+                self._feed_when_ready(widget, step.lines)
+            opened.append(widget)
+        return opened
 
     def active_pane(self) -> PaneWidget | None:
         """The pane you last used in the current tab - terminal or browser."""

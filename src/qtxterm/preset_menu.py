@@ -368,4 +368,4 @@ class MacrosMenu(_PresetCategoryMenu):
         )
 
     def _run(self, preset: Preset) -> None:
-        self._tabs.run_in_new_tab(None, preset.lines)
+        self._tabs.run_macro(preset.lines)
