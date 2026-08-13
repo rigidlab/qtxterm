@@ -441,6 +441,26 @@ becomes a hard requirement, nesting a `QMainWindow` per tab with panes as
 `QDockWidget`s would get it from Qt for free, at the cost of a title bar on
 every pane.
 
+### Phase 4l — Browsers as panes ✅ done
+- [x] `PaneWidget` base class, inherited by `TerminalWidget` and
+      `BrowserWidget`, carrying the shared contract (`default_title`,
+      `shutdown()`, `apply_appearance()`) and the active-pane outline.
+- [x] Splitting works on any pane and yields *the same kind*: a browser
+      splits into a browser, a terminal into a terminal. "Split" reads as
+      "another one of these", and it keeps the shortcut unambiguous.
+- [x] `active_pane()` (either kind) drives splitting, moving and closing;
+      `active_terminal()` stays terminal-only and returns None when a browser
+      pane is focused. It deliberately does *not* fall back to another
+      terminal in the tab - that would run a sidebar command somewhere you
+      weren't looking.
+- [x] A shared base type is what makes `_panes_in()` correct by
+      construction. Matching on `TerminalWidget` alone made it fall back to
+      the tab's root widget, so a split tab handed a `QSplitter` to
+      `shutdown()` - the AttributeError fixed in 2ae5958. A splitter holding
+      only browsers would have reproduced it; now it can't.
+- [x] Browser panes are keyboard-only for split/close: a web page keeps
+      Chromium's context menu, which is what you want for links and images.
+
 Remaining, not started:
 - Focus-navigation shortcuts between panes (currently click to focus).
 - Tab labels still name one shell when a tab holds several panes.

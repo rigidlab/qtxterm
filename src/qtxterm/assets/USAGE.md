@@ -45,9 +45,14 @@ button isn't available there — Qt only draws it alongside existing tabs.
 
 ## Split panes
 
-A tab can hold several terminals side by side. Right-click a terminal and
-pick **Split Right** or **Split Down**, or use `Alt+Shift+=` / `Alt+Shift+-`.
+A tab can hold several panes side by side. Right-click a terminal and pick
+**Split Right** or **Split Down**, or use `Alt+Shift+=` / `Alt+Shift+-`.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
+
+Browser panes split too, and a split gives you **another pane of the same
+kind** — splitting a browser gives a browser, splitting a terminal gives a
+terminal. In a browser pane the shortcuts are the only route: right-clicking
+a web page shows Chromium's own menu, which you want for links and images.
 
 The pane you last clicked or typed in is the **active** one, outlined in the
 highlight colour whenever a tab has more than one. That outline matters:
@@ -78,8 +83,10 @@ with spaces, say — becomes a search rather than a broken URL. The `←` `→` 
 buttons are back, forward, and reload.
 
 Browser tabs are labelled by host (`1:example.com`), with the page title in
-the tooltip. Commands and Selection Actions do nothing while a browser tab is
-active — there's no shell to send them to; switch to a terminal tab first.
+the tooltip. Commands and Selection Actions do nothing while a browser is the
+active pane — there's no shell to send them to. They don't quietly pick some
+other terminal in the tab either, which would run your command somewhere you
+weren't looking; click the terminal pane you meant first.
 
 ## Commands vs. Macros
 

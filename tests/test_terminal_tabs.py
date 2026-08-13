@@ -12,6 +12,7 @@ from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm import terminal_tabs
 from qtxterm.pty_backend import default_shell
 from qtxterm.terminal_tabs import TerminalTabWidget
+from qtxterm.browser_widget import BrowserWidget
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
 
 
@@ -429,7 +430,7 @@ def test_active_terminal_follows_focus_within_a_tab(qtbot) -> None:
 
     tabs._on_focus_changed(None, a)
     assert tabs.active_terminal() is a
-    assert tabs._focused_terminals[splitter] is a
+    assert tabs._focused_panes[splitter] is a
 
 
 def test_focus_is_traced_up_from_a_child_widget(qtbot) -> None:
@@ -454,7 +455,7 @@ def test_focus_in_an_unrelated_widget_is_ignored(qtbot) -> None:
     tabs._on_focus_changed(None, stray)
 
     assert tabs.active_terminal() is terminal
-    assert stray not in tabs._focused_terminals.values()
+    assert stray not in tabs._focused_panes.values()
 
 
 def test_a_closed_pane_is_not_returned_as_active(qtbot) -> None:
@@ -604,12 +605,72 @@ def test_pane_border_only_shows_when_a_tab_has_several_panes(qtbot) -> None:
     assert only._is_active_pane is False
 
 
-def test_splitting_a_browser_tab_does_nothing(qtbot) -> None:
+def test_splitting_a_browser_gives_another_browser(qtbot) -> None:
+    """Splitting means "another one of these"."""
     tabs = make_tabs(qtbot)
-    tabs.new_browser_tab(url="about:blank")
+    first = tabs.new_browser_tab(url="about:blank")
 
-    assert tabs.split_active(Qt.Orientation.Horizontal) is None
-    assert tabs.count() == 1
+    second = tabs.split_active(Qt.Orientation.Horizontal)
+
+    assert isinstance(second, BrowserWidget)
+    assert second is not first
+    assert set(tabs._panes_in(tabs.widget(0))) == {first, second}
+
+
+def test_splitting_a_terminal_still_gives_a_terminal(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert isinstance(second, TerminalWidget)
+
+
+def test_a_focused_browser_pane_means_no_active_terminal(qtbot) -> None:
+    """Commands must not run in a terminal you aren't looking at just because
+    the focused pane can't take them."""
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    browser = BrowserWidget(url="about:blank")
+    splitter = QSplitter()
+    splitter.addWidget(terminal)
+    splitter.addWidget(browser)
+    tabs.addTab(splitter, "")
+    tabs.setCurrentIndex(tabs.indexOf(splitter))
+
+    tabs._on_focus_changed(None, browser)
+    assert tabs.active_pane() is browser
+    assert tabs.active_terminal() is None
+
+    tabs._on_focus_changed(None, terminal)
+    assert tabs.active_terminal() is terminal
+
+
+def test_closing_a_mixed_split_tab_shuts_down_both_kinds(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+    browser = tabs.split_active(Qt.Orientation.Horizontal)
+    stopped = []
+    browser.shutdown = lambda: stopped.append(True)
+
+    tabs.close_tab_at(0)
+
+    assert pty.closed is True
+
+
+def test_a_browser_pane_can_be_closed_and_moved(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_browser_tab(url="about:blank")
+    second = tabs.split_active(Qt.Orientation.Horizontal)
+    splitter = tabs.widget(0)
+    assert [splitter.widget(i) for i in range(2)] == [first, second]
+
+    assert tabs.move_active_pane(forward=False) is True
+    assert [splitter.widget(i) for i in range(2)] == [second, first]
+
+    tabs.close_active_pane()
+    assert tabs.widget(0) is first
 
 
 def test_move_pane_swaps_with_its_neighbour(qtbot) -> None:

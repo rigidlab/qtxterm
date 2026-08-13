@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.browser_widget import BrowserWidget
+from qtxterm.pane import PaneWidget
 from qtxterm.pty_backend import PtySession, default_shell
 from qtxterm.shell_prefs import ShellPreferenceStore
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
@@ -45,12 +46,11 @@ class TerminalTabWidget(QTabWidget):
         # changes, and so clearing a rename can fall back to something current.
         self._auto_titles: dict[QWidget, str] = {}
         self._custom_titles: dict[QWidget, str] = {}
-        # Which terminal was last focused inside each tab. Today a tab holds
-        # exactly one, so this is redundant - it exists so that when a tab can
-        # hold a tree of split panes, "the active terminal" is the pane you
-        # last typed in rather than an arbitrary one. Getting that wrong sends
-        # a sidebar command to the wrong pane, silently.
-        self._focused_terminals: dict[QWidget, TerminalWidget] = {}
+        # Which pane was last focused inside each tab - a terminal or a
+        # browser. "The active pane" has to be the one you last used, not an
+        # arbitrary one: getting it wrong sends a sidebar command to the wrong
+        # terminal, silently.
+        self._focused_panes: dict[QWidget, PaneWidget] = {}
         self._appearance_store = appearance_store
         if self._appearance_store is not None:
             self._appearance_store.changed.connect(self._apply_appearance_to_all_tabs)
@@ -174,25 +174,21 @@ class TerminalTabWidget(QTabWidget):
         return widget
 
     @staticmethod
-    def _terminals_in(container: QWidget | None) -> list[TerminalWidget]:
-        """Every terminal inside a tab, whether it is the tab or nested in it.
+    def _panes_in(container: QWidget | None) -> list[PaneWidget]:
+        """Every pane inside a tab, whether it is the tab or nested in it.
 
-        findChildren walks the whole subtree, so this already handles a tab
-        holding a tree of split panes.
+        findChildren walks the whole subtree, so a tab holding a tree of
+        splits is handled the same as one holding a single pane.
         """
         if container is None:
             return []
-        if isinstance(container, TerminalWidget):
+        if isinstance(container, PaneWidget):
             return [container]
-        return container.findChildren(TerminalWidget)
+        return container.findChildren(PaneWidget)
 
-    def _panes_in(self, container: QWidget | None) -> list[QWidget]:
-        """The content widgets of a tab: its terminals, or the tab itself.
-
-        A browser tab has no terminals but still needs shutdown() and
-        apply_appearance() called on it.
-        """
-        return self._terminals_in(container) or ([container] if container else [])
+    def _terminals_in(self, container: QWidget | None) -> list[TerminalWidget]:
+        """Just the terminals - commands can only target those."""
+        return [p for p in self._panes_in(container) if isinstance(p, TerminalWidget)]
 
     def _on_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
         terminal = self._owning_terminal(new)
@@ -200,7 +196,7 @@ class TerminalTabWidget(QTabWidget):
             return
         for i in range(self.count()):
             if terminal in self._terminals_in(self.widget(i)):
-                self._focused_terminals[self.widget(i)] = terminal
+                self._focused_panes[self.widget(i)] = terminal
                 self._refresh_pane_indicators()
                 return
 
@@ -231,7 +227,7 @@ class TerminalTabWidget(QTabWidget):
         self.removeTab(index)
         self._auto_titles.pop(widget, None)
         self._custom_titles.pop(widget, None)
-        self._focused_terminals.pop(widget, None)
+        self._focused_panes.pop(widget, None)
         widget.deleteLater()
 
         if self.count() == 0:
@@ -251,7 +247,7 @@ class TerminalTabWidget(QTabWidget):
         """Which tab a widget lives in, however deeply nested. -1 if none."""
         for i in range(self.count()):
             root = self.widget(i)
-            if widget is root or widget in self._terminals_in(root):
+            if widget is root or widget in self._panes_in(root):
                 return i
         return -1
 
@@ -278,7 +274,7 @@ class TerminalTabWidget(QTabWidget):
         for store in (self._auto_titles, self._custom_titles):
             if old_root in store:
                 store[new_root] = store.pop(old_root)
-        self._focused_terminals.pop(old_root, None)
+        self._focused_panes.pop(old_root, None)
 
         self.insertTab(index, new_root, "")
         self.setTabToolTip(index, tooltip)
@@ -286,19 +282,37 @@ class TerminalTabWidget(QTabWidget):
             self.setCurrentIndex(index)
         self._renumber()
 
+    def _clone_kind_of(
+        self,
+        pane: PaneWidget,
+        shell: str | list[str] | None = None,
+        pty_session: PtySession | None = None,
+    ) -> PaneWidget:
+        """A fresh pane of the same kind as `pane`.
+
+        Splitting means "another one of these": splitting a browser gives a
+        browser, splitting a terminal gives a terminal. A browser pane is
+        deliberately not wired to the tab title the way a browser *tab* is -
+        only a tab's root widget names the tab, so a pane renaming it would
+        be writing to a key nothing reads.
+        """
+        if isinstance(pane, BrowserWidget):
+            return BrowserWidget()
+        return self._make_terminal(shell, pty_session)
+
     def split_active(
         self,
         orientation: Qt.Orientation = Qt.Orientation.Horizontal,
         shell: str | list[str] | None = None,
         pty_session: PtySession | None = None,
-    ) -> TerminalWidget | None:
-        """Split the focused pane in two, returning the new terminal.
+    ) -> PaneWidget | None:
+        """Split the focused pane in two, returning the new pane.
 
         Horizontal puts the panes side by side, vertical stacks them - the
         orientation names the divider's axis of arrangement, matching
         QSplitter.
         """
-        terminal = self.active_terminal()
+        terminal = self.active_pane()
         if terminal is None:
             return None
 
@@ -306,7 +320,7 @@ class TerminalTabWidget(QTabWidget):
         if index == -1:
             return None
 
-        new_terminal = self._make_terminal(shell, pty_session)
+        new_terminal = self._clone_kind_of(terminal, shell, pty_session)
         splitter = QSplitter(orientation)
         # Panes start even; without this the new one can open at zero width.
         splitter.setChildrenCollapsible(False)
@@ -327,7 +341,7 @@ class TerminalTabWidget(QTabWidget):
             for store in (self._auto_titles, self._custom_titles):
                 if terminal in store:
                     store[splitter] = store.pop(terminal)
-            self._focused_terminals.pop(terminal, None)
+            self._focused_panes.pop(terminal, None)
 
             self.insertTab(index, splitter, "")
             self.setTabToolTip(index, tooltip)
@@ -355,7 +369,7 @@ class TerminalTabWidget(QTabWidget):
         # been inserted and has no geometry, so its extent is 0 and there is
         # nothing to divide yet.
         QTimer.singleShot(0, lambda s=splitter: self._even_out(s))
-        self._focused_terminals[self.widget(index)] = new_terminal
+        self._focused_panes[self.widget(index)] = new_terminal
         self._refresh_pane_indicators()
         return new_terminal
 
@@ -387,16 +401,16 @@ class TerminalTabWidget(QTabWidget):
 
         Callers use it to label a move as left/right vs up/down.
         """
-        terminal = self.active_terminal()
-        parent = terminal.parentWidget() if terminal else None
+        pane = self.active_pane()
+        parent = pane.parentWidget() if pane else None
         return parent.orientation() if isinstance(parent, QSplitter) else None
 
     def can_move_active_pane(self, forward: bool) -> bool:
-        terminal = self.active_terminal()
-        parent = terminal.parentWidget() if terminal else None
+        pane = self.active_pane()
+        parent = pane.parentWidget() if pane else None
         if not isinstance(parent, QSplitter):
             return False
-        target = parent.indexOf(terminal) + (1 if forward else -1)
+        target = parent.indexOf(pane) + (1 if forward else -1)
         return 0 <= target < parent.count()
 
     def move_active_pane(self, forward: bool) -> bool:
@@ -408,11 +422,11 @@ class TerminalTabWidget(QTabWidget):
         """
         if not self.can_move_active_pane(forward):
             return False
-        terminal = self.active_terminal()
-        parent = terminal.parentWidget()
+        pane = self.active_pane()
+        parent = pane.parentWidget()
         sizes = parent.sizes()
-        parent.insertWidget(parent.indexOf(terminal) + (1 if forward else -1), terminal)
-        terminal.show()
+        parent.insertWidget(parent.indexOf(pane) + (1 if forward else -1), pane)
+        pane.show()
         parent.setSizes(sizes)
         return True
 
@@ -423,17 +437,18 @@ class TerminalTabWidget(QTabWidget):
         dragging panes around: the pane keeps its shell, scrollback and PTY,
         it just changes container.
         """
-        terminal = self.active_terminal()
-        if terminal is None:
+        pane = self.active_pane()
+        if pane is None:
             return None
-        index = self.tab_index_of(terminal)
-        if index == -1 or len(self._terminals_in(self.widget(index))) <= 1:
+        index = self.tab_index_of(pane)
+        if index == -1 or len(self._panes_in(self.widget(index))) <= 1:
             return None
 
+        terminal = pane
         terminal.setParent(None)
-        remaining = self._terminals_in(self.widget(index))
+        remaining = self._panes_in(self.widget(index))
         if remaining:
-            self._focused_terminals[self.widget(index)] = remaining[0]
+            self._focused_panes[self.widget(index)] = remaining[0]
         self._collapse_single_child_splitters(index)
 
         self._add_tab(terminal)
@@ -443,14 +458,14 @@ class TerminalTabWidget(QTabWidget):
 
     def close_active_pane(self) -> None:
         """Close the focused pane; the last pane closes the whole tab."""
-        terminal = self.active_terminal()
+        terminal = self.active_pane()
         if terminal is None:
             return
         index = self.tab_index_of(terminal)
         if index == -1:
             return
 
-        siblings = self._terminals_in(self.widget(index))
+        siblings = self._panes_in(self.widget(index))
         if len(siblings) <= 1:
             self.close_tab_at(index)
             return
@@ -459,8 +474,8 @@ class TerminalTabWidget(QTabWidget):
         terminal.setParent(None)
         terminal.deleteLater()
 
-        remaining = self._terminals_in(self.widget(index))
-        self._focused_terminals[self.widget(index)] = remaining[0]
+        remaining = self._panes_in(self.widget(index))
+        self._focused_panes[self.widget(index)] = remaining[0]
         self._collapse_single_child_splitters(index)
         self._refresh_pane_indicators()
 
@@ -497,8 +512,8 @@ class TerminalTabWidget(QTabWidget):
         to?" is a real question the UI has to answer.
         """
         for i in range(self.count()):
-            panes = self._terminals_in(self.widget(i))
-            active = self._focused_terminals.get(self.widget(i))
+            panes = self._panes_in(self.widget(i))
+            active = self._focused_panes.get(self.widget(i))
             for pane in panes:
                 pane.set_active(len(panes) > 1 and pane is active)
 
@@ -542,22 +557,27 @@ class TerminalTabWidget(QTabWidget):
         widget.run_when_ready(_feed)
         return widget
 
-    def active_terminal(self) -> TerminalWidget | None:
-        """The current tab if it's a terminal, else None.
-
-        Type-checked rather than just returning currentWidget(): with
-        browser tabs in the mix, callers that send commands (sidebar,
-        Command submenu, Selection Actions) would otherwise try to write to
-        a web page.
-        """
+    def active_pane(self) -> PaneWidget | None:
+        """The pane you last used in the current tab - terminal or browser."""
         current = self.currentWidget()
-        if isinstance(current, TerminalWidget):
+        if isinstance(current, PaneWidget):
             return current
-        terminals = self._terminals_in(current)
-        remembered = self._focused_terminals.get(current)
-        if remembered in terminals:
+        panes = self._panes_in(current)
+        remembered = self._focused_panes.get(current)
+        if remembered in panes:
             return remembered
-        return terminals[0] if terminals else None
+        return panes[0] if panes else None
+
+    def active_terminal(self) -> TerminalWidget | None:
+        """The active pane, but only if it is a terminal.
+
+        Callers that send commands (sidebar, Command submenu, Selection
+        Actions) must not write into a web page, so a focused browser pane
+        yields None rather than falling back to some other terminal in the
+        tab - that would run your command somewhere you weren't looking.
+        """
+        pane = self.active_pane()
+        return pane if isinstance(pane, TerminalWidget) else None
 
     def _set_tab_title(self, widget, title: str) -> None:
         """Update the automatic name. A user rename still wins over it."""

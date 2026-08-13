@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from qtxterm.pane import PANE_BORDER_WIDTH, PaneWidget
+
 HOME_URL = "https://duckduckgo.com"
 SEARCH_URL = "https://duckduckgo.com/?q={query}"
 
@@ -46,7 +48,7 @@ def normalize_url(text: str) -> str:
     return SEARCH_URL.format(query=QUrl.toPercentEncoding(stripped).data().decode())
 
 
-class BrowserWidget(QWidget):
+class BrowserWidget(PaneWidget):
     """A web page in a tab, alongside the terminals.
 
     Deliberately no QWebChannel is registered on this page, unlike
@@ -81,7 +83,10 @@ class BrowserWidget(QWidget):
         bar.addWidget(self._address, 1)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # Room for the active-pane outline, same as a terminal pane.
+        layout.setContentsMargins(
+            PANE_BORDER_WIDTH, PANE_BORDER_WIDTH, PANE_BORDER_WIDTH, PANE_BORDER_WIDTH
+        )
         layout.setSpacing(4)
         layout.addLayout(bar)
         layout.addWidget(self._view, 1)
@@ -108,13 +113,6 @@ class BrowserWidget(QWidget):
     def _on_url_changed(self, url: QUrl) -> None:
         self._address.setText(url.toString())
         self.host_changed.emit(url.host() or self.default_title)
-
-    def apply_appearance(self, appearance) -> None:
-        """No-op: terminal theme and font don't apply to a web page.
-
-        Present so the tab widget can treat every tab alike rather than
-        type-checking before it applies appearance.
-        """
 
     def shutdown(self) -> None:
         """Stop loading and release the page, mirroring TerminalWidget.

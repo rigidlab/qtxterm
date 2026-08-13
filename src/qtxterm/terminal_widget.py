@@ -3,20 +3,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRectF, Qt, QUrl, QUrlQuery, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPalette, QPen
+from PySide6.QtCore import QPoint, Qt, QUrl, QUrlQuery, Signal
+from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from qtxterm.appearance import Appearance
+from qtxterm.pane import PANE_BORDER_WIDTH, PaneWidget
 from qtxterm.pty_backend import PtySession, create_pty_session, default_shell
 from qtxterm.terminal_bridge import TerminalBridge
 
 ASSETS_DIR = Path(__file__).parent / "assets"
-
-# Thin enough to read as an outline rather than a frame.
-PANE_BORDER_WIDTH = 2
 
 
 def shell_short_name(shell: str) -> str:
@@ -27,7 +25,7 @@ def shell_short_name(shell: str) -> str:
     return name
 
 
-class TerminalWidget(QWidget):
+class TerminalWidget(PaneWidget):
     """A single terminal: xterm.js view (QWebEngineView) wired to a PtySession."""
 
     title_changed = Signal(str)
@@ -73,7 +71,6 @@ class TerminalWidget(QWidget):
         # A margin the indicator can paint into. Zero would leave nowhere to
         # draw a border without resizing the terminal grid when focus moves,
         # which would reflow the shell's output on every click.
-        self._is_active_pane = False
         layout = QVBoxLayout(self)
         layout.setContentsMargins(
             PANE_BORDER_WIDTH, PANE_BORDER_WIDTH, PANE_BORDER_WIDTH, PANE_BORDER_WIDTH
@@ -135,33 +132,6 @@ class TerminalWidget(QWidget):
         self._pty.start(self._command, cols, rows)
         self.is_pty_started = True
         self.pty_started.emit()
-
-    def set_active(self, active: bool) -> None:
-        """Mark this pane as the one commands will go to.
-
-        Only meaningful when its tab holds more than one pane; the tab widget
-        decides that and clears the flag otherwise.
-        """
-        if active == self._is_active_pane:
-            return
-        self._is_active_pane = active
-        self.update()
-
-    def paintEvent(self, event) -> None:
-        """Outline the pane when it is the active one.
-
-        Painted rather than styled: the terminal is a QWebEngineView, whose
-        native surface ignores a stylesheet border on its parent.
-        """
-        super().paintEvent(event)
-        if not self._is_active_pane:
-            return
-        painter = QPainter(self)
-        pen = QPen(self.palette().color(QPalette.ColorRole.Highlight))
-        pen.setWidth(PANE_BORDER_WIDTH)
-        painter.setPen(pen)
-        inset = PANE_BORDER_WIDTH / 2
-        painter.drawRect(QRectF(self.rect()).adjusted(inset, inset, -inset, -inset))
 
     def _on_context_menu_requested(self, pos: QPoint) -> None:
         self.context_menu_requested.emit(self._view.mapToGlobal(pos))
