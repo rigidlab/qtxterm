@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QPainter, QPalette, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QInputDialog,
@@ -76,6 +76,25 @@ class TerminalTabWidget(QTabWidget):
         app = QApplication.instance()
         if app is not None:
             app.focusChanged.connect(self._on_focus_changed)
+
+    def paintEvent(self, event) -> None:
+        """Tell an empty window how to get a terminal.
+
+        With no tabs the widget is a blank rectangle, and the app now both
+        starts and can end up in that state, so it needs to say what to do.
+        """
+        super().paintEvent(event)
+        if self.count():
+            return
+        painter = QPainter(self)
+        painter.setPen(self.palette().color(QPalette.ColorRole.PlaceholderText))
+        painter.drawText(
+            self.rect(),
+            Qt.AlignmentFlag.AlignCenter,
+            "No terminals open\n\n"
+            "Ctrl+Shift+T for a new terminal, or the + button\n"
+            "File → New Terminal for a specific shell",
+        )
 
     def _install_shortcuts(self) -> None:
         def bind(sequence: str, slot) -> QShortcut:
@@ -212,6 +231,8 @@ class TerminalTabWidget(QTabWidget):
 
         if self.count() == 0:
             self.all_tabs_closed.emit()
+            # Repaint so the empty-state hint replaces the last tab's content.
+            self.update()
         else:
             self._renumber()
 

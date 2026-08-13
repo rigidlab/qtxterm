@@ -451,6 +451,18 @@ peripheral tool windows around a central widget, carry title bars you would
 not want on every pane, and bring float/drag-out behaviour that a splitter
 does not need. The sidebar stays a dock; terminals do not.
 
+### Phase 4j — The window outlives its terminals ✅ done
+- [x] Startup no longer opens a terminal, and closing the last one no longer
+      closes the window (`all_tabs_closed` is still emitted, just not wired to
+      `close()`). Opening the app doesn't decide what you wanted to open, and
+      closing a tab doesn't quit the app out from under you.
+- [x] An empty tab widget is a blank rectangle, so `paintEvent` draws a hint
+      naming the two ways to open a terminal. The `+` corner button is
+      deliberately *not* named: with zero tabs Qt doesn't lay out the tab bar
+      row, so the corner widget is never drawn - even though
+      `cornerWidget().isVisible()` still returns True, which is how the first
+      version of the hint came to advertise a button that wasn't on screen.
+
 ## Process cleanup on close — verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"

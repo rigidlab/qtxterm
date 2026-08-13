@@ -38,7 +38,10 @@ it.
 on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so
 reusing it for "close tab" would break normal shell line-editing.
 
-Closing the last tab closes the window.
+qtxterm opens with no terminal — you choose what to start, and closing the
+last tab leaves the window open rather than quitting. An empty window tells
+you how to open one: `Ctrl+Shift+T` or **File → New Terminal**. The `+`
+button isn't available there — Qt only draws it alongside existing tabs.
 
 ## Split panes
 

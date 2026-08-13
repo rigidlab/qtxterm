@@ -45,7 +45,9 @@ class MainWindow(QMainWindow):
             appearance_store=self._appearance_store,
             shell_store=self._shell_store,
         )
-        self._tabs.all_tabs_closed.connect(self.close)
+        # Deliberately not wired to close(): the window outlives its
+        # terminals. Closing the last one leaves an empty window you can open
+        # a new terminal in, rather than quitting the app out from under you.
         self.setCentralWidget(self._tabs)
 
         self._preset_store = PresetStore()
@@ -109,8 +111,9 @@ class MainWindow(QMainWindow):
         # After all dock/menu wiring so restoring dock visibility triggers
         # visibilityChanged into an already-connected sidebar_toggle_action.
         self._restore_window_state()
-
-        self._tabs.new_tab()
+        # No terminal is opened here on purpose: the app starts empty and you
+        # choose what to open (a shell, a specific one from File -> New
+        # Terminal, or a browser tab).
 
     def _show_terminal_context_menu(self, global_pos) -> None:
         self._terminal_context_menu.exec(global_pos)

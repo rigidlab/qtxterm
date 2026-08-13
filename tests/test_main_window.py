@@ -12,6 +12,8 @@ from pathlib import Path
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
+from conftest import FakePtySession
+
 from qtxterm.main_window import MainWindow
 
 
@@ -161,3 +163,36 @@ def test_menu_bar_order(qtbot, tmp_path: Path) -> None:
         "&Selection",
         "&Help",
     ]
+
+
+def test_window_starts_with_no_terminals(qtbot, tmp_path: Path) -> None:
+    """Opening the app doesn't decide what you wanted to open."""
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    assert window._tabs.count() == 0
+
+
+def test_closing_the_last_terminal_leaves_the_window_open(qtbot, tmp_path: Path) -> None:
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+    window._tabs.new_tab(pty_session=FakePtySession())
+
+    window._tabs.close_tab_at(0)
+
+    assert window._tabs.count() == 0
+    assert window.isVisible()
+
+
+def test_a_terminal_can_be_opened_again_after_the_last_one_closed(
+    qtbot, tmp_path: Path
+) -> None:
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+    window._tabs.new_tab(pty_session=FakePtySession())
+    window._tabs.close_tab_at(0)
+
+    window._tabs.new_tab(pty_session=FakePtySession())
+
+    assert window._tabs.count() == 1
