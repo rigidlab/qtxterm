@@ -20,6 +20,7 @@ from qtxterm.shell_prefs import ShellPreferenceStore
 from qtxterm.shells import known_shells
 from qtxterm.sidebar import CommandSidebar
 from qtxterm.terminal_tabs import TerminalTabWidget
+from qtxterm.webengine import prepare_window
 from qtxterm.window_state import make_settings
 
 _GEOMETRY_KEY = "window/geometry"
@@ -114,6 +115,11 @@ class MainWindow(QMainWindow):
         # No terminal is opened here on purpose: the app starts empty and you
         # choose what to open (a shell, a specific one from File -> New
         # Terminal, or a browser tab).
+        #
+        # Last, and before the window is shown: adding the first web view
+        # rebuilds the native window, which looks like the app closing and
+        # reopening if it happens once you're already looking at it.
+        prepare_window(self)
 
     def _show_terminal_context_menu(self, global_pos) -> None:
         self._terminal_context_menu.exec(global_pos)

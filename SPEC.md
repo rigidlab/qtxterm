@@ -463,6 +463,32 @@ does not need. The sidebar stays a dock; terminals do not.
       `cornerWidget().isVisible()` still returns True, which is how the first
       version of the hint came to advertise a button that wasn't on screen.
 
+### Phase 4k — First-terminal latency ✅ done
+Opening the app empty (Phase 4j) exposed a cost that used to hide inside
+start-up: the first terminal flashed while Chromium started.
+
+- [x] Measured before fixing: first terminal 0.64s to `pty_started`,
+      second 0.17s. QtWebEngine spawns its render process lazily, on the
+      first page load, so the first terminal paid all of it.
+- [x] The bigger half was not speed at all: adding the **first**
+      QWebEngineView to a top-level window makes Qt rebuild the native
+      window. The HWND genuinely changes (measured 5179268 -> 5244804 on the
+      first terminal, stable after), which on screen reads as the window
+      closing and reopening. A `QWebEnginePage` does not trigger it - only a
+      view, because only a view is in the widget hierarchy.
+- [x] `webengine.prepare_window()` creates a 1x1 `WA_DontShowOnScreen`
+      QWebEngineView inside the window at the end of `MainWindow.__init__`,
+      before the window is shown, and discards it once loaded. That pays both
+      costs off screen: the HWND then never changes, and the first terminal
+      drops from 0.64s to ~0.26s. The view is disposable - verified the
+      native window keeps its new form without it.
+- [x] `page().setBackgroundColor(theme.background)` on every terminal view.
+      A `QWebEngineView` paints white until terminal.js applies the theme,
+      which flashed on *every* new terminal, not just the first - worst on a
+      dark theme. Re-applied on theme change.
+- [x] Warm-up lives in `app.main()`, not `MainWindow.__init__`: tests build
+      windows constantly and shouldn't each spawn a render process.
+
 ## Process cleanup on close — verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"

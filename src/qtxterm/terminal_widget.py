@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QRectF, Qt, QUrl, QUrlQuery, Signal
-from PySide6.QtGui import QGuiApplication, QPainter, QPalette, QPen
+from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPalette, QPen
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -59,6 +59,12 @@ class TerminalWidget(QWidget):
         # Source), which is meaningless for a terminal.
         self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._view.customContextMenuRequested.connect(self._on_context_menu_requested)
+        # Without this the view is white until terminal.js paints the theme
+        # background, which flashes on every new terminal - worst on a dark
+        # theme, and most visible on the first one while Chromium starts.
+        self._view.page().setBackgroundColor(
+            QColor((appearance or Appearance()).theme.background)
+        )
         self._bridge = TerminalBridge(self)
         self._channel = QWebChannel(self)
         self._channel.registerObject("bridge", self._bridge)
@@ -99,6 +105,7 @@ class TerminalWidget(QWidget):
 
     def apply_appearance(self, appearance: Appearance) -> None:
         """Live-update an already-open tab's theme/font without reloading it."""
+        self._view.page().setBackgroundColor(QColor(appearance.theme.background))
         payload = json.dumps(
             {
                 "theme": appearance.theme.to_xterm_dict(),

@@ -174,3 +174,28 @@ def test_paste_from_clipboard_uses_the_clipboard_text(qtbot) -> None:
     widget.paste_from_clipboard()
 
     assert "from clipboard" in calls[0]
+
+
+def test_view_background_is_the_theme_so_it_never_flashes_white(qtbot) -> None:
+    """The view paints before terminal.js applies the theme; left at the
+    default white it flashes on every new terminal."""
+    widget = TerminalWidget(
+        pty_session=FakePtySession(),
+        appearance=Appearance(theme_name="VS Code Dark High Contrast"),
+    )
+    qtbot.addWidget(widget)
+
+    assert widget._view.page().backgroundColor().name() == "#000000"
+
+
+def test_view_background_follows_a_theme_change(qtbot) -> None:
+    widget = TerminalWidget(
+        pty_session=FakePtySession(),
+        appearance=Appearance(theme_name="VS Code Dark High Contrast"),
+    )
+    qtbot.addWidget(widget)
+    widget._view.page().runJavaScript = lambda script: None
+
+    widget.apply_appearance(Appearance(theme_name="VS Code Light+"))
+
+    assert widget._view.page().backgroundColor().name() == "#ffffff"
