@@ -509,6 +509,38 @@ start-up: the first terminal flashed while Chromium started.
 - [x] Warm-up lives in `app.main()`, not `MainWindow.__init__`: tests build
       windows constantly and shouldn't each spawn a render process.
 
+### Phase 4m — Visible chrome borders ✅ done
+Menus, tabs and the content frame all had borders too faint to see on dark
+themes.
+
+- [x] Cause: Fusion derives a menu's frame from
+      `palette.window().darker(140)` - *darker* than the menu it outlines.
+      Measured contrast: **1.00:1** on VS Code Dark High Contrast (black on
+      black), 1.14:1 on Solarized Dark, ~2:1 on the light themes.
+- [x] Same cause for the tab strip and the frame around the terminal:
+      measured **1.3:1** (`#1e1e1e` on `#000000`) on VS Code Dark High
+      Contrast.
+- [x] `chrome_border_color()` mixes the window *text* colour into the window
+      instead, stepping up only until the frame clears 3:1 - WCAG's bar for
+      non-text UI, which is the right one for something you only have to see,
+      not read. One rule works in both directions: lighter on dark themes,
+      darker on light ones. Now 3.66 / 3.20 / 3.15 / 3.10:1.
+- [x] Applied as an app style sheet (`chrome_stylesheet()`) covering
+      `QMenu`, `QTabWidget::pane` and `QTabBar::tab`. Menus keep their
+      palette-driven item painting - only the frame is restyled - but tabs
+      have to be spelled out, because styling any part of `QTabBar::tab`
+      makes the style sheet take over painting it.
+- [x] Which tab is selected therefore needed restating, and **not** with
+      `alternate_base`: that is `#0d0d0d` against a `#000000` window, so the
+      first attempt left the selected tab indistinguishable from its
+      neighbour. The cue is an accent line in the theme's highlight colour
+      plus full-strength text, with unselected tabs dimmed - the signal VS
+      Code's own tab strip uses, and one that survives any palette.
+- [x] Side effect worth knowing: an app style sheet makes Qt wrap the style,
+      and the wrapper reports an empty `objectName()`. A test asserting
+      `app.style().objectName() == "fusion"` had to change - restoring the
+      native style is still covered separately.
+
 ## Process cleanup on close — verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"
