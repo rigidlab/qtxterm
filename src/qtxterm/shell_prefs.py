@@ -31,22 +31,39 @@ class ShellPreferenceStore(QObject):
         super().__init__()
         self._settings = settings
         self.label = str(settings.value(_DEFAULT_SHELL_KEY, SYSTEM_DEFAULT) or "")
+        self._resolved: tuple[str, str | list[str] | None] | None = None
 
     def save(self, label: str) -> None:
         self.label = label
+        self._resolved = None
         self._settings.setValue(_DEFAULT_SHELL_KEY, label)
         self.changed.emit()
 
     def resolve(self) -> str | list[str] | None:
-        """The command new tabs should spawn, or None to let the OS decide."""
+        """The command new tabs should spawn, or None to let the OS decide.
+
+        Memoised because this runs on *every* new tab, and `known_shells()`
+        shells out to `wsl.exe -l -q` to enumerate distros - a subprocess
+        with a 5s timeout. Installed shells don't change while the app is
+        open, so paying that once per session is enough; Preferences reads
+        `known_shells()` directly when it builds its list, so a newly
+        installed distro still shows up there.
+        """
         if not self.label:
             return None
-        for label, command in known_shells():
+        if self._resolved is not None and self._resolved[0] == self.label:
+            return self._resolved[1]
+
+        command = None
+        for label, candidate in known_shells():
             if label == self.label:
-                return command
-        # The shell was uninstalled (or the WSL distro removed) since it was
-        # chosen; fall back rather than failing to open a tab.
-        return None
+                command = candidate
+                break
+        # None means the shell was uninstalled (or the WSL distro removed)
+        # since it was chosen; new tabs fall back to the system default
+        # rather than failing to open.
+        self._resolved = (self.label, command)
+        return command
 
     def resolved_label(self) -> str:
         """What the resolved default is called, for display."""

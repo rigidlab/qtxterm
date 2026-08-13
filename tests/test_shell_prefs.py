@@ -74,3 +74,33 @@ def test_system_default_label_names_the_actual_shell() -> None:
 
     assert label.startswith("System default (")
     assert label.endswith(")")
+
+
+def test_resolve_enumerates_shells_once_not_per_tab(tmp_path, monkeypatch) -> None:
+    """known_shells() shells out to `wsl.exe -l -q` with a 5s timeout, and
+    resolve() runs on every new tab."""
+    calls = []
+
+    def counted():
+        calls.append(True)
+        return FAKE_SHELLS
+
+    monkeypatch.setattr(shell_prefs, "known_shells", counted)
+    store = store_for(tmp_path)
+    store.save("Git Bash")
+
+    for _ in range(10):
+        assert store.resolve() == r"C:\fake\Git\bin\bash.exe"
+
+    assert len(calls) == 1
+
+
+def test_changing_the_preference_re_resolves(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    store = store_for(tmp_path)
+    store.save("Git Bash")
+    assert store.resolve() == r"C:\fake\Git\bin\bash.exe"
+
+    store.save("PowerShell")
+
+    assert store.resolve() == r"C:\fake\powershell.exe"
