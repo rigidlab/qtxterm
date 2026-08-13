@@ -211,29 +211,8 @@ class TerminalContextMenu(QMenu):
         self._paste_action.triggered.connect(self._paste)
         self.addSeparator()
 
-        self._split_right_action = self.addAction("Split Right")
-        self._split_right_action.triggered.connect(
-            lambda: self._tabs.split_active(Qt.Orientation.Horizontal)
-        )
-        self._split_down_action = self.addAction("Split Down")
-        self._split_down_action.triggered.connect(
-            lambda: self._tabs.split_active(Qt.Orientation.Vertical)
-        )
-        self._move_pane_back_action = self.addAction("Move Pane Left")
-        self._move_pane_back_action.triggered.connect(
-            lambda: self._tabs.move_active_pane(forward=False)
-        )
-        self._move_pane_forward_action = self.addAction("Move Pane Right")
-        self._move_pane_forward_action.triggered.connect(
-            lambda: self._tabs.move_active_pane(forward=True)
-        )
-        self._pane_to_tab_action = self.addAction("Move Pane to New Tab")
-        self._pane_to_tab_action.triggered.connect(
-            self._tabs.move_active_pane_to_new_tab
-        )
-        self._close_pane_action = self.addAction("Close Pane")
-        self._close_pane_action.triggered.connect(self._tabs.close_active_pane)
-        self.addSeparator()
+        self._pane_menu = add_submenu(self, "Pane")
+        self._build_pane_menu()
 
         self._run_menu = add_submenu(self, "Command")
         commands = in_category(self._store.presets, CATEGORY_COMMANDS)
@@ -246,6 +225,41 @@ class TerminalContextMenu(QMenu):
         self._build_selection_menu()
 
         self.refresh_enabled_state()
+
+    def _build_pane_menu(self) -> None:
+        """Everything that acts on the pane layout, in one group.
+
+        The labels drop their "Pane" prefix here - "Pane -> Move Left" reads
+        better than "Pane -> Move Pane Left", and grouping is what earns the
+        shorter names.
+        """
+        menu = self._pane_menu
+        self._split_right_action = menu.addAction("Split Right")
+        self._split_right_action.triggered.connect(
+            lambda: self._tabs.split_active(Qt.Orientation.Horizontal)
+        )
+        self._split_down_action = menu.addAction("Split Down")
+        self._split_down_action.triggered.connect(
+            lambda: self._tabs.split_active(Qt.Orientation.Vertical)
+        )
+        menu.addSeparator()
+
+        self._move_pane_back_action = menu.addAction("Move Left")
+        self._move_pane_back_action.triggered.connect(
+            lambda: self._tabs.move_active_pane(forward=False)
+        )
+        self._move_pane_forward_action = menu.addAction("Move Right")
+        self._move_pane_forward_action.triggered.connect(
+            lambda: self._tabs.move_active_pane(forward=True)
+        )
+        self._pane_to_tab_action = menu.addAction("Move to New Tab")
+        self._pane_to_tab_action.triggered.connect(
+            self._tabs.move_active_pane_to_new_tab
+        )
+        menu.addSeparator()
+
+        self._close_pane_action = menu.addAction("Close")
+        self._close_pane_action.triggered.connect(self._tabs.close_active_pane)
 
     def _build_selection_menu(self) -> None:
         menu = self._selection_menu
@@ -278,16 +292,14 @@ class TerminalContextMenu(QMenu):
     def _refresh_pane_actions(self) -> None:
         """Label pane moves for the axis they actually move along.
 
-        "Move Pane Left" in a stacked split would be a lie, so the labels
-        follow the splitter's orientation.
+        "Move Left" in a stacked split would be a lie, so the labels follow
+        the splitter's orientation.
         """
         orientation = self._tabs.active_pane_orientation()
         vertical = orientation is Qt.Orientation.Vertical
-        self._move_pane_back_action.setText(
-            "Move Pane Up" if vertical else "Move Pane Left"
-        )
+        self._move_pane_back_action.setText("Move Up" if vertical else "Move Left")
         self._move_pane_forward_action.setText(
-            "Move Pane Down" if vertical else "Move Pane Right"
+            "Move Down" if vertical else "Move Right"
         )
         self._move_pane_back_action.setEnabled(self._tabs.can_move_active_pane(False))
         self._move_pane_forward_action.setEnabled(self._tabs.can_move_active_pane(True))

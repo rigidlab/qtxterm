@@ -12,10 +12,10 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Rename a tab | Double-click the tab |
-| Split the pane | `Alt+Shift+=` (right) / `Alt+Shift+-` (down), or right-click → Split |
-| Close a pane | `Alt+Shift+W`, or right-click → Close Pane |
-| Move a pane | Right-click → Move Pane Left/Right (or Up/Down) |
-| Pull a pane into its own tab | Right-click → Move Pane to New Tab |
+| Split the pane | `Alt+Shift+=` (right) / `Alt+Shift+-` (down), or right-click → **Pane → Split** |
+| Close a pane | `Alt+Shift+W`, or right-click → **Pane → Close** |
+| Move a pane | Right-click → **Pane → Move Left/Right** (or Up/Down) |
+| Pull a pane into its own tab | Right-click → **Pane → Move to New Tab** |
 
 Only shells actually installed on your machine appear under **New Terminal**,
 and every installed WSL distro gets its own entry (`WSL: Ubuntu-22.04`).
@@ -46,7 +46,9 @@ button isn't available there — Qt only draws it alongside existing tabs.
 ## Split panes
 
 A tab can hold several panes side by side. Right-click a terminal and pick
-**Split Right** or **Split Down**, or use `Alt+Shift+=` / `Alt+Shift+-`.
+**Pane → Split Right** or **Split Down**, or use `Alt+Shift+=` /
+`Alt+Shift+-`. Everything that rearranges panes lives under that one **Pane**
+group.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
 
 Browser panes split too, and a split gives you **another pane of the same
@@ -59,9 +61,9 @@ highlight colour whenever a tab has more than one. That outline matters:
 sidebar buttons, the Command menu and Selection Actions all go to the active
 pane, so it answers "where will this land?".
 
-**Move Pane Left/Right** (labelled Up/Down in a stacked split) swaps the
-active pane with its neighbour. **Move Pane to New Tab** pulls it out into a
-tab of its own — the usual fix for "I split the wrong one". Either way the
+**Pane → Move Left/Right** (labelled Up/Down in a stacked split) swaps the
+active pane with its neighbour. **Move to New Tab** pulls it out into a tab
+of its own — the usual fix for "I split the wrong one". Either way the
 pane keeps its shell, scrollback and running processes; only its container
 changes.
 
@@ -69,7 +71,7 @@ Panes can't be dragged with the mouse. Neither can Windows Terminal's,
 iTerm2's or tmux's — it needs a custom drag-and-drop layer, and the menu
 commands cover the cases that actually come up.
 
-**Close Pane** (`Alt+Shift+W`) closes just that terminal; closing the last
+**Pane → Close** (`Alt+Shift+W`) closes just that terminal; closing the last
 pane closes the tab. `Ctrl+Shift+W` still closes the whole tab, panes and
 all. `Alt+Shift` chords are used rather than `Ctrl+Shift` because shells and
 full-screen apps rarely bind them.

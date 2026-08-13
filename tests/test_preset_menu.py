@@ -331,21 +331,27 @@ def action_named(menu: TerminalContextMenu, name: str):
     return next(a for a in menu.actions() if a.text() == name)
 
 
-def test_context_menu_has_copy_and_paste_above_run_command(qtbot, tmp_path: Path):
+def test_context_menu_top_level_is_four_groups(qtbot, tmp_path: Path):
+    """Pane actions live in their own submenu rather than six flat entries."""
     menu = context_menu_with(qtbot, tmp_path, FakeTerminal())
 
     texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+    assert texts == ["Copy", "Paste", "Pane", "Command", "Selection"]
+
+
+def test_pane_submenu_holds_every_pane_action(qtbot, tmp_path: Path):
+    menu = context_menu_with(qtbot, tmp_path, FakeTerminal())
+
+    pane = next(a for a in menu.actions() if a.text() == "Pane").menu()
+    texts = [a.text() for a in pane.actions() if not a.isSeparator()]
+
     assert texts == [
-        "Copy",
-        "Paste",
         "Split Right",
         "Split Down",
-        "Move Pane Left",
-        "Move Pane Right",
-        "Move Pane to New Tab",
-        "Close Pane",
-        "Command",
-        "Selection",
+        "Move Left",
+        "Move Right",
+        "Move to New Tab",
+        "Close",
     ]
 
 
