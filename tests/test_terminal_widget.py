@@ -199,3 +199,16 @@ def test_view_background_follows_a_theme_change(qtbot) -> None:
     widget.apply_appearance(Appearance(theme_name="VS Code Light+"))
 
     assert widget._view.page().backgroundColor().name() == "#ffffff"
+
+
+def test_send_command_submits_once(qtbot) -> None:
+    """CRLF submits twice - the shell accepts on the CR and again on the LF,
+    leaving a stray prompt in bash and a `>>` continuation in PowerShell."""
+    fake_pty = FakePtySession()
+    widget = TerminalWidget(pty_session=fake_pty)
+    qtbot.addWidget(widget)
+
+    widget.send_command("echo hi")
+
+    assert fake_pty.write_calls == ["echo hi\r"]
+    assert "\n" not in fake_pty.write_calls[0]

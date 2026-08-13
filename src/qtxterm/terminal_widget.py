@@ -177,8 +177,14 @@ class TerminalWidget(PaneWidget):
         self.paste(QGuiApplication.clipboard().text())
 
     def send_command(self, text: str) -> None:
-        """Write a line to the PTY and submit it, as if the user typed it + Enter."""
-        self._pty.write(f"{text}\r\n")
+        """Write a line to the PTY and submit it, as if the user typed it + Enter.
+
+        Terminated with a bare CR, which is what the Enter key actually
+        sends. CRLF submits *twice* - the shell accepts on the CR and again
+        on the LF - so every command left an empty line behind it: a stray
+        prompt in bash, a `>>` continuation prompt in PowerShell.
+        """
+        self._pty.write(f"{text}\r")
 
     def run_when_ready(self, callback) -> None:
         """Call `callback` once the PTY has started (immediately if it already has).

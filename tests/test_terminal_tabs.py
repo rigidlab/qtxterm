@@ -144,7 +144,8 @@ def test_run_in_new_tab_feeds_lines_once_pty_starts(qtbot) -> None:
 
     widget._bridge.ready(80, 24)
 
-    assert fake_pty.write_calls == ["echo one\r\n", "echo two\r\n"]
+    # Bare CR, not CRLF: CRLF submits twice and leaves an empty line behind.
+    assert fake_pty.write_calls == ["echo one\r", "echo two\r"]
 
 
 def test_appearance_store_change_reapplies_to_all_open_tabs(qtbot, tmp_path: Path) -> None:
