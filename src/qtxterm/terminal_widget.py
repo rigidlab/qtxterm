@@ -9,7 +9,6 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from qtxterm import timing
 from qtxterm.appearance import Appearance
 from qtxterm.pane import PANE_BORDER_WIDTH, PaneWidget
 from qtxterm.pty_backend import PtySession, create_pty_session, default_shell
@@ -52,7 +51,6 @@ class TerminalWidget(PaneWidget):
         self._pty = pty_session or create_pty_session()
         self.is_pty_started = False
         self._selection = ""
-        self._logged_first_output = False
 
         self._view = QWebEngineView(self)
         # Without this the view shows Chromium's own menu (Back, Reload, View
@@ -85,10 +83,6 @@ class TerminalWidget(PaneWidget):
         self._bridge.title_changed.connect(self.title_changed.emit)
         self._bridge.selection_changed.connect(self._on_selection_changed)
         self._pty.output_ready.connect(self._bridge.output.emit)
-        self._pty.output_ready.connect(self._mark_first_output)
-        self._view.loadFinished.connect(
-            lambda ok: timing.mark(f"terminal page loaded (ok={ok})")
-        )
         self._pty.exited.connect(self._bridge.exited.emit)
 
         self._view.load(self._terminal_url(appearance or Appearance()))
@@ -135,17 +129,9 @@ class TerminalWidget(PaneWidget):
         return shell_short_name(self._command[0])
 
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
-        timing.mark("xterm.js ready, starting pty")
         self._pty.start(self._command, cols, rows)
-        timing.mark("pty spawned")
         self.is_pty_started = True
         self.pty_started.emit()
-
-    def _mark_first_output(self, _data: str) -> None:
-        """The moment the shell says anything - everything after is the shell."""
-        if not self._logged_first_output:
-            self._logged_first_output = True
-            timing.mark("first pty output")
 
     def _on_context_menu_requested(self, pos: QPoint) -> None:
         self.context_menu_requested.emit(self._view.mapToGlobal(pos))

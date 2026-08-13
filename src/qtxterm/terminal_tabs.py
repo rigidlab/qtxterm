@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from qtxterm import timing
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm.browser_widget import BrowserWidget
 from qtxterm.pane import PaneWidget
@@ -131,9 +130,7 @@ class TerminalTabWidget(QTabWidget):
         # shell=None for "the default", and all of them should honour the
         # preference.
         if shell is None:
-            timing.mark("resolving preferred shell")
             shell = self.preferred_shell()
-            timing.mark("preferred shell resolved")
         widget = TerminalWidget(
             shell=shell, pty_session=pty_session, appearance=appearance
         )
@@ -154,10 +151,7 @@ class TerminalTabWidget(QTabWidget):
         shell: str | list[str] | None = None,
         pty_session: PtySession | None = None,
     ) -> TerminalWidget:
-        timing.mark("new_tab requested")
-        widget = self._make_terminal(shell, pty_session)
-        timing.mark("TerminalWidget constructed")
-        return self._add_tab(widget)
+        return self._add_tab(self._make_terminal(shell, pty_session))
 
     def new_browser_tab(self, url: str | None = None) -> BrowserWidget:
         """Open a web page in a tab alongside the terminals."""
