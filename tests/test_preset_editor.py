@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtWidgets import QDialog
+
 from qtxterm.preset_editor import PresetEditorDialog
 from qtxterm.presets import (
     CATEGORY_COMMANDS,
@@ -218,3 +220,51 @@ def test_selection_dialog_has_no_sidebar_checkbox(qtbot, tmp_path: Path) -> None
     dialog.show()
 
     assert dialog._sidebar_check.isVisible() is False
+
+
+def test_save_and_close_persists_the_edit_then_closes(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    dialog = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
+    qtbot.addWidget(dialog)
+    dialog._new_preset()
+    dialog._name_edit.setText("Deploy")
+    dialog._lines_edit.setPlainText("./deploy.sh")
+
+    dialog._save_and_close_button.click()
+
+    assert store.presets[-1].name == "Deploy"
+    assert store.presets[-1].lines == ["./deploy.sh"]
+    assert dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_plain_save_keeps_the_dialog_open(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    dialog = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
+    qtbot.addWidget(dialog)
+    dialog._new_preset()
+    dialog._name_edit.setText("Still Editing")
+
+    dialog._save_button.click()
+
+    assert store.presets[-1].name == "Still Editing"
+    assert dialog.result() != QDialog.DialogCode.Accepted
+
+
+def test_save_and_close_with_nothing_selected_still_closes(qtbot, tmp_path) -> None:
+    store = make_store(tmp_path)
+    dialog = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
+    qtbot.addWidget(dialog)
+
+    dialog._save_and_close_button.click()
+
+    assert store.presets == []
+    assert dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_every_category_dialog_has_both_buttons(qtbot, tmp_path: Path) -> None:
+    for category in (CATEGORY_COMMANDS, CATEGORY_MACROS, CATEGORY_SELECTION):
+        dialog = PresetEditorDialog(make_store(tmp_path), category=category)
+        qtbot.addWidget(dialog)
+
+        assert dialog._save_button.text() == "Save"
+        assert dialog._save_and_close_button.text() == "Save and Close"

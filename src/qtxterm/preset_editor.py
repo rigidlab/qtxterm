@@ -153,9 +153,16 @@ class PresetEditorDialog(QDialog):
         # Macros never show in the sidebar - see Preset.target docstring.
         if self._is_command:
             form.addRow("", self._sidebar_check)
-        save_button = QPushButton("Save")
-        save_button.clicked.connect(self._save_current)
-        form.addRow(save_button)
+        # Save keeps the dialog open for the next edit; Save and Close is the
+        # one-edit-and-done case, which is most of them.
+        self._save_button = QPushButton("Save")
+        self._save_button.clicked.connect(self._save_current)
+        self._save_and_close_button = QPushButton("Save and Close")
+        self._save_and_close_button.clicked.connect(self._save_and_close)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self._save_button)
+        buttons.addWidget(self._save_and_close_button)
+        form.addRow(buttons)
         layout.addWidget(form_widget, 2)
 
         if self._is_selection:
@@ -264,6 +271,16 @@ class PresetEditorDialog(QDialog):
         self._store.delete(self._current_index)
         self._current_index = None
         self._reload_list()
+
+    def _save_and_close(self) -> None:
+        """Save whatever is being edited, then leave.
+
+        Closes even with nothing selected - the button says what it does, and
+        refusing to close because there was nothing to save would be a worse
+        surprise than closing.
+        """
+        self._save_current()
+        self.accept()
 
     def _save_current(self) -> None:
         if self._current_index is None:
