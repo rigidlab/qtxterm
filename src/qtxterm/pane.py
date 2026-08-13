@@ -6,6 +6,8 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPainter, QPalette, QPen
 from PySide6.QtWidgets import QWidget
 
+from qtxterm.qt_theme import ACTIVE_PANE_CONTRAST, ensure_contrast, frame_color
+
 # Thin enough to read as an outline rather than a frame.
 PANE_BORDER_WIDTH = 2
 
@@ -28,6 +30,7 @@ class PaneWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._is_active_pane = False
+        self._in_split = False
 
     @property
     def default_title(self) -> str:
@@ -39,28 +42,47 @@ class PaneWidget(QWidget):
     def apply_appearance(self, appearance) -> None:
         """Terminal theme and font. A no-op for panes they don't apply to."""
 
-    def set_active(self, active: bool) -> None:
-        """Mark this pane as the one commands will go to.
+    def set_pane_state(self, in_split: bool, active: bool) -> None:
+        """Tell the pane whether it shares its tab, and whether it is focused.
 
-        Only meaningful when its tab holds more than one pane; the tab widget
-        decides that and clears the flag otherwise.
+        Both matter to painting: a pane alone in its tab draws no frame at
+        all - the tab already outlines it, and a second box inside the first
+        is just noise - while panes in a split each get one, with the focused
+        one picked out in the accent colour.
         """
-        if active == self._is_active_pane:
+        if (in_split, active) == (self._in_split, self._is_active_pane):
             return
-        self._is_active_pane = active
+        self._in_split, self._is_active_pane = in_split, active
         self.update()
 
     def paintEvent(self, event) -> None:
-        """Outline the pane when it is the active one.
+        """Outline every pane in a split, the focused one in the accent colour.
 
         Painted rather than styled: these panes host a QWebEngineView, whose
         native surface ignores a stylesheet border on its parent.
         """
         super().paintEvent(event)
-        if not self._is_active_pane:
+        if not self._in_split:
             return
         painter = QPainter(self)
-        pen = QPen(self.palette().color(QPalette.ColorRole.Highlight))
+        palette = self.palette()
+        window = palette.color(QPalette.ColorRole.Window)
+        if self._is_active_pane:
+            # The raw highlight is too dim on some themes to mark the active
+            # pane: 2.34:1 against black on VS Code Dark High Contrast, while
+            # the frames beside it sit at 3.66:1. Lifted past them, keeping
+            # its hue so it still reads as an accent, not another grey frame.
+            colour = ensure_contrast(
+                palette.color(QPalette.ColorRole.Highlight),
+                window,
+                ACTIVE_PANE_CONTRAST,
+            )
+        else:
+            # Same treatment as the tab and content frames, so an unfocused
+            # pane is still clearly bounded rather than bleeding into its
+            # neighbour.
+            colour = frame_color(palette.color(QPalette.ColorRole.WindowText), window)
+        pen = QPen(colour)
         pen.setWidth(PANE_BORDER_WIDTH)
         painter.setPen(pen)
         inset = PANE_BORDER_WIDTH / 2

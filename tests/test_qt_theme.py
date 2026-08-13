@@ -6,12 +6,14 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 from qtxterm.qt_theme import (
+    ACTIVE_PANE_CONTRAST,
     CHROME_BORDER_CONTRAST,
     apply_qt_theme,
     build_palette,
     contrast_ratio,
     chrome_border_color,
     chrome_stylesheet,
+    ensure_contrast,
 )
 from qtxterm.themes import THEMES, QT_DEFAULT
 
@@ -131,3 +133,40 @@ def test_selected_tab_is_marked_by_more_than_a_background() -> None:
 
     assert ui.highlight in sheet          # accent line on the selected tab
     assert ui.disabled_text in sheet      # unselected tabs dimmed
+
+
+def test_active_pane_accent_outshouts_the_frames_beside_it() -> None:
+    """It marks state, so it has to beat the static chrome next to it - the
+    raw highlight was 2.34:1 against black while frames sat at 3.66:1."""
+    for name, theme in THEMES.items():
+        if theme.ui is None:
+            continue
+        window = QColor(theme.ui.window)
+        accent = ensure_contrast(
+            QColor(theme.ui.highlight), window, ACTIVE_PANE_CONTRAST
+        )
+
+        assert contrast_ratio(accent, window) >= ACTIVE_PANE_CONTRAST, name
+        assert contrast_ratio(accent, window) > contrast_ratio(
+            chrome_border_color(theme.ui), window
+        ), name
+
+
+def test_ensure_contrast_keeps_the_hue() -> None:
+    """An accent washed to grey is no longer an accent."""
+    theme = THEMES["VS Code Dark High Contrast"].ui
+    highlight = QColor(theme.highlight)
+
+    lifted = ensure_contrast(highlight, QColor(theme.window), ACTIVE_PANE_CONTRAST)
+
+    assert lifted != highlight
+    assert abs(lifted.hue() - highlight.hue()) <= 2
+    assert lifted.saturation() > 100
+
+
+def test_ensure_contrast_leaves_a_colour_that_already_passes() -> None:
+    ui = THEMES["Solarized Dark"].ui
+
+    assert ensure_contrast(
+        QColor(ui.highlight), QColor(ui.window), ACTIVE_PANE_CONTRAST
+    ) == QColor(ui.highlight)

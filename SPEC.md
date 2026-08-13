@@ -536,6 +536,24 @@ themes.
       neighbour. The cue is an accent line in the theme's highlight colour
       plus full-strength text, with unselected tabs dimmed - the signal VS
       Code's own tab strip uses, and one that survives any palette.
+- [x] The active-pane outline had the same problem from a different source:
+      it paints `QPalette::Highlight` raw, which is 2.34:1 against black on
+      VS Code Dark High Contrast - dimmer than the 3.66:1 frames beside it.
+      `ensure_contrast()` lifts it in HSL rather than blending toward white,
+      so the hue survives; an accent washed to grey is no longer an accent.
+- [x] Its bar (`ACTIVE_PANE_CONTRAST`, 4.0) is deliberately above the frames'
+      3.0: it marks *state* and has to out-shout the static chrome next to
+      it. 4.0 clears them everywhere without recolouring accents that already
+      passed - 4.5 starts dragging Solarized Dark's blue lighter for no gain.
+      Measured on screen afterwards: #166ec6, 4.08:1.
+- [x] Inactive panes previously drew no frame at all, so on a dark theme only
+      the splitter gap separated them. Every pane in a split now gets one,
+      from the same `frame_color()` the tab strip and content edge use - so
+      the three can't drift apart - while the focused pane keeps the accent.
+      A pane alone in its tab still draws nothing: the tab already outlines
+      it, and a second box inside the first is noise. `set_pane_state(in_split,
+      active)` carries both facts, replacing a single flag that conflated
+      them.
 - [x] Side effect worth knowing: an app style sheet makes Qt wrap the style,
       and the wrapper reports an empty `objectName()`. A test asserting
       `app.style().objectName() == "fusion"` had to change - restoring the

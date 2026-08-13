@@ -505,17 +505,17 @@ class TerminalTabWidget(QTabWidget):
             splitter.deleteLater()
 
     def _refresh_pane_indicators(self) -> None:
-        """Outline the focused pane, but only where there is a choice to make.
+        """Frame the panes of a split, picking out the focused one.
 
-        With one pane per tab there is nothing to disambiguate and a border
-        would just be chrome; with several, "which pane will this command go
-        to?" is a real question the UI has to answer.
+        With one pane per tab there is nothing to disambiguate and the tab
+        already outlines it; with several, every pane needs a boundary and
+        "which one will this command go to?" needs an answer.
         """
         for i in range(self.count()):
             panes = self._panes_in(self.widget(i))
             active = self._focused_panes.get(self.widget(i))
             for pane in panes:
-                pane.set_active(len(panes) > 1 and pane is active)
+                pane.set_pane_state(len(panes) > 1, pane is active)
 
     def preferred_shell(self) -> str | list[str] | None:
         """The configured default shell, or None to let the OS decide."""

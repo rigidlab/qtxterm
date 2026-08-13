@@ -11,6 +11,12 @@ _original: tuple[str, QPalette] | None = None
 # read, so this is the right bar rather than the 4.5:1 used for text.
 CHROME_BORDER_CONTRAST = 3.0
 
+# Deliberately above CHROME_BORDER_CONTRAST: the active-pane outline marks
+# state, and has to out-shout the static frames drawn right next to it. 4.0
+# clears them on every theme without recolouring accents that were already
+# fine - 4.5 starts dragging Solarized Dark's blue lighter for no gain.
+ACTIVE_PANE_CONTRAST = 4.0
+
 
 def _relative_luminance(color: QColor) -> float:
     def channel(value: float) -> float:
@@ -37,6 +43,49 @@ def _blend(over: QColor, under: QColor, alpha: float) -> QColor:
     )
 
 
+def ensure_contrast(
+    color: QColor, against: QColor, ratio: float = CHROME_BORDER_CONTRAST
+) -> QColor:
+    """Lighten or darken `color` until it stands out from `against`.
+
+    Moves lightness in HSL rather than blending toward the background's
+    opposite, so the hue survives - an accent washed to grey is no longer an
+    accent. Direction follows the background: lighter on a dark one, darker
+    on a light one.
+    """
+    if contrast_ratio(color, against) >= ratio:
+        return color
+
+    lighten = _relative_luminance(against) < 0.5
+    hue, saturation, lightness, alpha = color.getHsl()
+    for step in range(1, 21):
+        shifted = (
+            lightness + (255 - lightness) * step / 20
+            if lighten
+            else (lightness - lightness * step / 20)
+        )
+        candidate = QColor.fromHsl(hue, saturation, round(shifted), alpha)
+        if contrast_ratio(candidate, against) >= ratio:
+            return candidate
+    return QColor("#ffffff") if lighten else QColor("#000000")
+
+
+def frame_color(
+    text: QColor, background: QColor, ratio: float = CHROME_BORDER_CONTRAST
+) -> QColor:
+    """A frame that stands out from `background` without shouting.
+
+    Mixing the *text* colour in works in either direction - lighter on dark
+    backgrounds, darker on light ones - and stepping up only until the ratio
+    is met keeps it a frame rather than a hard outline.
+    """
+    for step in range(1, 21):
+        candidate = _blend(text, background, step / 20)
+        if contrast_ratio(candidate, background) >= ratio:
+            return candidate
+    return text
+
+
 def chrome_border_color(ui: UiPalette) -> QColor:
     """A frame you can actually see: menus, the tab strip, the content edge.
 
@@ -50,13 +99,7 @@ def chrome_border_color(ui: UiPalette) -> QColor:
     covers them all. The mix is stepped up only until the frame clears the
     contrast bar, keeping it a frame rather than a glowing outline.
     """
-    window = QColor(ui.window)
-    text = QColor(ui.window_text)
-    for step in range(1, 21):
-        candidate = _blend(text, window, step / 20)
-        if contrast_ratio(candidate, window) >= CHROME_BORDER_CONTRAST:
-            return candidate
-    return text
+    return frame_color(QColor(ui.window_text), QColor(ui.window))
 
 
 def _remember_original(app: QApplication) -> tuple[str, QPalette]:
