@@ -70,6 +70,9 @@
     applyPageBackground(options.theme.background);
     applyScrollbarTint(options.theme.foreground);
     fitAddon.fit();
+    // A different font size means a different number of cells in the same
+    // pixels, and the shell has to be told or it wraps to the old width.
+    if (window.reportResize) window.reportResize();
   };
 
   new QWebChannel(qt.webChannelTransport, function (channel) {
@@ -84,12 +87,30 @@
       term.write(`\r\n[process exited with code ${code}]\r\n`);
     });
 
-    const reportResize = () => {
-      fitAddon.fit();
-      bridge.resize(term.cols, term.rows);
+    // Sizing is driven from Qt, not from the page. Chromium skips layout for
+    // a view in a background tab, so a terminal that asks the document how
+    // big it is can get a stale answer - one row for a pane split into a tab
+    // you aren't looking at - and the shell would start at that size. Qt
+    // knows the real geometry, so it pushes it here (see
+    // TerminalWidget._apply_size) and the container is sized explicitly.
+    let started = false;
+    window.reportResize = function () {
+      if (started) bridge.resize(term.cols, term.rows);
     };
-    window.addEventListener("resize", reportResize);
+    window.applySize = function (width, height) {
+      if (width <= 0 || height <= 0) return;
+      const el = document.getElementById("terminal");
+      el.style.width = width + "px";
+      el.style.height = height + "px";
+      fitAddon.fit();
+      if (started) {
+        bridge.resize(term.cols, term.rows);
+      } else {
+        started = true;
+        bridge.ready(term.cols, term.rows);
+      }
+    };
 
-    bridge.ready(term.cols, term.rows);
+    bridge.loaded();
   });
 })();

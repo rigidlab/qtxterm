@@ -212,3 +212,35 @@ def test_send_command_submits_once(qtbot) -> None:
 
     assert fake_pty.write_calls == ["echo hi\r"]
     assert "\n" not in fake_pty.write_calls[0]
+
+
+def test_size_is_not_pushed_before_the_page_script_is_wired_up(qtbot) -> None:
+    """runJavaScript against a page whose script hasn't run is silently
+    dropped, and the resize from being added to a splitter usually lands
+    first."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+
+    widget.resize(400, 300)
+    assert pushed == []
+
+    widget._bridge.loaded()
+    assert any("applySize" in script for script in pushed)
+
+
+def test_size_pushed_to_the_page_is_the_views_own_size(qtbot) -> None:
+    """The page cannot measure itself while its tab is in the background -
+    Chromium skips layout there, and the shell would start one row tall."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+
+    widget._bridge.loaded()
+
+    view = widget._view
+    assert pushed[-1] == (
+        f"window.applySize && window.applySize({view.width()}, {view.height()});"
+    )

@@ -77,6 +77,8 @@ class TerminalWidget(PaneWidget):
         )
         layout.addWidget(self._view)
 
+        self._script_loaded = False
+        self._bridge.script_loaded.connect(self._on_script_loaded)
         self._bridge.terminal_ready.connect(self._on_terminal_ready)
         self._bridge.input_received.connect(self._pty.write)
         self._bridge.resize_requested.connect(self._pty.resize)
@@ -127,6 +129,35 @@ class TerminalWidget(PaneWidget):
     def default_title(self) -> str:
         """Short label derived from the shell, used until the shell sets its own title."""
         return shell_short_name(self._command[0])
+
+    def _on_script_loaded(self) -> None:
+        """terminal.js is wired up, so it can be told how big it is.
+
+        Nothing is pushed before this: runJavaScript against a page whose
+        script hasn't run yet is silently dropped, and the resize that comes
+        with being added to a splitter usually happens first.
+        """
+        self._script_loaded = True
+        self._apply_size()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._apply_size()
+
+    def _apply_size(self) -> None:
+        """Tell the page its pixel size, which starts or re-fits the terminal.
+
+        Qt logical pixels map 1:1 to CSS pixels in QtWebEngine, so the view's
+        own size is what the document should be.
+        """
+        if not self._script_loaded:
+            return
+        width, height = self._view.width(), self._view.height()
+        if width <= 0 or height <= 0:
+            return
+        self._view.page().runJavaScript(
+            f"window.applySize && window.applySize({width}, {height});"
+        )
 
     def _on_terminal_ready(self, cols: int, rows: int) -> None:
         self._pty.start(self._command, cols, rows)

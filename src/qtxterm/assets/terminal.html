@@ -7,6 +7,11 @@
   /* Background is set from the theme by terminal.js - this is only the
      pre-script ground, kept neutral so no theme flashes the wrong color. */
   html, body { margin: 0; padding: 0; height: 100%; }
+  /* Sized in pixels from Qt (terminal.js window.applySize); the percentage
+     is only what it starts at. overflow:hidden because that pixel size can
+     briefly exceed the viewport Chromium believes it has, and a scrollbar
+     flickering in over the terminal is worse than a frame of clipping. */
+  body { overflow: hidden; }
   #terminal { height: 100%; }
 
   /* The scrollbar is styled from terminal.js, not here: Chromium does not

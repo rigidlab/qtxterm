@@ -594,6 +594,35 @@ plumbing; the POSIX backend has still never been run (see Phase 1).
 Worth re-checking if the PTY backend, the shutdown path, or the tab-close
 path is ever reworked.
 
+### Terminal sizing is pushed from Qt, never measured by the page ✅ done
+Found while testing multi-step Macros: a macro that split a pane and then
+opened a second tab left a PowerShell stack trace across the new pane —
+`PSConsoleReadLine.SelfInsert` → `SetCursorPosition` →
+`ArgumentOutOfRangeException: Actual value was -1`.
+
+- [x] Not a race on typing, as it first looked. Measured: the pane's PTY
+      **started at 54x1**. PSReadLine renders its prompt into a one-row
+      console, computes a cursor row of -1, and throws.
+- [x] Cause: Chromium skips layout for a view whose tab is in the
+      background. Measured with the panes left in a background tab — Qt
+      geometry 429x248, page viewport 30px; switching to that tab made it
+      248px immediately. `fitAddon.fit()` had faithfully fitted the stale
+      viewport. `page().setVisible(True)`, hide/show and a ±1px resize poke
+      all failed to force the layout.
+- [x] Fix: the page no longer measures itself. `terminal.js` exposes
+      `window.applySize(w, h)`, which sizes `#terminal` in explicit pixels,
+      fits, and reports `ready` (first call) or `resize` (later ones).
+      `TerminalWidget._apply_size()` pushes the view's size on `resizeEvent`
+      and on the new `bridge.loaded()` handshake — Qt logical pixels map 1:1
+      to CSS pixels, verified (view 425x505 → document 505px).
+- [x] The old `window.addEventListener("resize")` path is gone; one source
+      of truth. Verified afterwards: 3/3 crash-free runs (was 3/3 crashing),
+      every pane starting at a real size, and resize still reaching the shell
+      on window resize, split, splitter drag and font-size change.
+- [x] Font-size changes now report the new grid too. `applyAppearance()`
+      refitted without telling the PTY, so the shell kept wrapping to the old
+      width — a pre-existing bug this path exposed.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented

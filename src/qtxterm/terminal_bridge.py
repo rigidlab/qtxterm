@@ -17,6 +17,7 @@ class TerminalBridge(QObject):
     input_received = Signal(str)
     resize_requested = Signal(int, int)
     terminal_ready = Signal(int, int)
+    script_loaded = Signal()
     title_changed = Signal(str)
     selection_changed = Signal(str)
 
@@ -31,6 +32,19 @@ class TerminalBridge(QObject):
     @Slot(int, int)
     def ready(self, cols: int, rows: int) -> None:
         self.terminal_ready.emit(cols, rows)
+
+    @Slot()
+    def loaded(self) -> None:
+        """Sent by terminal.js as soon as the channel is up.
+
+        The page cannot work out its own size: Chromium skips layout for a
+        view in a background tab, so a pane split into a tab you aren't
+        looking at fits itself to a stale viewport - one row, in the worst
+        case - and the shell starts believing that. Qt knows the real size,
+        so it pushes it (TerminalWidget._apply_size) and the terminal starts
+        from that instead.
+        """
+        self.script_loaded.emit()
 
     @Slot(str)
     def setTitle(self, title: str) -> None:
