@@ -21,6 +21,12 @@ def store_for(tmp_path: Path) -> ShellPreferenceStore:
     return ShellPreferenceStore(make_settings(tmp_path / "s.ini"))
 
 
+def fake_lookup(shells=None):
+    """Stand-in for shells.shell_for_label over a fixed list."""
+    table = dict(shells if shells is not None else FAKE_SHELLS)
+    return lambda label: table.get(label)
+
+
 def test_defaults_to_the_system_shell(tmp_path: Path) -> None:
     store = store_for(tmp_path)
 
@@ -29,7 +35,7 @@ def test_defaults_to_the_system_shell(tmp_path: Path) -> None:
 
 
 def test_resolves_a_saved_label_to_its_command(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup())
     store = store_for(tmp_path)
 
     store.save("WSL: Ubuntu-22.04")
@@ -38,7 +44,7 @@ def test_resolves_a_saved_label_to_its_command(tmp_path, monkeypatch) -> None:
 
 
 def test_choice_persists_across_instances(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup())
     settings = make_settings(tmp_path / "s.ini")
     ShellPreferenceStore(settings).save("Git Bash")
 
@@ -51,18 +57,18 @@ def test_choice_persists_across_instances(tmp_path, monkeypatch) -> None:
 def test_falls_back_when_the_saved_shell_is_gone(tmp_path, monkeypatch) -> None:
     """A WSL distro can be uninstalled after being chosen - that must degrade
     to the system default, not fail to open a tab."""
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup())
     store = store_for(tmp_path)
     store.save("WSL: Ubuntu-22.04")
 
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS[:1])
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup(FAKE_SHELLS[:1]))
 
     assert store.resolve() is None
     assert store.resolved_label() == "System default"
 
 
 def test_saving_emits_changed(tmp_path, qtbot, monkeypatch) -> None:
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup())
     store = store_for(tmp_path)
 
     with qtbot.waitSignal(store.changed, timeout=1000):
@@ -77,15 +83,16 @@ def test_system_default_label_names_the_actual_shell() -> None:
 
 
 def test_resolve_enumerates_shells_once_not_per_tab(tmp_path, monkeypatch) -> None:
-    """known_shells() shells out to `wsl.exe -l -q` with a 5s timeout, and
-    resolve() runs on every new tab."""
+    """resolve() runs on every new tab; resolving a WSL label shells out to
+    `wsl.exe -l -q` with a 5s timeout."""
     calls = []
+    lookup = fake_lookup()
 
-    def counted():
-        calls.append(True)
-        return FAKE_SHELLS
+    def counted(label):
+        calls.append(label)
+        return lookup(label)
 
-    monkeypatch.setattr(shell_prefs, "known_shells", counted)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", counted)
     store = store_for(tmp_path)
     store.save("Git Bash")
 
@@ -96,7 +103,7 @@ def test_resolve_enumerates_shells_once_not_per_tab(tmp_path, monkeypatch) -> No
 
 
 def test_changing_the_preference_re_resolves(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(shell_prefs, "known_shells", lambda: FAKE_SHELLS)
+    monkeypatch.setattr(shell_prefs, "shell_for_label", fake_lookup())
     store = store_for(tmp_path)
     store.save("Git Bash")
     assert store.resolve() == r"C:\fake\Git\bin\bash.exe"

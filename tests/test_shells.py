@@ -151,3 +151,40 @@ def test_excludes_shells_that_are_not_found(monkeypatch) -> None:
     monkeypatch.setattr(shells.shutil, "which", lambda name: None)
 
     assert shells.known_shells() == []
+
+
+def test_resolving_a_local_shell_never_enumerates_wsl(monkeypatch) -> None:
+    """Answering "what is Git Bash?" has nothing to do with WSL, and that
+    enumeration is a subprocess with a 5s timeout."""
+    monkeypatch.setattr(shells.sys, "platform", "win32")
+    monkeypatch.setattr(shells.os, "environ", {})
+    monkeypatch.setattr(
+        shells.shutil,
+        "which",
+        lambda name: r"C:\Program Files\Git\bin\bash.exe" if name == "bash.exe" else None,
+    )
+    def explode(*a, **kw):
+        raise AssertionError("wsl.exe was enumerated")
+    monkeypatch.setattr(shells.subprocess, "run", explode)
+
+    assert shells.shell_for_label("Git Bash") == r"C:\Program Files\Git\bin\bash.exe"
+    assert shells.shell_for_label("Nonexistent") is None
+
+
+def test_resolving_a_wsl_label_does_enumerate(monkeypatch) -> None:
+    monkeypatch.setattr(shells.sys, "platform", "win32")
+    monkeypatch.setattr(shells.os, "environ", {})
+    monkeypatch.setattr(
+        shells.shutil,
+        "which",
+        lambda name: r"C:\Windows\System32\wsl.exe" if name == "wsl.exe" else None,
+    )
+    monkeypatch.setattr(
+        shells.subprocess, "run", lambda *a, **kw: _wsl_list_result(["Ubuntu"])
+    )
+
+    assert shells.shell_for_label("WSL: Ubuntu") == [
+        r"C:\Windows\System32\wsl.exe",
+        "-d",
+        "Ubuntu",
+    ]

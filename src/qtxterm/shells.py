@@ -8,15 +8,13 @@ from pathlib import Path
 
 _NON_INTERACTIVE_WSL_DISTROS = {"docker-desktop", "docker-desktop-data"}
 
+# Every WSL entry is labelled "WSL: <distro>", which is how a stored
+# preference can be resolved without enumerating distros unless it is one.
+WSL_LABEL_PREFIX = "WSL: "
 
-def known_shells() -> list[tuple[str, str | list[str]]]:
-    """(label, command) pairs for common shells that actually exist on this
-    machine. `command` is a str for a bare executable or a list[str] argv
-    when arguments are needed (e.g. WSL). Windows-only for now (PowerShell/
-    CMD/Git Bash/WSL are Windows concepts); returns [] on other platforms,
-    where the existing default-shell new tab already covers the one shell
-    that matters.
-    """
+
+def local_shells() -> list[tuple[str, str | list[str]]]:
+    """Shells found by looking at the filesystem - no subprocess involved."""
     if sys.platform != "win32":
         return []
 
@@ -34,8 +32,36 @@ def known_shells() -> list[tuple[str, str | list[str]]]:
     if git_bash:
         shells.append(("Git Bash", git_bash))
 
-    shells.extend(_wsl_shells())
+    return shells
 
+
+def shell_for_label(label: str) -> str | list[str] | None:
+    """The command behind a saved preference label, or None if it is gone.
+
+    Deliberately not `known_shells()`: that enumerates WSL distros with a
+    subprocess, and answering "what is Git Bash?" has nothing to do with
+    WSL. Only a "WSL: ..." label pays for the enumeration.
+    """
+    for name, command in local_shells():
+        if name == label:
+            return command
+    if label.startswith(WSL_LABEL_PREFIX):
+        for name, command in _wsl_shells():
+            if name == label:
+                return command
+    return None
+
+
+def known_shells() -> list[tuple[str, str | list[str]]]:
+    """(label, command) pairs for common shells that actually exist on this
+    machine. `command` is a str for a bare executable or a list[str] argv
+    when arguments are needed (e.g. WSL). Windows-only for now (PowerShell/
+    CMD/Git Bash/WSL are Windows concepts); returns [] on other platforms,
+    where the existing default-shell new tab already covers the one shell
+    that matters.
+    """
+    shells = local_shells()
+    shells.extend(_wsl_shells())
     return shells
 
 
@@ -68,13 +94,24 @@ def wsl_distros() -> list[str]:
     even be WSL's configured default, so launching them gives no usable
     shell.
     """
+    if sys.platform != "win32":
+        return []
+
     wsl = shutil.which("wsl.exe")
     if not wsl:
         return []
 
+    # stdin is closed and no console is allocated: qtxterm's GUI entry point
+    # has no console of its own, so spawning a console program makes Windows
+    # create one - which costs (0.5s measured in isolation, and 5s inside the
+    # running app, hitting the timeout below) and can flash a console window
+    # on screen. CREATE_NO_WINDOW is Windows-only, hence the guarded kwargs.
+    options: dict[str, object] = {"stdin": subprocess.DEVNULL}
+    if hasattr(subprocess, "CREATE_NO_WINDOW"):
+        options["creationflags"] = subprocess.CREATE_NO_WINDOW
     try:
         result = subprocess.run(
-            [wsl, "-l", "-q"], capture_output=True, timeout=5, check=False
+            [wsl, "-l", "-q"], capture_output=True, timeout=5, check=False, **options
         )
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -98,4 +135,6 @@ def _wsl_shells() -> list[tuple[str, list[str]]]:
     wsl = shutil.which("wsl.exe")
     if not wsl:
         return []
-    return [(f"WSL: {distro}", [wsl, "-d", distro]) for distro in wsl_distros()]
+    return [
+        (f"{WSL_LABEL_PREFIX}{distro}", [wsl, "-d", distro]) for distro in wsl_distros()
+    ]

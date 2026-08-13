@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, QSettings, Signal
 
 from qtxterm.pty_backend import default_shell
-from qtxterm.shells import known_shells
+from qtxterm.shells import shell_for_label
 
 _DEFAULT_SHELL_KEY = "shell/default"
 
@@ -42,23 +42,19 @@ class ShellPreferenceStore(QObject):
     def resolve(self) -> str | list[str] | None:
         """The command new tabs should spawn, or None to let the OS decide.
 
-        Memoised because this runs on *every* new tab, and `known_shells()`
-        shells out to `wsl.exe -l -q` to enumerate distros - a subprocess
-        with a 5s timeout. Installed shells don't change while the app is
-        open, so paying that once per session is enough; Preferences reads
-        `known_shells()` directly when it builds its list, so a newly
-        installed distro still shows up there.
+        Resolved through `shell_for_label()`, which only enumerates WSL when
+        the saved label is a WSL one - answering "what is Git Bash?" should
+        not run a subprocess. Memoised on top of that because this runs on
+        every new tab and installed shells don't change while the app is
+        open; Preferences reads `known_shells()` directly when it builds its
+        list, so a newly installed distro still shows up there.
         """
         if not self.label:
             return None
         if self._resolved is not None and self._resolved[0] == self.label:
             return self._resolved[1]
 
-        command = None
-        for label, candidate in known_shells():
-            if label == self.label:
-                command = candidate
-                break
+        command = shell_for_label(self.label)
         # None means the shell was uninstalled (or the WSL distro removed)
         # since it was chosen; new tabs fall back to the system default
         # rather than failing to open.
