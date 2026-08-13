@@ -356,6 +356,65 @@ class TerminalTabWidget(QTabWidget):
             share = extent // splitter.count()
             splitter.setSizes([share] * splitter.count())
 
+    def active_pane_orientation(self) -> Qt.Orientation | None:
+        """How the focused pane's splitter arranges it, or None if unsplit.
+
+        Callers use it to label a move as left/right vs up/down.
+        """
+        terminal = self.active_terminal()
+        parent = terminal.parentWidget() if terminal else None
+        return parent.orientation() if isinstance(parent, QSplitter) else None
+
+    def can_move_active_pane(self, forward: bool) -> bool:
+        terminal = self.active_terminal()
+        parent = terminal.parentWidget() if terminal else None
+        if not isinstance(parent, QSplitter):
+            return False
+        target = parent.indexOf(terminal) + (1 if forward else -1)
+        return 0 <= target < parent.count()
+
+    def move_active_pane(self, forward: bool) -> bool:
+        """Swap the focused pane with its neighbour in the same splitter.
+
+        The size list is left alone on purpose: positions keep their widths
+        and the panes trade places, rather than each pane dragging its size
+        along and shuffling the layout.
+        """
+        if not self.can_move_active_pane(forward):
+            return False
+        terminal = self.active_terminal()
+        parent = terminal.parentWidget()
+        sizes = parent.sizes()
+        parent.insertWidget(parent.indexOf(terminal) + (1 if forward else -1), terminal)
+        terminal.show()
+        parent.setSizes(sizes)
+        return True
+
+    def move_active_pane_to_new_tab(self) -> TerminalWidget | None:
+        """Pull the focused pane out into a tab of its own.
+
+        The common "I put this in the wrong place" fix, and much cheaper than
+        dragging panes around: the pane keeps its shell, scrollback and PTY,
+        it just changes container.
+        """
+        terminal = self.active_terminal()
+        if terminal is None:
+            return None
+        index = self.tab_index_of(terminal)
+        if index == -1 or len(self._terminals_in(self.widget(index))) <= 1:
+            return None
+
+        terminal.setParent(None)
+        remaining = self._terminals_in(self.widget(index))
+        if remaining:
+            self._focused_terminals[self.widget(index)] = remaining[0]
+        self._collapse_single_child_splitters(index)
+
+        self._add_tab(terminal)
+        terminal.show()
+        self._refresh_pane_indicators()
+        return terminal
+
     def close_active_pane(self) -> None:
         """Close the focused pane; the last pane closes the whole tab."""
         terminal = self.active_terminal()

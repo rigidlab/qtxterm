@@ -610,3 +610,68 @@ def test_splitting_a_browser_tab_does_nothing(qtbot) -> None:
 
     assert tabs.split_active(Qt.Orientation.Horizontal) is None
     assert tabs.count() == 1
+
+
+def test_move_pane_swaps_with_its_neighbour(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    splitter = tabs.widget(0)
+    assert [splitter.widget(i) for i in range(2)] == [first, second]
+
+    assert tabs.move_active_pane(forward=False) is True
+
+    assert [splitter.widget(i) for i in range(2)] == [second, first]
+
+
+def test_move_pane_stops_at_the_edges(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert tabs.can_move_active_pane(forward=True) is False
+    assert tabs.move_active_pane(forward=True) is False
+    assert tabs.can_move_active_pane(forward=False) is True
+
+
+def test_move_pane_is_unavailable_without_a_split(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert tabs.active_pane_orientation() is None
+    assert tabs.can_move_active_pane(forward=True) is False
+    assert tabs.move_active_pane(forward=True) is False
+
+
+def test_active_pane_orientation_follows_the_splitter(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Vertical, pty_session=FakePtySession())
+
+    assert tabs.active_pane_orientation() is Qt.Orientation.Vertical
+
+
+def test_move_pane_to_new_tab_keeps_the_terminal_alive(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty_a, pty_b = FakePtySession(), FakePtySession()
+    first = tabs.new_tab(shell="/bin/bash", pty_session=pty_a)
+    second = tabs.split_active(
+        Qt.Orientation.Horizontal, shell="/bin/zsh", pty_session=pty_b
+    )
+
+    moved = tabs.move_active_pane_to_new_tab()
+
+    assert moved is second
+    assert tabs.count() == 2
+    assert tabs.widget(0) is first          # source tab collapsed back to one
+    assert tabs.widget(1) is second
+    assert pty_b.closed is False            # same shell, new container
+    assert tabs.tabText(1) == "1:zsh"   # names its own shell, not the source tab's
+
+
+def test_move_pane_to_new_tab_needs_more_than_one_pane(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert tabs.move_active_pane_to_new_tab() is None
+    assert tabs.count() == 1

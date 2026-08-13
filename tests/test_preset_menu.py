@@ -307,6 +307,10 @@ class FakeTerminal:
         self.copied = 0
         self.pasted = 0
 
+    def parentWidget(self):  # noqa: N802 - stands in for a QWidget
+        """Unsplit: no splitter above it, so pane moves are unavailable."""
+        return None
+
     def copy_selection(self) -> bool:
         self.copied += 1
         return bool(self.selection)
@@ -336,6 +340,9 @@ def test_context_menu_has_copy_and_paste_above_run_command(qtbot, tmp_path: Path
         "Paste",
         "Split Right",
         "Split Down",
+        "Move Pane Left",
+        "Move Pane Right",
+        "Move Pane to New Tab",
         "Close Pane",
         "Command",
         "Selection",

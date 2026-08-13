@@ -423,6 +423,24 @@ status` to the wrong terminal with no error. Everything else about splitting
     widget starts hidden; a hidden splitter child is laid out at zero size.
     Both panes are shown explicitly.
 
+### Phase 4i — Split panes, step 3: moving panes ✅ done
+- [x] `move_active_pane(forward)` swaps the focused pane with its neighbour;
+      the size list is deliberately left alone, so positions keep their widths
+      and the panes trade places rather than shuffling the layout.
+- [x] `move_active_pane_to_new_tab()` pulls a pane out into its own tab,
+      reusing `_collapse_single_child_splitters()` to tidy the source. The
+      pane keeps its shell, scrollback and PTY - only its container changes.
+- [x] Menu labels follow the splitter's orientation: "Move Pane Left/Right"
+      would be a lie in a stacked split, so it reads Up/Down there.
+
+Mouse drag-and-drop of panes was considered and rejected for now: `QSplitter`
+has no notion of dragging children to reorder, so it means hand-rolling a
+drag source, drop targets and the tree surgery per drop - a custom docking
+layer. Windows Terminal, iTerm2 and tmux don't offer it either. If it ever
+becomes a hard requirement, nesting a `QMainWindow` per tab with panes as
+`QDockWidget`s would get it from Qt for free, at the cost of a title bar on
+every pane.
+
 Remaining, not started:
 - Focus-navigation shortcuts between panes (currently click to focus).
 - Tab labels still name one shell when a tab holds several panes.

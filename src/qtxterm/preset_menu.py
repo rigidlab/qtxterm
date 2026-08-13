@@ -219,6 +219,18 @@ class TerminalContextMenu(QMenu):
         self._split_down_action.triggered.connect(
             lambda: self._tabs.split_active(Qt.Orientation.Vertical)
         )
+        self._move_pane_back_action = self.addAction("Move Pane Left")
+        self._move_pane_back_action.triggered.connect(
+            lambda: self._tabs.move_active_pane(forward=False)
+        )
+        self._move_pane_forward_action = self.addAction("Move Pane Right")
+        self._move_pane_forward_action.triggered.connect(
+            lambda: self._tabs.move_active_pane(forward=True)
+        )
+        self._pane_to_tab_action = self.addAction("Move Pane to New Tab")
+        self._pane_to_tab_action.triggered.connect(
+            self._tabs.move_active_pane_to_new_tab
+        )
         self._close_pane_action = self.addAction("Close Pane")
         self._close_pane_action.triggered.connect(self._tabs.close_active_pane)
         self.addSeparator()
@@ -261,6 +273,25 @@ class TerminalContextMenu(QMenu):
         )
         self._selection_menu.setEnabled(bool(selection))
         self._preview_action.setText(selection_preview(selection))
+        self._refresh_pane_actions()
+
+    def _refresh_pane_actions(self) -> None:
+        """Label pane moves for the axis they actually move along.
+
+        "Move Pane Left" in a stacked split would be a lie, so the labels
+        follow the splitter's orientation.
+        """
+        orientation = self._tabs.active_pane_orientation()
+        vertical = orientation is Qt.Orientation.Vertical
+        self._move_pane_back_action.setText(
+            "Move Pane Up" if vertical else "Move Pane Left"
+        )
+        self._move_pane_forward_action.setText(
+            "Move Pane Down" if vertical else "Move Pane Right"
+        )
+        self._move_pane_back_action.setEnabled(self._tabs.can_move_active_pane(False))
+        self._move_pane_forward_action.setEnabled(self._tabs.can_move_active_pane(True))
+        self._pane_to_tab_action.setEnabled(orientation is not None)
 
     def _run_on_selection(self, preset: Preset) -> None:
         terminal = self._tabs.active_terminal()
