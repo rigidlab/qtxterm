@@ -222,7 +222,12 @@ class TerminalTabWidget(QTabWidget):
         widget = self.widget(index)
         if widget is None:
             return
-        widget.shutdown()
+        # Every pane, not the tab's root widget: once a tab is split its root
+        # is a QSplitter, which has no shutdown(). Calling it there raised
+        # before removeTab() ever ran, so the tab stayed open and its shells
+        # were left running.
+        for pane in self._panes_in(widget):
+            pane.shutdown()
         self.removeTab(index)
         self._auto_titles.pop(widget, None)
         self._custom_titles.pop(widget, None)

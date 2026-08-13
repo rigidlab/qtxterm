@@ -675,3 +675,45 @@ def test_move_pane_to_new_tab_needs_more_than_one_pane(qtbot) -> None:
 
     assert tabs.move_active_pane_to_new_tab() is None
     assert tabs.count() == 1
+
+
+def test_closing_a_split_tab_shuts_down_every_pane(qtbot) -> None:
+    """A split tab's root is a QSplitter, which has no shutdown() - calling it
+    there raised before removeTab(), leaving the tab open and its shells
+    running."""
+    tabs = make_tabs(qtbot)
+    pty_a, pty_b, pty_c = FakePtySession(), FakePtySession(), FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty_a)
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=pty_b)
+    tabs.split_active(Qt.Orientation.Vertical, pty_session=pty_c)
+
+    tabs.close_tab_at(0)
+
+    assert tabs.count() == 0
+    assert pty_a.closed and pty_b.closed and pty_c.closed
+
+
+def test_closing_a_split_tab_via_the_close_button_signal(qtbot) -> None:
+    """tabCloseRequested is what the tab's x button emits."""
+    tabs = make_tabs(qtbot)
+    pty_a, pty_b = FakePtySession(), FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty_a)
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=pty_b)
+
+    tabs.tabCloseRequested.emit(0)
+
+    assert tabs.count() == 0
+    assert pty_a.closed and pty_b.closed
+
+
+def test_closing_a_browser_tab_still_shuts_it_down(qtbot) -> None:
+    """_panes_in falls back to the tab itself when it holds no terminals."""
+    tabs = make_tabs(qtbot)
+    browser = tabs.new_browser_tab(url="about:blank")
+    stopped = []
+    browser.shutdown = lambda: stopped.append(True)
+
+    tabs.close_tab_at(0)
+
+    assert stopped == [True]
+    assert tabs.count() == 0
