@@ -331,7 +331,15 @@ def test_context_menu_has_copy_and_paste_above_run_command(qtbot, tmp_path: Path
     menu = context_menu_with(qtbot, tmp_path, FakeTerminal())
 
     texts = [a.text() for a in menu.actions() if not a.isSeparator()]
-    assert texts == ["Copy", "Paste", "Command", "Selection"]
+    assert texts == [
+        "Copy",
+        "Paste",
+        "Split Right",
+        "Split Down",
+        "Close Pane",
+        "Command",
+        "Selection",
+    ]
 
 
 def test_copy_is_disabled_without_a_selection(qtbot, tmp_path: Path) -> None:

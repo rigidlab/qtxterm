@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from conftest import FakePtySession
-from PySide6.QtCore import QPoint, QSettings
+from PySide6.QtCore import QPoint, QSettings, Qt
 from PySide6.QtWidgets import QSplitter
 
 from qtxterm.appearance import Appearance, AppearanceStore
@@ -496,3 +496,117 @@ def test_close_all_tabs_shuts_down_every_pane(qtbot) -> None:
     tabs.close_all_tabs()
 
     assert pty_a.closed and pty_b.closed
+
+
+def test_split_replaces_the_tab_root_with_a_splitter(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    root = tabs.widget(0)
+    assert isinstance(root, QSplitter)
+    assert root.orientation() == Qt.Orientation.Horizontal
+    assert set(tabs._terminals_in(root)) == {first, second}
+    assert tabs.count() == 1
+
+
+def test_splitting_again_nests_inside_the_existing_splitter(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    third = tabs.split_active(Qt.Orientation.Vertical, pty_session=FakePtySession())
+
+    assert len(tabs._terminals_in(tabs.widget(0))) == 3
+    assert third.parentWidget().orientation() == Qt.Orientation.Vertical
+
+
+def test_split_keeps_a_renamed_tab_name(qtbot) -> None:
+    """The title maps are keyed by root widget, which splitting replaces."""
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.rename_tab(0, "build")
+
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert tabs.tabText(0) == "0:build"
+
+
+def test_new_pane_becomes_the_active_one(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert tabs.active_terminal() is second
+
+
+def test_closing_a_pane_leaves_the_other_and_collapses_the_splitter(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    assert tabs.active_terminal() is second
+
+    tabs.close_active_pane()
+
+    assert tabs.count() == 1
+    assert tabs.widget(0) is first          # splitter unwrapped, not left behind
+    assert tabs.active_terminal() is first
+
+
+def test_closing_a_pane_shuts_down_only_that_pty(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    pty_a, pty_b = FakePtySession(), FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty_a)
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=pty_b)
+
+    tabs.close_active_pane()
+
+    assert pty_b.closed is True
+    assert pty_a.closed is False
+
+
+def test_closing_the_last_pane_closes_the_tab(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    with qtbot.waitSignal(tabs.all_tabs_closed, timeout=1000):
+        tabs.close_active_pane()
+
+    assert tabs.count() == 0
+
+
+def test_close_pane_collapse_survives_three_panes(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Vertical, pty_session=FakePtySession())
+
+    tabs.close_active_pane()
+    tabs.close_active_pane()
+
+    assert len(tabs._terminals_in(tabs.widget(0))) == 1
+    assert isinstance(tabs.widget(0), TerminalWidget)
+
+
+def test_pane_border_only_shows_when_a_tab_has_several_panes(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    only = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs._refresh_pane_indicators()
+    assert only._is_active_pane is False
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    assert second._is_active_pane is True
+    assert only._is_active_pane is False
+
+    tabs.close_active_pane()
+    assert only._is_active_pane is False
+
+
+def test_splitting_a_browser_tab_does_nothing(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_browser_tab(url="about:blank")
+
+    assert tabs.split_active(Qt.Orientation.Horizontal) is None
+    assert tabs.count() == 1

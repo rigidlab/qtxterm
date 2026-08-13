@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QInputDialog,
+    QSplitter,
     QTabWidget,
     QToolButton,
     QWidget,
@@ -87,8 +88,17 @@ class TerminalTabWidget(QTabWidget):
         self._close_tab_shortcut = bind("Ctrl+Shift+W", self._close_current_tab)
         self._next_tab_shortcut = bind("Ctrl+Tab", self._activate_next_tab)
         self._prev_tab_shortcut = bind("Ctrl+Shift+Tab", self._activate_prev_tab)
+        # Alt+Shift chords, following Windows Terminal: shells and TUIs rarely
+        # bind them, unlike Ctrl+Shift which readline and editors do use.
+        self._split_right_shortcut = bind(
+            "Alt+Shift+=", lambda: self.split_active(Qt.Orientation.Horizontal)
+        )
+        self._split_down_shortcut = bind(
+            "Alt+Shift+-", lambda: self.split_active(Qt.Orientation.Vertical)
+        )
+        self._close_pane_shortcut = bind("Alt+Shift+W", self.close_active_pane)
 
-    def new_tab(
+    def _make_terminal(
         self,
         shell: str | list[str] | None = None,
         pty_session: PtySession | None = None,
@@ -115,8 +125,14 @@ class TerminalTabWidget(QTabWidget):
             lambda title, w=widget: self._update_tab_tooltip(w, title)
         )
         widget.context_menu_requested.connect(self.context_menu_requested)
+        return widget
 
-        return self._add_tab(widget)
+    def new_tab(
+        self,
+        shell: str | list[str] | None = None,
+        pty_session: PtySession | None = None,
+    ) -> TerminalWidget:
+        return self._add_tab(self._make_terminal(shell, pty_session))
 
     def new_browser_tab(self, url: str | None = None) -> BrowserWidget:
         """Open a web page in a tab alongside the terminals."""
@@ -166,6 +182,7 @@ class TerminalTabWidget(QTabWidget):
         for i in range(self.count()):
             if terminal in self._terminals_in(self.widget(i)):
                 self._focused_terminals[self.widget(i)] = terminal
+                self._refresh_pane_indicators()
                 return
 
     @staticmethod
@@ -203,6 +220,202 @@ class TerminalTabWidget(QTabWidget):
         for i in range(self.count()):
             for pane in self._panes_in(self.widget(i)):
                 pane.shutdown()
+
+    def tab_index_of(self, widget: QWidget) -> int:
+        """Which tab a widget lives in, however deeply nested. -1 if none."""
+        for i in range(self.count()):
+            root = self.widget(i)
+            if widget is root or widget in self._terminals_in(root):
+                return i
+        return -1
+
+    def _replace_tab_widget(
+        self, index: int, new_root: QWidget, old_root: QWidget | None = None
+    ) -> None:
+        """Swap a tab's root widget, keeping its label, tooltip and position.
+
+        QTabWidget has no setWidget, so the tab is removed and re-inserted.
+        The title maps are keyed by root widget, so they move across too -
+        otherwise a renamed tab would lose its name the moment you split it.
+
+        `old_root` is passed explicitly when the caller has already reparented
+        it: adding a widget to a QSplitter removes it from the tab first, so
+        by then self.widget(index) no longer names the widget whose titles
+        need carrying over.
+        """
+        if old_root is None:
+            old_root = self.widget(index)
+        was_current = self.currentIndex() == index
+        tooltip = self.tabToolTip(index)
+
+        self.removeTab(index)
+        for store in (self._auto_titles, self._custom_titles):
+            if old_root in store:
+                store[new_root] = store.pop(old_root)
+        self._focused_terminals.pop(old_root, None)
+
+        self.insertTab(index, new_root, "")
+        self.setTabToolTip(index, tooltip)
+        if was_current:
+            self.setCurrentIndex(index)
+        self._renumber()
+
+    def split_active(
+        self,
+        orientation: Qt.Orientation = Qt.Orientation.Horizontal,
+        shell: str | list[str] | None = None,
+        pty_session: PtySession | None = None,
+    ) -> TerminalWidget | None:
+        """Split the focused pane in two, returning the new terminal.
+
+        Horizontal puts the panes side by side, vertical stacks them - the
+        orientation names the divider's axis of arrangement, matching
+        QSplitter.
+        """
+        terminal = self.active_terminal()
+        if terminal is None:
+            return None
+
+        index = self.tab_index_of(terminal)
+        if index == -1:
+            return None
+
+        new_terminal = self._make_terminal(shell, pty_session)
+        splitter = QSplitter(orientation)
+        # Panes start even; without this the new one can open at zero width.
+        splitter.setChildrenCollapsible(False)
+
+        parent = terminal.parentWidget()
+        if terminal is self.widget(index):
+            # Detach the tab *before* reparenting: adding the terminal to the
+            # splitter pulls it out of the tab widget's stack on its own, and
+            # a removeTab() after that acts on an already-mangled tab, which
+            # left the new pane hidden at zero width.
+            was_current = self.currentIndex() == index
+            tooltip = self.tabToolTip(index)
+            self.removeTab(index)
+
+            splitter.addWidget(terminal)
+            splitter.addWidget(new_terminal)
+
+            for store in (self._auto_titles, self._custom_titles):
+                if terminal in store:
+                    store[splitter] = store.pop(terminal)
+            self._focused_terminals.pop(terminal, None)
+
+            self.insertTab(index, splitter, "")
+            self.setTabToolTip(index, tooltip)
+            if was_current:
+                self.setCurrentIndex(index)
+            self._renumber()
+        else:
+            at = parent.indexOf(terminal)
+            sizes = parent.sizes()
+            splitter.addWidget(terminal)
+            splitter.addWidget(new_terminal)
+            parent.insertWidget(at, splitter)
+            parent.setSizes(sizes)
+
+        # Both panes need showing, for two different reasons: a widget built
+        # with no parent starts hidden, and removeTab() explicitly hides the
+        # page it detaches. A hidden child of a splitter is laid out at zero
+        # size, which is how a split ended up looking like it did nothing.
+        splitter.show()
+        for i in range(splitter.count()):
+            splitter.widget(i).show()
+
+        self._even_out(splitter)
+        # Again once the layout has run: at this point the splitter has just
+        # been inserted and has no geometry, so its extent is 0 and there is
+        # nothing to divide yet.
+        QTimer.singleShot(0, lambda s=splitter: self._even_out(s))
+        self._focused_terminals[self.widget(index)] = new_terminal
+        self._refresh_pane_indicators()
+        return new_terminal
+
+    @staticmethod
+    def _even_out(splitter: QSplitter) -> None:
+        """Give a splitter's panes equal space.
+
+        Both halves are needed. setSizes() takes *pixels*, not ratios - the
+        obvious setSizes([1, 1]) gives each pane one pixel and dumps the
+        remainder into the last one, which is how the first pane ended up
+        zero-width. And it can't be used alone either: right after a split the
+        splitter may not be laid out yet, so its extent is still 0. Stretch
+        factors cover that case, since they govern how space is shared
+        whenever the layout does happen.
+        """
+        for i in range(splitter.count()):
+            splitter.setStretchFactor(i, 1)
+        extent = (
+            splitter.width()
+            if splitter.orientation() is Qt.Orientation.Horizontal
+            else splitter.height()
+        )
+        if extent > 0 and splitter.count():
+            share = extent // splitter.count()
+            splitter.setSizes([share] * splitter.count())
+
+    def close_active_pane(self) -> None:
+        """Close the focused pane; the last pane closes the whole tab."""
+        terminal = self.active_terminal()
+        if terminal is None:
+            return
+        index = self.tab_index_of(terminal)
+        if index == -1:
+            return
+
+        siblings = self._terminals_in(self.widget(index))
+        if len(siblings) <= 1:
+            self.close_tab_at(index)
+            return
+
+        terminal.shutdown()
+        terminal.setParent(None)
+        terminal.deleteLater()
+
+        remaining = self._terminals_in(self.widget(index))
+        self._focused_terminals[self.widget(index)] = remaining[0]
+        self._collapse_single_child_splitters(index)
+        self._refresh_pane_indicators()
+
+    def _collapse_single_child_splitters(self, index: int) -> None:
+        """Unwrap splitters left holding one pane, so the tree doesn't grow
+        a chain of pointless single-child splitters as panes are closed."""
+        while True:
+            root = self.widget(index)
+            stale = [
+                s
+                for s in ([root] if isinstance(root, QSplitter) else [])
+                + root.findChildren(QSplitter)
+                if s.count() == 1
+            ]
+            if not stale:
+                return
+            splitter = stale[0]
+            survivor = splitter.widget(0)
+            if splitter is self.widget(index):
+                survivor.setParent(None)
+                self._replace_tab_widget(index, survivor)
+            else:
+                grandparent = splitter.parentWidget()
+                at = grandparent.indexOf(splitter)
+                grandparent.insertWidget(at, survivor)
+            splitter.setParent(None)
+            splitter.deleteLater()
+
+    def _refresh_pane_indicators(self) -> None:
+        """Outline the focused pane, but only where there is a choice to make.
+
+        With one pane per tab there is nothing to disambiguate and a border
+        would just be chrome; with several, "which pane will this command go
+        to?" is a real question the UI has to answer.
+        """
+        for i in range(self.count()):
+            panes = self._terminals_in(self.widget(i))
+            active = self._focused_terminals.get(self.widget(i))
+            for pane in panes:
+                pane.set_active(len(panes) > 1 and pane is active)
 
     def preferred_shell(self) -> str | list[str] | None:
         """The configured default shell, or None to let the OS decide."""

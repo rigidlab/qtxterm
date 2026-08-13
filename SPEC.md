@@ -401,12 +401,32 @@ fail *silently*. If the active pane is wrong, a sidebar click sends `git
 status` to the wrong terminal with no error. Everything else about splitting
 (the splitter tree, close semantics, the active-pane border) fails visibly.
 
+### Phase 4i — Split panes, step 2 ✅ done
+- [x] `split_active()` builds a nested `QSplitter` tree; `close_active_pane()`
+      closes one pane and unwraps any splitter left holding a single child, so
+      the tree doesn't accumulate pointless single-child splitters.
+- [x] Active-pane outline, painted in `TerminalWidget.paintEvent` rather than
+      styled - a `QWebEngineView`'s native surface ignores a stylesheet border
+      on its parent. Shown only when a tab has more than one pane.
+- [x] Right-click Split Right / Split Down / Close Pane, plus `Alt+Shift+=`,
+      `Alt+Shift+-`, `Alt+Shift+W`. Alt+Shift follows Windows Terminal:
+      shells and TUIs rarely bind those, unlike Ctrl+Shift.
+- [x] Three Qt traps found by measuring geometry, each of which silently
+      produced a zero-width pane rather than an error:
+  - `setSizes([1, 1])` takes **pixels**, not ratios - it gives each pane one
+    pixel and dumps the rest into the last one. `_even_out()` uses stretch
+    factors plus real halves, and runs again on the next event-loop turn
+    because a freshly inserted splitter has no geometry yet.
+  - Adding a widget to a `QSplitter` pulls it out of the tab widget's stack,
+    so the tab surgery has to happen *before* reparenting, not after.
+  - `removeTab()` explicitly hides the page it detaches, and a parentless
+    widget starts hidden; a hidden splitter child is laid out at zero size.
+    Both panes are shown explicitly.
+
 Remaining, not started:
-- Split horizontal/vertical, close pane, the nested `QSplitter` tree.
-- A visible active-pane indicator. Once a tab holds several panes, "which one
-  will this command go to?" becomes a question the UI has to answer.
-- Pane-vs-tab close semantics (`Ctrl+Shift+W` becomes ambiguous), focus
-  navigation shortcuts, and tab labels with more than one pane.
+- Focus-navigation shortcuts between panes (currently click to focus).
+- Tab labels still name one shell when a tab holds several panes.
+- Per-pane close on shell exit.
 
 `QDockWidget` was considered and rejected for panes: docks are built for
 peripheral tool windows around a central widget, carry title bars you would

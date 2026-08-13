@@ -211,6 +211,18 @@ class TerminalContextMenu(QMenu):
         self._paste_action.triggered.connect(self._paste)
         self.addSeparator()
 
+        self._split_right_action = self.addAction("Split Right")
+        self._split_right_action.triggered.connect(
+            lambda: self._tabs.split_active(Qt.Orientation.Horizontal)
+        )
+        self._split_down_action = self.addAction("Split Down")
+        self._split_down_action.triggered.connect(
+            lambda: self._tabs.split_active(Qt.Orientation.Vertical)
+        )
+        self._close_pane_action = self.addAction("Close Pane")
+        self._close_pane_action.triggered.connect(self._tabs.close_active_pane)
+        self.addSeparator()
+
         self._run_menu = add_submenu(self, "Command")
         commands = in_category(self._store.presets, CATEGORY_COMMANDS)
         add_preset_actions(self._run_menu, commands, self._run)

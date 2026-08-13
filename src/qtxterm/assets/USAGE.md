@@ -12,6 +12,8 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Rename a tab | Double-click the tab |
+| Split the pane | `Alt+Shift+=` (right) / `Alt+Shift+-` (down), or right-click → Split |
+| Close a pane | `Alt+Shift+W`, or right-click → Close Pane |
 
 Only shells actually installed on your machine appear under **New Terminal**,
 and every installed WSL distro gets its own entry (`WSL: Ubuntu-22.04`).
@@ -35,6 +37,22 @@ on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so
 reusing it for "close tab" would break normal shell line-editing.
 
 Closing the last tab closes the window.
+
+## Split panes
+
+A tab can hold several terminals side by side. Right-click a terminal and
+pick **Split Right** or **Split Down**, or use `Alt+Shift+=` / `Alt+Shift+-`.
+Splits nest, so you can build columns of rows. Drag the divider to resize.
+
+The pane you last clicked or typed in is the **active** one, outlined in the
+highlight colour whenever a tab has more than one. That outline matters:
+sidebar buttons, the Command menu and Selection Actions all go to the active
+pane, so it answers "where will this land?".
+
+**Close Pane** (`Alt+Shift+W`) closes just that terminal; closing the last
+pane closes the tab. `Ctrl+Shift+W` still closes the whole tab, panes and
+all. `Alt+Shift` chords are used rather than `Ctrl+Shift` because shells and
+full-screen apps rarely bind them.
 
 ## Browser tabs
 
