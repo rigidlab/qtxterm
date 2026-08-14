@@ -244,3 +244,27 @@ def test_size_pushed_to_the_page_is_the_views_own_size(qtbot) -> None:
     assert pushed[-1] == (
         f"window.applySize && window.applySize({view.width()}, {view.height()});"
     )
+
+
+def test_scrollback_is_in_the_initial_page_url(qtbot) -> None:
+    """Passed as a query param, not pushed after load: xterm.js allocates its
+    buffer when the terminal is constructed."""
+    widget = TerminalWidget(
+        pty_session=FakePtySession(), appearance=Appearance(scrollback=4321)
+    )
+    qtbot.addWidget(widget)
+
+    query = parse_qs(widget._terminal_url(Appearance(scrollback=4321)).query())
+
+    assert query["scrollback"] == ["4321"]
+
+
+def test_changing_scrollback_is_pushed_to_an_open_terminal(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+
+    widget.apply_appearance(Appearance(scrollback=50))
+
+    assert '"scrollback": 50' in pushed[-1]

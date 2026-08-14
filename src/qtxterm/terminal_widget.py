@@ -99,6 +99,7 @@ class TerminalWidget(PaneWidget):
         query.addQueryItem("theme", json.dumps(appearance.theme.to_xterm_dict()))
         query.addQueryItem("fontFamily", appearance.font_family)
         query.addQueryItem("fontSize", str(appearance.font_size))
+        query.addQueryItem("scrollback", str(appearance.scrollback))
         url.setQuery(query)
         return url
 
@@ -110,6 +111,7 @@ class TerminalWidget(PaneWidget):
                 "theme": appearance.theme.to_xterm_dict(),
                 "fontFamily": appearance.font_family,
                 "fontSize": appearance.font_size,
+                "scrollback": appearance.scrollback,
             }
         )
         self._view.page().runJavaScript(

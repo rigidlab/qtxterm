@@ -7,6 +7,12 @@
   const fontFamily =
     params.get("fontFamily") || "Consolas, 'Cascadia Mono', monospace";
   const fontSize = parseInt(params.get("fontSize"), 10) || 14;
+  // Not `|| 1000`: 0 is a real choice here - keep nothing but what's on
+  // screen - and falsy, so it would silently become the default.
+  const requestedScrollback = parseInt(params.get("scrollback"), 10);
+  const scrollback = Number.isFinite(requestedScrollback)
+    ? requestedScrollback
+    : 1000;
 
   // Paint the page ground too, not just xterm's canvas - otherwise the
   // margin around the grid stays default-white on dark themes.
@@ -46,6 +52,7 @@
     cursorBlink: true,
     fontFamily,
     fontSize,
+    scrollback,
     theme,
   });
   const fitAddon = new FitAddon.FitAddon();
@@ -67,6 +74,9 @@
     term.options.theme = options.theme;
     term.options.fontFamily = options.fontFamily;
     term.options.fontSize = options.fontSize;
+    // Lowering this drops the oldest lines immediately, which is the point:
+    // a terminal left open for days is holding every one of them.
+    term.options.scrollback = options.scrollback;
     applyPageBackground(options.theme.background);
     applyScrollbarTint(options.theme.foreground);
     fitAddon.fit();

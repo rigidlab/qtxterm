@@ -142,3 +142,27 @@ def test_cancel_leaves_the_saved_order_alone(qtbot, tmp_path: Path) -> None:
     dialog.reject()
 
     assert order_store.order == DEFAULT_ORDER
+
+
+def test_scrollback_is_preselected_and_saved(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.save(Appearance(scrollback=7000))
+    dialog = PreferencesDialog(store)
+    qtbot.addWidget(dialog)
+    assert dialog._scrollback_spin.value() == 7000
+
+    dialog._scrollback_spin.setValue(200)
+    dialog._save()
+
+    assert store.current.scrollback == 200
+
+
+def test_scrollback_can_be_turned_off_entirely(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    dialog = PreferencesDialog(store)
+    qtbot.addWidget(dialog)
+
+    dialog._scrollback_spin.setValue(0)
+    dialog._save()
+
+    assert store.current.scrollback == 0

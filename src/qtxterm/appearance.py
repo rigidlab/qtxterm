@@ -9,9 +9,20 @@ from qtxterm.themes import THEMES, Theme, default_theme_name
 _THEME_KEY = "appearance/theme"
 _FONT_FAMILY_KEY = "appearance/fontFamily"
 _FONT_SIZE_KEY = "appearance/fontSize"
+_SCROLLBACK_KEY = "appearance/scrollback"
 
 DEFAULT_FONT_FAMILY = "Consolas"
 DEFAULT_FONT_SIZE = 14
+
+# xterm.js's own default, kept as ours so the setting starts where the
+# terminal already was. Every line held is memory that a terminal left open
+# for days never gives back, which is why this is worth exposing at all.
+DEFAULT_SCROLLBACK = 1000
+# 0 means "keep nothing but the screen". The ceiling is xterm.js's
+# MAX_BUFFER_SIZE, past which it silently clamps - better to stop at a
+# number the user chose than one they didn't.
+MIN_SCROLLBACK = 0
+MAX_SCROLLBACK = 100_000
 
 
 @dataclasses.dataclass
@@ -19,6 +30,7 @@ class Appearance:
     theme_name: str = default_theme_name()
     font_family: str = DEFAULT_FONT_FAMILY
     font_size: int = DEFAULT_FONT_SIZE
+    scrollback: int = DEFAULT_SCROLLBACK
 
     @property
     def theme(self) -> Theme:
@@ -45,8 +57,14 @@ class AppearanceStore(QObject):
             theme_name = default_theme_name()
         font_family = self._settings.value(_FONT_FAMILY_KEY, DEFAULT_FONT_FAMILY)
         font_size = int(self._settings.value(_FONT_SIZE_KEY, DEFAULT_FONT_SIZE))
+        scrollback = int(self._settings.value(_SCROLLBACK_KEY, DEFAULT_SCROLLBACK))
         return Appearance(
-            theme_name=theme_name, font_family=font_family, font_size=font_size
+            theme_name=theme_name,
+            font_family=font_family,
+            font_size=font_size,
+            # Clamped on the way in: a hand-edited ini shouldn't be able to
+            # ask xterm.js for a negative buffer.
+            scrollback=max(MIN_SCROLLBACK, min(scrollback, MAX_SCROLLBACK)),
         )
 
     def save(self, appearance: Appearance) -> None:
@@ -54,4 +72,5 @@ class AppearanceStore(QObject):
         self._settings.setValue(_THEME_KEY, appearance.theme_name)
         self._settings.setValue(_FONT_FAMILY_KEY, appearance.font_family)
         self._settings.setValue(_FONT_SIZE_KEY, appearance.font_size)
+        self._settings.setValue(_SCROLLBACK_KEY, appearance.scrollback)
         self.changed.emit()

@@ -695,6 +695,31 @@ over and asserts that nothing keeps climbing.
       this app, and the leak-prone half - a QWebEngineView and a Chromium
       render process per terminal - runs either way.
 
+### Phase 4p — Scrollback preference ✅ done
+xterm.js defaults to **1000 lines** of scrollback (`scrollback: 1e3` in the
+vendored bundle) and `terminal.js` never overrode it, so that was qtxterm's
+default by accident rather than by choice. It is now a preference, sitting
+next to font size in Preferences.
+
+- [x] Lives on `Appearance`, which is already the object pushed to every
+      open terminal on change. Not strictly *appearance* - it is a buffer
+      size - but it travels the same two paths as font size (query param on
+      load, `applyAppearance()` live) and inventing a second store to carry
+      one integer along the identical wires would be worse.
+- [x] Passed as a query param, not pushed after load: xterm.js allocates the
+      buffer when the Terminal is constructed.
+- [x] `0` is a real setting - keep nothing but the screen - and falsy, so
+      both the JS default (`|| 1000` would swallow it) and the spin box
+      (which shows "None (screen only)") handle it explicitly.
+- [x] Clamped to 0..100,000 on load, so a hand-edited ini can't ask xterm.js
+      for a negative buffer. Above its MAX_BUFFER_SIZE xterm silently
+      clamps, and stopping at a number the user chose beats stopping at one
+      they didn't.
+- [x] Verified against real xterm.js by writing 2000 lines and measuring the
+      viewport's scrollHeight: 0 -> 391px (the screen alone), 100 -> 2091px,
+      1000 -> 17391px, 5000 -> 34017px (capped by the 2000 lines written,
+      not by the setting). Each is exactly 17px per retained line.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented

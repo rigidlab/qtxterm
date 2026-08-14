@@ -17,7 +17,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm.appearance import (
+    MAX_SCROLLBACK,
+    MIN_SCROLLBACK,
+    Appearance,
+    AppearanceStore,
+)
 from qtxterm.menu_prefs import SECTION_LABELS, ContextMenuOrderStore
 from qtxterm.shell_prefs import (
     SYSTEM_DEFAULT,
@@ -33,8 +38,8 @@ _LIST_FRAME_ALLOWANCE = 8
 
 
 class PreferencesDialog(QDialog):
-    """Terminal preferences: default shell, color theme, font, font size, and
-    the order of the terminal right-click menu's submenus.
+    """Terminal preferences: default shell, color theme, font, font size,
+    scrollback, and the order of the terminal right-click menu's submenus.
 
     Saving applies immediately to every open tab (AppearanceStore.changed)
     and persists for the next launch. The default shell only affects tabs
@@ -85,6 +90,18 @@ class PreferencesDialog(QDialog):
         self._size_spin.setRange(6, 72)
         self._size_spin.setValue(store.current.font_size)
         form.addRow("Font size", self._size_spin)
+
+        self._scrollback_spin = QSpinBox()
+        self._scrollback_spin.setRange(MIN_SCROLLBACK, MAX_SCROLLBACK)
+        self._scrollback_spin.setSingleStep(500)
+        self._scrollback_spin.setGroupSeparatorShown(True)
+        self._scrollback_spin.setValue(store.current.scrollback)
+        self._scrollback_spin.setSpecialValueText("None (screen only)")
+        self._scrollback_spin.setToolTip(
+            "Lines kept above the screen, per terminal. Every line is memory "
+            "a terminal left open for days never gives back."
+        )
+        form.addRow("Scrollback lines", self._scrollback_spin)
 
         if order_store is not None:
             form.addRow("Right-click menu", self._build_order_editor())
@@ -162,6 +179,7 @@ class PreferencesDialog(QDialog):
                 theme_name=self._theme_combo.currentText(),
                 font_family=self._font_combo.currentFont().family(),
                 font_size=self._size_spin.value(),
+                scrollback=self._scrollback_spin.value(),
             )
         )
         self.accept()
