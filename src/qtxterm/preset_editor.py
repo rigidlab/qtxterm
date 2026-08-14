@@ -24,7 +24,10 @@ from qtxterm.presets import (
     KIND_SHELL,
     KIND_STDIN,
     KIND_URL,
+    MACRO_STEP_SEPARATOR,
     SELECTION_PLACEHOLDER,
+    STEP_DOWN,
+    STEP_RIGHT,
     Preset,
     PresetStore,
     category_of,
@@ -61,6 +64,28 @@ _TARGET_CHOICES = [
     ("New tab", "new_tab"),
     ("Active terminal", "active"),
 ]
+# Built from the parser's own tokens (presets.macro_steps) so the buttons
+# can never insert a separator it doesn't understand.
+_STEP_BUTTONS = [
+    ("New Tab", MACRO_STEP_SEPARATOR, "Run the lines below this in a new tab"),
+    (
+        "Split Right",
+        f"{MACRO_STEP_SEPARATOR} {STEP_RIGHT}",
+        "Run the lines below this in a pane beside the previous one",
+    ),
+    (
+        "Split Down",
+        f"{MACRO_STEP_SEPARATOR} {STEP_DOWN}",
+        "Run the lines below this in a pane under the previous one",
+    ),
+]
+
+_MACRO_HINT = (
+    f"A <b>{MACRO_STEP_SEPARATOR}</b> line splits the macro into steps, each "
+    "opening its own terminal - add one with the buttons above. Without any, "
+    "the whole macro runs in a single new tab."
+)
+
 _KIND_HINTS = {
     KIND_URL: (
         f"URL template. {SELECTION_PLACEHOLDER} is replaced with the selected "
@@ -97,6 +122,7 @@ class PresetEditorDialog(QDialog):
         self._store = store
         self._current_index: int | None = None
         self._is_command = category == CATEGORY_COMMANDS
+        self._is_macro = category == CATEGORY_MACROS
         self._is_selection = category == CATEGORY_SELECTION
 
         layout = QHBoxLayout(self)
@@ -148,7 +174,9 @@ class PresetEditorDialog(QDialog):
             self._target_row_label = QLabel("Runs in")
             form.addRow(self._target_row_label, self._target_combo)
         form.addRow(_LINES_LABELS[category], self._lines_edit)
-        if self._is_selection:
+        if self._is_macro:
+            form.addRow("", self._build_step_buttons())
+        if self._is_selection or self._is_macro:
             form.addRow("", self._hint_label)
         # Macros never show in the sidebar - see Preset.target docstring.
         if self._is_command:
@@ -167,9 +195,43 @@ class PresetEditorDialog(QDialog):
 
         if self._is_selection:
             self._on_kind_changed()
+        if self._is_macro:
+            self._hint_label.setText(_MACRO_HINT)
         self._reload_list()
         if create_new:
             self._new_preset()
+
+    def _build_step_buttons(self) -> QWidget:
+        """Buttons that insert a step separator, rather than only documenting it.
+
+        The syntax is two dashes and a word, which is easy to explain and
+        just as easy to typo into something that silently opens a tab
+        instead of a pane. A button can't misspell it.
+        """
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(QLabel("Add step:"))
+        for label, token, tooltip in _STEP_BUTTONS:
+            button = QPushButton(label)
+            button.setToolTip(tooltip)
+            button.clicked.connect(lambda _checked=False, t=token: self._insert_step(t))
+            row.addWidget(button)
+        row.addStretch()
+        return container
+
+    def _insert_step(self, token: str) -> None:
+        """Put `token` on a line of its own at the cursor, and carry on below it.
+
+        A separator only counts when it is alone on its line, so inserting
+        one mid-line has to break the line first - otherwise the button
+        would appear to do nothing, which is worse than no button.
+        """
+        cursor = self._lines_edit.textCursor()
+        prefix = "" if cursor.atBlockStart() else "\n"
+        cursor.insertText(f"{prefix}{token}\n")
+        self._lines_edit.setTextCursor(cursor)
+        self._lines_edit.setFocus()
 
     def _selected_kind(self) -> str:
         return self._kind_combo.currentData() or KIND_URL

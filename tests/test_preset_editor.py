@@ -11,8 +11,13 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QDialog
 
+from qtxterm import preset_editor
 from qtxterm.preset_editor import PresetEditorDialog
 from qtxterm.presets import (
+    STEP_DOWN,
+    STEP_RIGHT,
+    STEP_TAB,
+    macro_steps,
     CATEGORY_COMMANDS,
     CATEGORY_MACROS,
     CATEGORY_SELECTION,
@@ -268,3 +273,85 @@ def test_every_category_dialog_has_both_buttons(qtbot, tmp_path: Path) -> None:
 
         assert dialog._save_button.text() == "Save"
         assert dialog._save_and_close_button.text() == "Save and Close"
+
+
+def macro_dialog(tmp_path: Path, qtbot, lines=None):
+    store = make_store(tmp_path)
+    store.presets = [Preset(name="M", lines=lines or ["echo one"], target="new_tab")]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_MACROS)
+    qtbot.addWidget(dialog)
+    dialog._list.setCurrentRow(0)
+    return dialog
+
+
+def test_step_buttons_only_appear_for_macros(qtbot, tmp_path: Path) -> None:
+    macros = macro_dialog(tmp_path, qtbot)
+    assert [label for label, _, _ in preset_editor._STEP_BUTTONS] == [
+        "New Tab",
+        "Split Right",
+        "Split Down",
+    ]
+    assert macros._hint_label.text() == preset_editor._MACRO_HINT
+
+    store = make_store(tmp_path)
+    commands = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
+    qtbot.addWidget(commands)
+    assert commands._is_macro is False
+    assert commands._hint_label.text() == ""
+
+
+def test_inserting_a_step_puts_the_separator_on_its_own_line(qtbot, tmp_path: Path) -> None:
+    dialog = macro_dialog(tmp_path, qtbot, ["npm run dev"])
+    cursor = dialog._lines_edit.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    dialog._lines_edit.setTextCursor(cursor)
+
+    dialog._insert_step("--- right")
+    dialog._lines_edit.insertPlainText("npm test")
+
+    assert dialog._lines_edit.toPlainText().splitlines() == [
+        "npm run dev",
+        "--- right",
+        "npm test",
+    ]
+
+
+def test_inserting_mid_line_breaks_the_line_first(qtbot, tmp_path: Path) -> None:
+    """A separator only counts alone on its line, so inserting one mid-line
+    has to break it - otherwise the button looks like it did nothing."""
+    dialog = macro_dialog(tmp_path, qtbot, ["npm run dev"])
+    cursor = dialog._lines_edit.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    dialog._lines_edit.setTextCursor(cursor)
+
+    dialog._insert_step("---")
+
+    assert dialog._lines_edit.toPlainText().splitlines() == ["npm run dev", "---"]
+
+
+def test_what_the_buttons_insert_is_what_the_parser_understands(qtbot, tmp_path: Path) -> None:
+    """The buttons and macro_steps() must not drift apart - an unrecognised
+    separator silently opens a tab instead of a pane."""
+    dialog = macro_dialog(tmp_path, qtbot, ["first"])
+    cursor = dialog._lines_edit.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    dialog._lines_edit.setTextCursor(cursor)
+
+    for _label, token, _tip in preset_editor._STEP_BUTTONS:
+        dialog._insert_step(token)
+        dialog._lines_edit.insertPlainText(f"step for {token}")
+
+    steps = macro_steps(dialog._lines_edit.toPlainText().splitlines())
+
+    assert [step.placement for step in steps] == [STEP_TAB, STEP_TAB, STEP_RIGHT, STEP_DOWN]
+
+
+def test_saving_keeps_the_separator_lines(qtbot, tmp_path: Path) -> None:
+    """Blank-ish lines are stripped on save; the separator must survive it."""
+    dialog = macro_dialog(tmp_path, qtbot, ["first"])
+    dialog._lines_edit.setPlainText("first\n--- down\nsecond")
+
+    dialog._save_current()
+
+    assert dialog._store.presets[0].lines == ["first", "--- down", "second"]
