@@ -650,6 +650,51 @@ which one you reach for, so it is a preference rather than a fixed opinion.
       dark theme, which left the rows reading as loose text in the form. Also
       improves the Manage dialogs' lists.
 
+### Phase 4o — Soak test: does it survive being left open? ✅ done
+A terminal is an app you open on Monday and close on Friday, so the failure
+that matters is not a crash but decay: it gets heavier, then slower, then
+stops drawing. `tests/test_soak.py` runs one compressed session over and
+over and asserts that nothing keeps climbing.
+
+- [x] Deselected from the default run (`addopts = "-m 'not soak'"`).
+      `pytest -m soak` is ~90s; `--soak-minutes 1440` is the full day.
+      `--soak-csv` dumps every sample, because on a long run the shape of
+      the curve says far more than pass/fail does.
+- [x] Watched: RSS, GDI/USER handles (Windows caps these per process, and a
+      GUI that leaks one per window dies of that long before it runs out of
+      memory), kernel handles, Python objects, live widgets, and event-loop
+      latency. Read through `ctypes`, not psutil - a soak test that needs an
+      extra package installed is one nobody runs.
+- [x] One tab is never closed and is fed output every cycle. "Open for 24
+      hours" usually means one terminal nobody has touched since Monday, and
+      a test that closes everything each round would miss it entirely.
+- [x] **Thresholds are per *cycle*, not per hour.** Per-hour looked obvious
+      and was wrong: fitted over a decelerating curve it shrinks the longer
+      you measure - the same healthy process reported +4241 MB/h over 30s,
+      +620 MB/h over 4min and +95 MB/h over 8min. Per-cycle growth doesn't
+      depend on how long the run happened to be, so one threshold covers the
+      smoke run and the 24-hour one.
+- [x] Judged on the last quarter of the run, and `DEFAULT_CYCLES = 60`
+      because that is where the measurements say things settle: handles stop
+      climbing around cycle 45 (+6.2/cycle over the first 20, +2.1 by 40,
+      +0.16 after), memory around 40-60 (+2.1 MB/cycle early, +0.4 by 40,
+      *negative* past 130 as the working set is handed back). A run shorter
+      than that checks the structural invariants and says why it skipped the
+      trend, rather than reporting warm-up as a leak.
+- [x] Structural invariants, which need no trend at all: only the long-lived
+      terminal is alive at the end, the per-widget bookkeeping dicts don't
+      hold closed widgets, the context menu doesn't accumulate submenus, and
+      the count of receivers on each long-lived store is unchanged — a menu
+      that connects per tab and never disconnects makes every save slower
+      than the last.
+- [x] Results, 199 cycles: memory settles ~350MB and stops, handles ~1780
+      and stop, GDI/USER/widgets dead flat, event-loop latency max 16ms with
+      a median of 0 throughout. Nothing found to fix.
+- [x] Fake PTYs by default; `--soak-real-shell` opts into real ones.
+      Spawning thousands of shells measures the OS more than it measures
+      this app, and the leak-prone half - a QWebEngineView and a Chromium
+      render process per terminal - runs either way.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented

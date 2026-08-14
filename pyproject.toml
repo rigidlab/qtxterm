@@ -40,3 +40,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The soak test is measured in minutes, so it stays out of the default run.
+# `uv run pytest -m soak` opts in; see tests/test_soak.py.
+addopts = "-m 'not soak'"
+markers = [
+    "soak: long-running reliability test (memory, handles, lag over time)",
+]
