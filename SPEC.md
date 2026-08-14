@@ -720,6 +720,28 @@ next to font size in Preferences.
       1000 -> 17391px, 5000 -> 34017px (capped by the 2000 lines written,
       not by the setting). Each is exactly 17px per retained line.
 
+### Phase 4q — Macro step syntax, discoverable ✅ done
+Multi-step Macros were only documented in SPEC.md, which is no help to
+someone staring at an empty command box.
+
+- [x] "Add step: New Tab | Split Right | Split Down" buttons under the
+      command box in Manage Macros, each inserting its separator on a line
+      of its own. Inserting mid-line breaks the line first - a separator
+      only counts alone on its line, so otherwise the button would look like
+      it did nothing.
+- [x] The button labels are built from `presets.MACRO_STEP_SEPARATOR` and
+      the placement tokens, and a test runs what they insert back through
+      `macro_steps()`. The two can't drift into a state where a button emits
+      something the parser quietly treats as a plain tab.
+- [x] A hint line under them says what `---` does and that a macro without
+      one runs in a single tab - the buttons cover the common case, the
+      sentence covers the person editing an existing macro by hand.
+- [x] Text inputs gained the themed border that lists got in 4n: on a dark
+      theme Fusion's frame is invisible, and the macro editor's Name, Group
+      and command box read as labels rather than fields. QSpinBox is
+      deliberately excluded - styling any part of it hands its painting to
+      the style sheet and its arrows come back as one squashed glyph.
+
 ## Open Questions / Deferred
 
 ### Stable `Preset.id` — proposed, low priority, not implemented

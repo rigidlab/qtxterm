@@ -170,3 +170,22 @@ def test_ensure_contrast_leaves_a_colour_that_already_passes() -> None:
     assert ensure_contrast(
         QColor(ui.highlight), QColor(ui.window), ACTIVE_PANE_CONTRAST
     ) == QColor(ui.highlight)
+
+
+def test_text_inputs_get_a_visible_frame() -> None:
+    """Fusion's frame is invisible on a dark theme, which left "Name" and the
+    command box in the macro editor looking like labels, not fields."""
+    sheet = chrome_stylesheet(THEMES["VS Code Dark High Contrast"].ui)
+
+    assert "QLineEdit" in sheet
+    assert "QPlainTextEdit" in sheet
+    assert "QListWidget" in sheet
+
+
+def test_spin_boxes_are_left_unstyled() -> None:
+    """Styling any part of a QSpinBox hands its painting to the style sheet,
+    and its up/down arrows come back as one squashed glyph."""
+    sheet = chrome_stylesheet(THEMES["VS Code Dark High Contrast"].ui)
+
+    assert "QSpinBox {" not in sheet
+    assert "QSpinBox," not in sheet
