@@ -22,7 +22,9 @@ def load_usage_text() -> str:
     try:
         return USAGE_PATH.read_text(encoding="utf-8")
     except OSError as exc:
-        return f"# Usage\n\nCould not load the usage guide from `{USAGE_PATH}`:\n\n`{exc}`"
+        return (
+            f"# Usage\n\nCould not load the usage guide from `{USAGE_PATH}`:\n\n`{exc}`"
+        )
 
 
 class HelpDialog(QDialog):
