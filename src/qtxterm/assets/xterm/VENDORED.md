@@ -11,5 +11,11 @@
 alongside `QWebEngineView`, so it's loaded directly from that path in
 `terminal.html`.
 
-MIT licensed (xterm.js project). To upgrade, re-run the curl commands with a
-new version number and update this table.
+MIT licensed (xterm.js project). Its licence travels with the code it covers,
+in [`LICENSE`](LICENSE) beside these files - MIT requires the notice to ship
+with any copy, and these are copies. qtxterm's own licence is at the repo
+root and does not replace it.
+
+To upgrade, re-run the curl commands with a new version number, update this
+table, and refresh `LICENSE` from
+`https://unpkg.com/@xterm/xterm@<version>/LICENSE`.
