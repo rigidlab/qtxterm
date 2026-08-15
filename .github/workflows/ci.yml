@@ -77,17 +77,25 @@ jobs:
       - name: Both licences must ship in the wheel
         run: |
           python - <<'PY'
-          import zipfile, glob, sys
+          import glob, sys, zipfile
+
           wheel = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(wheel).namelist()
-          expected = [
-              "qtxterm-0.1.0.dist-info/licenses/LICENSE",
-              "qtxterm-0.1.0.dist-info/licenses/src/qtxterm/assets/xterm/LICENSE",
+          # Matched by suffix rather than by a hardcoded dist-info name: the
+          # version moves at release time, and this check should not need
+          # editing - or fail - because of that.
+          licences = [n for n in names if "/licenses/" in n]
+          missing = [
+              which
+              for which, tail in (
+                  ("ours", "/licenses/LICENSE"),
+                  ("xterm.js", "assets/xterm/LICENSE"),
+              )
+              if not any(n.endswith(tail) for n in licences)
           ]
-          missing = [name for name in expected if name not in names]
           if missing:
-              sys.exit(f"missing from {wheel}: {missing}")
-          print(f"{wheel}: both licences present")
+              sys.exit(f"{wheel} is missing {missing}; found {licences}")
+          print(f"{wheel} ships {len(licences)} licence files")
           PY
       - uses: actions/upload-artifact@v4
         with:

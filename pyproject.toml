@@ -1,6 +1,6 @@
 [project]
 name = "qtxterm"
-version = "0.1.0"
+version = "1.0.0"
 description = "Cross-platform GUI terminal (PySide6 + xterm.js)"
 readme = "README.md"
 license = "MIT"

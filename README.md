@@ -74,7 +74,7 @@ uv run qtxterm
 ```
 
 To build and install your own wheel: `uv build`, then `uv tool install
-dist/qtxterm-0.1.0-py3-none-any.whl`.
+dist/qtxterm-1.0.0-py3-none-any.whl`.
 
 ## Usage
 
