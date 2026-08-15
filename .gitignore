@@ -6,6 +6,8 @@ __pycache__/
 
 # uv
 .uv/
+# throwaway venv the release smoke test installs the wheel into
+.smoke/
 
 # Packaging
 build/
