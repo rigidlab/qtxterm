@@ -1,5 +1,7 @@
 # qtxterm
 
+[![CI](https://github.com/rigidlab/qtxterm/actions/workflows/ci.yml/badge.svg)](https://github.com/rigidlab/qtxterm/actions/workflows/ci.yml)
+
 A cross-platform tabbed terminal (Windows + Linux) built with PySide6, rendering
 terminals via embedded [xterm.js](https://xtermjs.org/) in a `QWebEngineView`,
 backed by real PTYs — ConPTY on Windows, `openpty` on Linux.
@@ -77,6 +79,9 @@ uv run pytest              # ~290 tests, a few seconds
 uv run pytest -m soak      # long-session reliability, ~90s
 uv run ruff check src/
 ```
+
+CI runs the tests and lint on Windows and Linux for every push, and builds
+the wheel. The soak test is excluded there - it is measured in minutes.
 
 The soak test is the interesting one: it runs a compressed session — tabs,
 panes, macros, theme and preset churn — in a loop around a terminal that is
