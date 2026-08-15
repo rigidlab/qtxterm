@@ -46,26 +46,35 @@ own command. Shown in the default theme — several dark themes ship with it.*
   Selection groups to taste.
 - Window geometry, sidebar visibility, and preferences persist between runs.
 
-## Install and run
+## Install
 
-Requires [uv](https://docs.astral.sh/uv/).
+No clone needed — [uv](https://docs.astral.sh/uv/) builds and installs it
+straight from here:
 
 ```bash
+uv tool install git+https://github.com/rigidlab/qtxterm.git
+qtxterm
+```
+
+`pipx install git+https://github.com/rigidlab/qtxterm.git` and `pip install
+git+...` work the same way.
+
+That installs two commands: **`qtxterm`** (console, so it prints where you
+ran it from) and **`qtxtermw`** (no console window — what a desktop shortcut
+should point at). On Windows, `scripts/install-shortcut.ps1` creates Desktop
+and Start Menu shortcuts with the app icon.
+
+## Run from source
+
+```bash
+git clone https://github.com/rigidlab/qtxterm.git
+cd qtxterm
 uv sync
 uv run qtxterm
 ```
 
-To install it as a command on your machine:
-
-```bash
-uv build
-uv tool install dist/qtxterm-0.1.0-py3-none-any.whl
-```
-
-That gives you `qtxterm` (console) and `qtxtermw` (no console window — what a
-desktop shortcut should point at). On Windows,
-`scripts/install-shortcut.ps1` creates Desktop and Start Menu shortcuts with
-the app icon.
+To build and install your own wheel: `uv build`, then `uv tool install
+dist/qtxterm-0.1.0-py3-none-any.whl`.
 
 ## Usage
 
