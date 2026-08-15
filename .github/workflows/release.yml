@@ -1,0 +1,124 @@
+name: Release
+
+# Tagging is the trigger, but the tag is not what gets gated - it exists in
+# git the moment it is pushed. What is gated is the Release: no artifacts are
+# published unless the built wheel installs and runs on both platforms.
+on:
+  push:
+    tags: ["v*"]
+  # A release pipeline that is only ever exercised by a release is a pipeline
+  # you debug during a release. These two run build and smoke without
+  # publishing anything - see publish's `if` - so changes to the machinery
+  # are tested before a tag depends on them.
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "scripts/smoke_test.py"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build the wheel and sdist
+        run: uv build
+
+      - name: The tag and the package version must agree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import glob, os, sys
+
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          wheels = glob.glob("dist/*.whl")
+          # qtxterm-1.0.0-py3-none-any.whl -> 1.0.0
+          built = os.path.basename(wheels[0]).split("-")[1]
+          if built != tag:
+              sys.exit(
+                  f"tag says {tag} but the wheel is {built} - bump the version "
+                  "in pyproject.toml on the tagged commit"
+              )
+          print(f"tag and wheel agree on {built}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  smoke:
+    needs: build
+    name: smoke ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Install Qt's system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 \
+            libnss3 libnspr4 libasound2t64 libxcomposite1 libxdamage1 \
+            libxrandr2 libxfixes3 libxcursor1 libxi6 libxtst6 libcups2t64 \
+            libdrm2 libgbm1 libpango-1.0-0 libcairo2 libatk1.0-0 \
+            libatk-bridge2.0-0 libatspi2.0-0 libxcb-cursor0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # A venv of its own, holding only the wheel and its dependencies. The
+      # project's own environment would hide a packaging mistake by having
+      # the source tree on the path.
+      - name: Install the built wheel into a clean environment
+        run: |
+          uv venv .smoke
+          uv pip install --python .smoke --find-links dist qtxterm
+
+      - name: Smoke test the installed app
+        run: uv run --no-project --python .smoke python scripts/smoke_test.py
+
+  publish:
+    needs: smoke
+    # Only for a real tag: a manual run exercises build and smoke, and stops
+    # there rather than inventing a release.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      # Updates the release if one already exists for this tag (created by
+      # hand, say), rather than failing.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --title "qtxterm ${GITHUB_REF_NAME#v}" --generate-notes
+          fi
