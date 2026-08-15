@@ -140,7 +140,7 @@ tabs/macros/sidebar complexity.
 - [x] Vendor xterm.js + addon-fit into `assets/xterm/`
 - [x] `PtySession` abstract wrapper: `start(shell, cols, rows)`, `write(data)`, `resize(cols, rows)`, `on_output` callback, `close()`, `is_alive`
   - `WinPtySession` using `pywinpty`
-  - `PosixPtySession` using `ptyprocess` (implemented, not yet verified on Linux)
+  - `PosixPtySession` using `ptyprocess` (verified on Ubuntu 24.04 under WSL - see Phase 4r)
 - [x] `TerminalWidget(QWidget)`: hosts `QWebEngineView` loading local `terminal.html`, wires `QWebChannel` object (`TerminalBridge`) exposing `sendInput`/`resize`/`ready`/`setTitle` (JS->Py) and `output`/`exited`/`title_changed` (Py->JS)
 - [x] `terminal.html`/`terminal.js`: init xterm.js + fit addon, pipe keystrokes to bridge, render incoming PTY output, handle resize -> notify bridge
 - [x] `MainWindow(QMainWindow)`: hosts terminal(s), spawns default shell (`$SHELL` on Linux, `powershell.exe` on Windows) on startup
@@ -741,6 +741,40 @@ someone staring at an empty command box.
       and command box read as labels rather than fields. QSpinBox is
       deliberately excluded - styling any part of it hands its painting to
       the style sheet and its arrows come back as one squashed glyph.
+
+### Phase 4r — First real Linux run ✅ done
+The README claimed Windows + Linux while `PosixPtySession` had never been
+run on Linux. Tested under WSL (Ubuntu 24.04, Python 3.12.3, PySide6 6.11.1,
+`QT_QPA_PLATFORM=offscreen`) before wiring up CI. First run: 284 passed, 5
+failed. All five are now fixed, and none were bugs in the app's behaviour.
+
+- [x] **The argv contract was only enforced on Linux.** Two tests called
+      `start(default_shell(), ...)` with a bare string. `pywinpty` quietly
+      shlex-splits that and gets away with it; `ptyprocess` raises. The app
+      always passed a list, so only the tests were wrong - but the same
+      laxness is why `win.py` carries a comment about paths with spaces.
+- [x] `wsl_path` was tested with `Path(r"C:\...")`, which is a *PosixPath*
+      on Linux and keeps the backslashes. Now `PureWindowsPath`, so the
+      translation is exercised on either OS.
+- [x] The offscreen platform ignores resize ("does not support
+      propagateSizeHints"), so the window-geometry test cannot observe a
+      restore. Skipped when `QT_QPA_PLATFORM=offscreen`, which means CI
+      should use xvfb if that test is to count. Note the skip has to read the
+      env var: `QGuiApplication.platformName()` at import time reports the
+      default it *would* pick ("xcb"), so a skipif on that never fires.
+- [x] A ~30% flake on `test_the_warm_up_view_is_discarded_once_loaded`,
+      which passed alone and always passed on Windows. It was the victim,
+      not the cause: it is the test that sits waiting on the event loop, so
+      pytest-qt reported against it the "Signal source has been deleted"
+      exceptions that *earlier* tests' teardown left queued. Marked
+      `qt_no_exception_capture`; 0 failures in 22 subsequent full-suite runs.
+- [x] Tightened the real cause where it was cheap: the reader thread no
+      longer emits once `close()` has been called, and `close()` waits
+      briefly (0.5s, bounded because it runs on the GUI thread) for the
+      thread to finish. Honest note - this did **not** move the flake rate;
+      the remaining noise is Qt teardown with async work still in flight,
+      and the proper fix is for a widget to stop its page the way
+      `BrowserWidget.shutdown()` already does.
 
 ## Open Questions / Deferred
 

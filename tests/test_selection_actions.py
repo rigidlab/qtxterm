@@ -11,7 +11,7 @@ import stat
 import tempfile
 
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from qtxterm import selection_actions
 from qtxterm.presets import KIND_STDIN, KIND_URL, Preset
@@ -196,8 +196,12 @@ def test_cmd_pipes_with_type(tmp_path) -> None:
 
 
 def test_wsl_gets_a_linux_path() -> None:
-    assert wsl_path(Path(r"C:\Users\me\sel.txt")) == "/mnt/c/Users/me/sel.txt"
-    assert feed_from_file("wc -l", Path(r"D:\tmp\s.txt"), "wsl") == (
+    """PureWindowsPath, not Path: this translates a *Windows* path for the
+    Linux side of WSL, and on Linux a plain Path() treats the backslashes as
+    ordinary characters - so the test only exercised the real thing when it
+    happened to run on Windows."""
+    assert wsl_path(PureWindowsPath(r"C:\Users\me\sel.txt")) == "/mnt/c/Users/me/sel.txt"
+    assert feed_from_file("wc -l", PureWindowsPath(r"D:\tmp\s.txt"), "wsl") == (
         'wc -l < "/mnt/d/tmp/s.txt"'
     )
 

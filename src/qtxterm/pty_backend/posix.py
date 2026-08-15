@@ -14,7 +14,6 @@ class PosixPtySession(PtySession):
         super().__init__()
         self._process: PtyProcessUnicode | None = None
         self._reader_thread: threading.Thread | None = None
-        self._stop_reading = threading.Event()
 
     def start(self, command: list[str], cols: int, rows: int) -> None:
         self._process = PtyProcessUnicode.spawn(command, dimensions=(rows, cols))
@@ -30,9 +29,11 @@ class PosixPtySession(PtySession):
                 break
             if not data:
                 break
-            self.output_ready.emit(data)
-        exit_code = self._process.exitstatus if self._process.exitstatus is not None else 0
-        self.exited.emit(exit_code)
+            self._emit_from_reader(self.output_ready, data)
+        exit_code = (
+            self._process.exitstatus if self._process.exitstatus is not None else 0
+        )
+        self._emit_from_reader(self.exited, exit_code)
 
     def write(self, data: str) -> None:
         if self._process is not None and self._process.isalive():
@@ -46,6 +47,7 @@ class PosixPtySession(PtySession):
         self._stop_reading.set()
         if self._process is not None and self._process.isalive():
             self._process.terminate(force=True)
+        self._await_reader()
 
     @property
     def is_alive(self) -> bool:

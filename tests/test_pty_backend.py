@@ -48,7 +48,10 @@ def test_real_pty_roundtrip(qtbot) -> None:
     output_chunks: list[str] = []
     session.output_ready.connect(output_chunks.append)
 
-    session.start(default_shell(), cols=80, rows=24)
+    # A list, not a bare string: that is the documented argv contract, and
+    # ptyprocess enforces it on Linux where pywinpty quietly shlex-splits a
+    # string and gets away with it.
+    session.start([default_shell()], cols=80, rows=24)
     qtbot.waitUntil(lambda: session.is_alive, timeout=5000)
 
     session.write("echo pytest_roundtrip_ok\r\n")
@@ -58,11 +61,21 @@ def test_real_pty_roundtrip(qtbot) -> None:
 
     session.close()
     qtbot.waitUntil(lambda: not session.is_alive, timeout=5000)
+    # Deliver whatever the reader already queued before dropping the last
+    # reference to `session`. A cross-thread emit is delivered later, on the
+    # GUI thread, and if the sender has been collected by then Qt raises
+    # "Signal source has been deleted" into the event loop - which pytest-qt
+    # reports against whichever *other* test happens to be pumping it.
+    session.output_ready.disconnect()
+    qtbot.wait(100)
 
 
 def test_real_pty_resize(qtbot) -> None:
     session = create_pty_session()
-    session.start(default_shell(), cols=80, rows=24)
+    # A list, not a bare string: that is the documented argv contract, and
+    # ptyprocess enforces it on Linux where pywinpty quietly shlex-splits a
+    # string and gets away with it.
+    session.start([default_shell()], cols=80, rows=24)
     qtbot.waitUntil(lambda: session.is_alive, timeout=5000)
 
     session.resize(cols=120, rows=40)

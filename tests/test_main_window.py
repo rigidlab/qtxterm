@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import os
+
+import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
@@ -101,6 +104,15 @@ def test_sidebar_hidden_state_persists_across_restart(qtbot, tmp_path: Path) -> 
     reopened.close()
 
 
+@pytest.mark.skipif(
+    # The env var, not QGuiApplication.platformName(): the platform plugin is
+    # only chosen when the application is constructed, and at import time
+    # platformName() reports the default it *would* pick ("xcb"), so the skip
+    # never fired.
+    os.environ.get("QT_QPA_PLATFORM") == "offscreen",
+    reason="the offscreen platform ignores resize (no propagateSizeHints), so a "
+    "restored geometry cannot be observed there - run under xvfb to cover it",
+)
 def test_window_size_persists_across_restart(qtbot, tmp_path: Path) -> None:
     settings = make_settings(tmp_path)
     window = MainWindow(settings=settings)
