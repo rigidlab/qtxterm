@@ -53,7 +53,14 @@ def build_url(template: str, selection: str) -> str:
 def write_selection_file(selection: str) -> Path:
     """Write `selection` somewhere a shell can redirect from."""
     directory = selection_dir()
-    directory.mkdir(parents=True, exist_ok=True)
+    # 0700, and enforced even if the directory already exists: on Linux the
+    # temp dir is shared between users, so another account could pre-create
+    # this path and then swap in its own file for the command to read. The
+    # file itself is 0600 courtesy of mkstemp, but that does not protect a
+    # directory someone else owns.
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name == "posix":
+        os.chmod(directory, 0o700)
     handle, name = tempfile.mkstemp(
         suffix=".txt", prefix="selection-", dir=directory, text=True
     )

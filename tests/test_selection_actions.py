@@ -6,6 +6,10 @@ reaching a shell command line unescaped.
 
 from __future__ import annotations
 
+import os
+import stat
+import tempfile
+
 import time
 from pathlib import Path
 
@@ -223,3 +227,16 @@ def test_shell_name_for_asks_the_tabs_what_a_new_tab_would_open() -> None:
     new_tab = Preset(name="a", lines=["x"], kind=KIND_STDIN, target="new_tab")
 
     assert selection_actions.shell_name_for(new_tab, Tabs()) == "powershell"
+
+
+def test_selection_directory_is_not_readable_by_other_users(tmp_path, monkeypatch) -> None:
+    """On Linux the temp dir is shared, so another account could pre-create
+    this path and swap in its own file for the command to read."""
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+    path = selection_actions.write_selection_file("secret text")
+
+    directory = path.parent
+    assert path.read_text(encoding="utf-8") == "secret text"
+    if os.name == "posix":
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700

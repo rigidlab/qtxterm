@@ -20,6 +20,19 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Secrets - nothing here should ever be committed, and a public repo is a
+# bad place to find out otherwise
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+
+# Soak test output
+soak*.csv
+
 # Local config (per-user presets, not part of the app source)
 presets.local.json
 sidebar_layout.local.json

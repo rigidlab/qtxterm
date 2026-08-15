@@ -68,6 +68,28 @@ def test_title_changed_goes_to_the_tab_tooltip(qtbot) -> None:
     assert tabs.tabToolTip(0) == "MINGW64:/c/Users/dev/git/qtxterm"
 
 
+def test_a_hostile_osc_title_is_not_rendered_as_markup(qtbot) -> None:
+    """Anything in the terminal can set this - a remote host over SSH
+    included - and Qt draws a tooltip as rich text when the string looks
+    like markup."""
+    tabs = make_tabs(qtbot)
+    widget = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    widget.title_changed.emit('<b>bank.com</b><img src="http://evil/x.png">')
+
+    # Qt still treats the escaped string as rich text - an entity is enough
+    # to trip that heuristic - so what matters is what it renders *to*: the
+    # markup must come out as literal characters, with no element left to
+    # format the text or reference an image.
+    from PySide6.QtGui import QTextDocumentFragment
+
+    tooltip = tabs.tabToolTip(0)
+    rendered = QTextDocumentFragment.fromHtml(tooltip).toPlainText()
+
+    assert rendered == '<b>bank.com</b><img src="http://evil/x.png">'
+    assert "&lt;b&gt;bank.com&lt;/b&gt;" in tooltip
+
+
 def test_tooltip_follows_the_tab_when_an_earlier_one_closes(qtbot) -> None:
     tabs = make_tabs(qtbot)
     first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())

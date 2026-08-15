@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QPainter, QPalette, QShortcut
 from PySide6.QtWidgets import (
@@ -650,9 +652,17 @@ class TerminalTabWidget(QTabWidget):
             self.rename_tab(index, name)
 
     def _update_tab_tooltip(self, widget, title: str) -> None:
+        """Show the shell's own title, as text rather than as markup.
+
+        Anything running in the terminal can set this - including a remote
+        host over SSH - and Qt renders a tooltip as rich text whenever the
+        string looks like markup. An OSC title of "<b>bank.com</b>" would
+        then be drawn as formatted text rather than shown for what it is, so
+        it is escaped on the way in.
+        """
         index = self.indexOf(widget)
         if index != -1:
-            self.setTabToolTip(index, title)
+            self.setTabToolTip(index, html.escape(title))
 
     def _renumber(self) -> None:
         for i in range(self.count()):
