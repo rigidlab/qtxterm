@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
             order_store=self._menu_order_store,
         ).exec()
 
-    def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+    def closeEvent(self, event) -> None:
         self._save_window_state()
         self._tabs.close_all_tabs()
         super().closeEvent(event)
