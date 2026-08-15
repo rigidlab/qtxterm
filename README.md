@@ -1,16 +1,48 @@
 # qtxterm
 
 A cross-platform tabbed terminal (Windows + Linux) built with PySide6, rendering
-terminals via embedded xterm.js and backed by real PTYs.
+terminals via embedded [xterm.js](https://xtermjs.org/) in a `QWebEngineView`,
+backed by real PTYs — ConPTY on Windows, `openpty` on Linux.
 
-- Multiple terminal tabs with tmux-style labels that track the shell's title
-- On Windows, open PowerShell, Command Prompt, Git Bash, or WSL from **File → New Terminal**
-- **Commands** — reusable one-liners, sent to the terminal you're working in,
-  as one-click sidebar buttons
-- **Macros** — multi-step scripts that open and run in a fresh tab
-- Color themes (VS Code Dark High Contrast, Solarized, ...) applied across the
-  whole window, plus font and font size, from **File → Preferences...**
-- Window size and sidebar visibility are remembered between sessions
+![qtxterm](docs/screenshot.png)
+
+*One macro produced that layout: a tab split three ways, each pane running its
+own command.*
+
+## Features
+
+- **Tabs and split panes** — split any pane right or down, move panes within a
+  tab or out into a tab of their own. Tabs carry tmux-style `{index}:{shell}`
+  labels and can be renamed by double-clicking.
+- **Any shell on the box** — PowerShell, Command Prompt, Git Bash, or a
+  specific WSL distro, discovered at runtime and listed individually under
+  **File → New Terminal**. Pick the one new tabs open with in Preferences.
+- **Commands** — reusable one-liners sent to the terminal you're already
+  working in, as one-click sidebar buttons and from the right-click menu.
+- **Macros** — multi-step scripts that open their own tabs *and panes*. A
+  `---` line splits a macro into steps, and `--- right` / `--- down` place a
+  step in a split pane:
+
+  ```
+  npm run dev
+  --- right
+  npm run test:watch
+  --- down
+  git status
+  ```
+
+- **Selection Actions** — do something with the text you've selected: open it
+  in a search URL, or feed it to a command on stdin. The selection is
+  percent-encoded or written to a temp file rather than interpolated into a
+  shell line, so a selection full of quotes and semicolons stays inert.
+- **Browser tabs and panes** — put a page beside a terminal, for docs or a
+  local dev server.
+- **Themes and typography** — VS Code Dark High Contrast, Solarized and others
+  applied to the terminal *and* the window chrome, plus font, font size, and
+  how many lines of scrollback each terminal keeps.
+- **Customizable right-click menu** — reorder its Copy/Paste, Pane, Command and
+  Selection groups to taste.
+- Window geometry, sidebar visibility, and preferences persist between runs.
 
 ## Install and run
 
@@ -21,15 +53,42 @@ uv sync
 uv run qtxterm
 ```
 
+To install it as a command on your machine:
+
+```bash
+uv build
+uv tool install dist/qtxterm-0.1.0-py3-none-any.whl
+```
+
+That gives you `qtxterm` (console) and `qtxtermw` (no console window — what a
+desktop shortcut should point at). On Windows,
+`scripts/install-shortcut.ps1` creates Desktop and Start Menu shortcuts with
+the app icon.
+
 ## Usage
 
-The full usage guide is in the app under **Help → Usage**, or read
+The full guide is in the app under **Help → Usage**, or read
 [`src/qtxterm/assets/USAGE.md`](src/qtxterm/assets/USAGE.md).
 
 ## Development
 
 ```bash
-uv run pytest
+uv run pytest              # ~290 tests, a few seconds
+uv run pytest -m soak      # long-session reliability, ~90s
+uv run ruff check src/
 ```
 
-Design decisions and the phased build plan are in [`SPEC.md`](SPEC.md).
+The soak test is the interesting one: it runs a compressed session — tabs,
+panes, macros, theme and preset churn — in a loop around a terminal that is
+never closed, and asserts that memory, GDI/USER and kernel handles, live
+widgets and event-loop latency all stop climbing. `--soak-minutes 1440` runs
+it for a day; `--soak-csv` dumps the curve.
+
+[`SPEC.md`](SPEC.md) is the design record: what was decided, what was
+measured, and why several obvious-looking approaches were rejected.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Vendored xterm.js is MIT too, with its notice
+alongside the code it covers in
+[`src/qtxterm/assets/xterm/LICENSE`](src/qtxterm/assets/xterm/LICENSE).
