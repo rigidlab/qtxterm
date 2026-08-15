@@ -7,7 +7,7 @@ backed by real PTYs — ConPTY on Windows, `openpty` on Linux.
 ![qtxterm](docs/screenshot.png)
 
 *One macro produced that layout: a tab split three ways, each pane running its
-own command.*
+own command. Shown in the default theme — several dark themes ship with it.*
 
 ## Features
 
