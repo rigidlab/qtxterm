@@ -6,6 +6,9 @@ from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QStyle
 
 from qtxterm.appearance import AppearanceStore
 from qtxterm.branding import app_icon
+from qtxterm.cron import CronStore
+from qtxterm.cron_menu import CronMenu
+from qtxterm.cron_scheduler import CronScheduler
 from qtxterm.help_dialog import HelpDialog
 from qtxterm.menu_prefs import ContextMenuOrderStore
 from qtxterm.preferences_dialog import PreferencesDialog
@@ -102,6 +105,23 @@ class MainWindow(QMainWindow):
         )
         self.menuBar().addMenu(self._selection_menu)
 
+        # Started here rather than in app.main() so a window built by a test
+        # or an embedder gets a working scheduler too - it only ever acts on
+        # its own tabs.
+        self._cron_store = CronStore()
+        self._cron_scheduler = CronScheduler(
+            self._cron_store, self._preset_store, self._tabs, parent=self
+        )
+        self._cron_scheduler.job_failed.connect(self._on_cron_job_failed)
+        self._cron_scheduler.start()
+        self._cron_menu = CronMenu(
+            self._cron_store,
+            self._preset_store,
+            parent=self,
+            scheduler=self._cron_scheduler,
+        )
+        self.menuBar().addMenu(self._cron_menu)
+
         # One menu shared by every tab - it rebuilds itself on store changes,
         # so there's nothing per-tab to keep in sync.
         self._terminal_context_menu = TerminalContextMenu(
@@ -190,6 +210,14 @@ class MainWindow(QMainWindow):
         self._file_menu.addSeparator()
         exit_action = self._file_menu.addAction("Exit")
         exit_action.triggered.connect(self.close)
+
+    def _on_cron_job_failed(self, name: str, reason: str) -> None:
+        """Say it in the status bar rather than a dialog.
+
+        A job fires on a schedule, so a modal would appear over whatever you
+        were doing, possibly while you were away - and possibly once a minute.
+        """
+        self.statusBar().showMessage(f"Cron job {name!r}: {reason}", 10000)
 
     def show_preferences(self) -> None:
         PreferencesDialog(

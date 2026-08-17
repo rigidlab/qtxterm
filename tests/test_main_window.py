@@ -173,6 +173,7 @@ def test_menu_bar_order(qtbot, tmp_path: Path) -> None:
         "&Macros",
         "&Commands",
         "&Selection",
+        "C&ron",
         "&Help",
     ]
 
