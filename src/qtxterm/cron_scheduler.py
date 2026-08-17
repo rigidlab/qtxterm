@@ -1,0 +1,135 @@
+"""Fires cron jobs while the app is running.
+
+Kept apart from `cron.py`, which is schedules and storage and knows nothing
+about terminals. This is the half that owns a tab per job and decides when to
+write into it.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from PySide6.QtCore import QObject, QTimer, Signal
+
+from qtxterm.cron import CronError, CronJob, CronStore
+from qtxterm.presets import Preset, PresetStore
+
+# The clock is only read to the minute, so a second is plenty of resolution
+# and costs nothing measurable. A 60s timer would drift against the wall
+# clock and skip a minute whenever the machine sleeps.
+_TICK_MS = 1000
+
+
+class CronScheduler(QObject):
+    """Runs jobs at their scheduled minute, into a tab each job keeps.
+
+    No catch-up, by design (see SPEC.md): the minute already in progress when
+    the app starts never fires, and nothing missed while it was closed is
+    replayed. Otherwise launching after a weekend would open a burst of
+    terminals before you had touched anything.
+    """
+
+    job_fired = Signal(str)
+    # Name and reason. A job pointing at a preset that has been renamed or
+    # deleted must say so - silently doing nothing every minute is the worst
+    # possible behaviour for a scheduler.
+    job_failed = Signal(str, str)
+
+    def __init__(
+        self,
+        cron_store: CronStore,
+        preset_store: PresetStore,
+        tabs,
+        parent: QObject | None = None,
+        clock=None,
+    ) -> None:
+        super().__init__(parent)
+        self._cron_store = cron_store
+        self._preset_store = preset_store
+        self._tabs = tabs
+        self._clock = clock or datetime.now
+        self._tab_for_job: dict[str, object] = {}
+        self._last_minute: datetime | None = None
+
+        self._timer = QTimer(self)
+        self._timer.setInterval(_TICK_MS)
+        self._timer.timeout.connect(self._on_tick)
+
+    def start(self) -> None:
+        # Anchored to the current minute so the one in progress is not fired
+        # a second time by an app that happened to open during it.
+        self._last_minute = self._minute_of(self._clock())
+        self._timer.start()
+
+    def stop(self) -> None:
+        self._timer.stop()
+
+    @staticmethod
+    def _minute_of(moment: datetime) -> datetime:
+        return moment.replace(second=0, microsecond=0)
+
+    def _on_tick(self) -> None:
+        minute = self._minute_of(self._clock())
+        if minute == self._last_minute:
+            return
+        self._last_minute = minute
+        self.run_due_jobs(minute)
+
+    def run_due_jobs(self, minute: datetime) -> list[str]:
+        """Fire every enabled job whose schedule matches `minute`."""
+        fired: list[str] = []
+        for job in list(self._cron_store.jobs):
+            if not job.enabled:
+                continue
+            try:
+                schedule = job.schedule()
+            except CronError as exc:
+                self.job_failed.emit(job.name, f"unreadable schedule: {exc}")
+                continue
+            if schedule.matches(minute) and self.run_now(job):
+                fired.append(job.name)
+        return fired
+
+    def run_now(self, job: CronJob) -> bool:
+        """Run `job` immediately. False if it could not run, having said why."""
+        preset = self._preset_for(job)
+        if preset is None:
+            self.job_failed.emit(
+                job.name, f"no preset named {job.preset_name!r} any more"
+            )
+            return False
+
+        terminal = self._terminal_for(job)
+        if terminal is None:
+            self.job_failed.emit(job.name, "could not open a terminal for it")
+            return False
+
+        self._tabs.feed_terminal(terminal, preset.lines)
+        self.job_fired.emit(job.name)
+        return True
+
+    def _preset_for(self, job: CronJob) -> Preset | None:
+        for preset in self._preset_store.presets:
+            if preset.name == job.preset_name:
+                return preset
+        return None
+
+    def _terminal_for(self, job: CronJob):
+        """The job's own tab, opening one the first time and after a close.
+
+        One tab per job, reused: a job on a five-minute schedule would
+        otherwise bury the tab bar, and its scrollback is exactly the history
+        of that job.
+        """
+        existing = self._tab_for_job.get(job.name)
+        if existing is not None and self._tabs.tab_index_of(existing) != -1:
+            return existing
+
+        terminal = self._tabs.run_in_new_tab(None, [])
+        if terminal is None:
+            return None
+        self._tab_for_job[job.name] = terminal
+        index = self._tabs.tab_index_of(terminal)
+        if index != -1:
+            self._tabs.rename_tab(index, job.name)
+        return terminal

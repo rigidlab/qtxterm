@@ -555,6 +555,15 @@ class TerminalTabWidget(QTabWidget):
         self._feed_when_ready(widget, lines)
         return widget
 
+    def feed_terminal(self, widget: TerminalWidget, lines: list[str]) -> None:
+        """Send `lines` to one particular terminal, once its PTY is up.
+
+        Public because a caller can hold on to a terminal and write to it
+        repeatedly - the cron scheduler keeps a tab per job and feeds the
+        same one on every run.
+        """
+        self._feed_when_ready(widget, lines)
+
     @staticmethod
     def _feed_when_ready(widget: TerminalWidget, lines: list[str]) -> None:
         def _feed() -> None:
