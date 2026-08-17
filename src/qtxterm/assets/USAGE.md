@@ -158,6 +158,42 @@ If the right-click **Selection** submenu is empty — an install created before
 this feature existed keeps its own presets — open **Manage Selection
 Actions...** and press **Add Examples**.
 
+## Cron: running something on a schedule
+
+The **Cron** menu runs a Command or Macro you already have, on a schedule,
+for as long as qtxterm is open.
+
+A job is a name, a schedule, and the preset to run. **New Cron Job...**
+creates one; the schedule uses ordinary cron syntax:
+
+    minute  hour  day-of-month  month  day-of-week
+
+    */15 * * * *     every quarter of an hour
+    0 9 * * 1-5      09:00 on weekdays
+    0 2 1 * *        02:00 on the 1st of the month
+    30 6 * * 0       06:30 on Sundays (0 and 7 both mean Sunday)
+
+Each field takes `*`, a number, a range (`9-17`), a list (`0,30`), or a step
+(`*/15`, `0-30/10`). The dialog previews the next run as you type, and
+refuses to save a schedule it cannot read.
+
+**Each job gets one tab, reused on every run**, named after the job. A job
+firing every five minutes doesn't bury the tab bar, and the tab's scrollback
+becomes that job's history. Close the tab and the next run opens a fresh one.
+
+Jobs are listed in the Cron menu with a checkbox each, so you can turn one
+off without opening a dialog. **Run Now** in the editor runs a job
+immediately, which beats waiting until 2am to find out whether it works.
+
+Two things to know:
+
+- **Jobs only run while qtxterm is open**, and nothing missed while it was
+  closed is caught up on. Launching after a weekend does not fire a burst of
+  overdue jobs. For work that must happen whether or not you're at the
+  machine, use the system's own scheduler.
+- **A job names its preset.** Rename or delete that preset and the job says
+  so in the status bar rather than running something else.
+
 ## Creating and editing
 
 Each menu manages its own category: **Manage Commands...** under Commands,

@@ -776,6 +776,48 @@ failed. All five are now fixed, and none were bugs in the app's behaviour.
       and the proper fix is for a widget to stop its page the way
       `BrowserWidget.shutdown()` already does.
 
+### Phase 4s — Cron ✅ done
+Run a Command or Macro on a schedule, for as long as the app is open.
+
+Four decisions, each taken over a plausible alternative:
+
+- [x] **A job names a preset; it does not carry its own commands.** Macros
+      and Commands already have editors, and one command living in two
+      places is how the two copies drift apart. The cost is a job whose
+      preset is renamed or deleted - handled by reporting it (status bar,
+      and "(missing)" in the editor) rather than silently repointing the job
+      at whatever is first in the list.
+- [x] **Real cron expressions**, not "every N minutes". Five fields with
+      ranges, lists and steps, because it is syntax people already know.
+      That includes cron's day rule: with *both* day-of-month and day-of-week
+      restricted, a day matching *either* fires. Kept deliberately, since
+      schedules copied in from a crontab depend on it.
+- [x] **One tab per job, reused.** A five-minute job would otherwise bury the
+      tab bar, and the tab's scrollback is exactly that job's history. The tab
+      takes the job's name. Close it and the next run opens another.
+- [x] **Saved, but the clock restarts at launch.** No catch-up: the minute in
+      progress when the app opens never fires, and nothing missed while it
+      was closed is replayed. Otherwise launching after a weekend opens a
+      burst of terminals before you have touched anything. `cron.json` sits
+      next to `presets.json`.
+
+Implementation notes:
+
+- `cron.py` is schedules and storage and knows nothing about terminals;
+  `cron_scheduler.py` owns the tab-per-job and the firing. Splitting them is
+  what let the whole expression layer be tested without a Qt widget.
+- The scheduler ticks every second and acts only when the *minute* changes.
+  A 60s timer drifts against the wall clock and skips a minute whenever the
+  machine sleeps.
+- `next_run()` walks minute by minute but skips whole days that cannot match,
+  and gives up after four years - "0 0 31 2 *" parses fine and can never
+  happen, and the alternative to a bound is a UI that hangs.
+- Failures go to the status bar, not a dialog: a job fires on a schedule,
+  possibly while you are away, and a modal appearing once a minute over your
+  work is the worst available option.
+- Verified end to end against a real shell: two firings, one tab named after
+  the job, both runs landing in the same terminal.
+
 ## Open Questions / Deferred
 
 ### Start-up latency — measured, not yet decided
