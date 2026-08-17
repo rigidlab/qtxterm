@@ -778,6 +778,56 @@ failed. All five are now fixed, and none were bugs in the app's behaviour.
 
 ## Open Questions / Deferred
 
+### Start-up latency — measured, not yet decided
+The window takes **~950ms** to appear. Investigated and parked: what remains
+is a UX choice, not a missing measurement.
+
+Where it goes, on this machine (Windows, Qt 6.11):
+
+| Phase | Cost |
+|---|---|
+| Python boot | 41ms |
+| Imports (Qt + the app) | ~255ms |
+| `QApplication` + icon | ~25ms |
+| `MainWindow()` minus the warm-up | ~89ms |
+| **`prepare_window()` → Chromium** | **~455ms** |
+| `show()` → first paint | ~100ms |
+
+The 455ms is **`view.load("about:blank")`**, not constructing the view
+(0.1ms): loading is where QtWebEngine spawns its render process. Chromium
+flags (`--disable-gpu`, `--in-process-gpu`, …) make no difference, because
+they do not change that the process has to start.
+
+Phase 4k put that load before `show()` so the native-window rebuild happens
+off screen. Re-verified on Qt 6.11 and the constraint still holds — and it is
+tighter than it looks:
+
+- The rebuild fires on **`load()`**, not on view creation (HWND 6817848 →
+  6883384). Cost and rebuild are the same event; neither can be moved alone.
+- It is **per window, not per application**. With Chromium fully initialised
+  in a separate throwaway top-level window, the main window still rebuilt when
+  its own first view arrived (31263386 → 31328922). So deferring the warm-up
+  only decides *when* the flash happens, never whether.
+- A 1x1 `QOpenGLWidget` added before `show()` does **not** pre-empt it - the
+  rebuild still happened, and `QOpenGLWidget` itself pushed the window's
+  appearance out to 966ms.
+
+Options, all measured:
+
+| Approach | Window appears | Flash |
+|---|---|---|
+| Warm up before `show()` (today) | ~950ms | none |
+| Warm up right after `show()` | ~180ms | brief, just after start-up |
+| Warm up in a throwaway window | ~200ms | moves to the **first terminal** |
+
+The second is the one to take if start-up speed wins: the flicker lands
+before the user has done anything, and every later terminal is fast *and*
+clean. The third is worse - it defers the flicker to the moment attention is
+on the window.
+
+Orthogonal and free of visual cost: the ~255ms of imports, and the ~89ms of
+`MainWindow` construction, neither of which has been attacked.
+
 ### Stable `Preset.id` — proposed, low priority, not implemented
 Give every preset an `id: str` (uuid4 hex), assigned in `__post_init__` when
 absent, and key `PresetStore.update()`/`delete()` off it instead of list
