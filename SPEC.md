@@ -777,16 +777,23 @@ failed. All five are now fixed, and none were bugs in the app's behaviour.
       `BrowserWidget.shutdown()` already does.
 
 ### Phase 4s — Cron ✅ done
-Run a Command or Macro on a schedule, for as long as the app is open.
+Run a Macro on a schedule, for as long as the app is open.
 
 Four decisions, each taken over a plausible alternative:
 
-- [x] **A job names a preset; it does not carry its own commands.** Macros
-      and Commands already have editors, and one command living in two
-      places is how the two copies drift apart. The cost is a job whose
-      preset is renamed or deleted - handled by reporting it (status bar,
-      and "(missing)" in the editor) rather than silently repointing the job
-      at whatever is first in the list.
+- [x] **A job names a Macro; it does not carry its own commands.** Macros
+      already have an editor, and one command living in two places is how the
+      two copies drift apart. The cost is a job whose Macro is renamed or
+      deleted - handled by reporting it (status bar, and "(missing)" in the
+      editor) rather than silently repointing the job at whatever is first in
+      the list.
+- [x] **Macros only - not Commands, not Selection Actions.** A Command means
+      "send this to the terminal I am working in", which a job firing at 2am
+      cannot honour: there may be no terminal, or the wrong one. A Selection
+      Action needs a live selection a schedule can never provide. Enforced in
+      the scheduler as well as the editor, so a hand-edited `cron.json` is
+      refused with a reason rather than quietly typing into whatever tab you
+      were using.
 - [x] **Real cron expressions**, not "every N minutes". Five fields with
       ranges, lists and steps, because it is syntax people already know.
       That includes cron's day rule: with *both* day-of-month and day-of-week

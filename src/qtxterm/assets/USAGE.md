@@ -160,10 +160,14 @@ Actions...** and press **Add Examples**.
 
 ## Cron: running something on a schedule
 
-The **Cron** menu runs a Command or Macro you already have, on a schedule,
-for as long as qtxterm is open.
+The **Cron** menu runs a Macro you already have, on a schedule, for as long
+as qtxterm is open.
 
-A job is a name, a schedule, and the preset to run. **New Cron Job...**
+Macros only, not Commands: a Command means "send this to the terminal I'm
+working in", and a job firing at 2am has no terminal to mean. A Macro is
+already defined as something that runs somewhere of its own.
+
+A job is a name, a schedule, and the Macro to run. **New Cron Job...**
 creates one; the schedule uses ordinary cron syntax:
 
     minute  hour  day-of-month  month  day-of-week
@@ -191,8 +195,8 @@ Two things to know:
   closed is caught up on. Launching after a weekend does not fire a burst of
   overdue jobs. For work that must happen whether or not you're at the
   machine, use the system's own scheduler.
-- **A job names its preset.** Rename or delete that preset and the job says
-  so in the status bar rather than running something else.
+- **A job names its Macro.** Rename or delete that Macro and the job says so
+  in the status bar rather than running something else.
 
 ## Creating and editing
 

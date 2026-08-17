@@ -25,9 +25,9 @@ def make_stores(tmp_path: Path, jobs=(), presets=None):
     return cron_store, preset_store
 
 
-def test_the_preset_list_offers_commands_and_macros_only(qtbot, tmp_path: Path) -> None:
-    """A Selection Action needs a live selection, which a schedule can never
-    provide."""
+def test_only_macros_are_offered(qtbot, tmp_path: Path) -> None:
+    """A Command means "the terminal I am working in", which a job firing at
+    2am cannot honour; a Selection Action needs a live selection."""
     cron_store, preset_store = make_stores(tmp_path)
     preset_store.presets.append(
         Preset(name="Search", lines=["https://x/{selection}"], input="selection")
@@ -39,8 +39,9 @@ def test_the_preset_list_offers_commands_and_macros_only(qtbot, tmp_path: Path) 
         dialog._preset_combo.itemData(i) for i in range(dialog._preset_combo.count())
     ]
 
-    assert offered == ["Status", "Backup"]
-    assert "Search" not in offered
+    assert offered == ["Backup"]
+    assert "Status" not in offered  # a Command
+    assert "Search" not in offered  # a Selection Action
 
 
 def test_a_new_job_is_saved_and_listed(qtbot, tmp_path: Path) -> None:

@@ -19,12 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from qtxterm.cron import CronError, CronExpression, CronJob, CronStore
-from qtxterm.presets import (
-    CATEGORY_COMMANDS,
-    CATEGORY_MACROS,
-    PresetStore,
-    in_category,
-)
+from qtxterm.presets import CATEGORY_MACROS, PresetStore, in_category
 
 TITLE = "Manage Cron Jobs"
 
@@ -46,9 +41,9 @@ _SCOPE_HINT = (
 class CronEditorDialog(QDialog):
     """Add/edit/delete cron jobs.
 
-    A job names the preset it runs rather than carrying its own commands:
-    Macros and Commands are already edited elsewhere, and having one command
-    live in two places is how they drift apart.
+    A job names the Macro it runs rather than carrying its own commands:
+    Macros are already edited elsewhere, and having one command live in two
+    places is how they drift apart.
     """
 
     def __init__(
@@ -129,11 +124,15 @@ class CronEditorDialog(QDialog):
             self._new_job()
 
     def _runnable_presets(self):
-        """Commands and Macros. Selection Actions need a live selection, so a
-        schedule could never satisfy one."""
-        return in_category(self._preset_store.presets, CATEGORY_COMMANDS) + in_category(
-            self._preset_store.presets, CATEGORY_MACROS
-        )
+        """Macros only.
+
+        A Command means "send this to the terminal I am working in", which a
+        job firing at 2am cannot honour - there may be no terminal, or the
+        wrong one. A Selection Action needs a live selection, which a
+        schedule can never provide. That leaves Macros, which are already
+        defined as "run this somewhere of its own".
+        """
+        return in_category(self._preset_store.presets, CATEGORY_MACROS)
 
     def _reload_presets(self) -> None:
         self._preset_combo.clear()

@@ -12,7 +12,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from qtxterm.cron import CronError, CronJob, CronStore
-from qtxterm.presets import Preset, PresetStore
+from qtxterm.presets import CATEGORY_MACROS, Preset, PresetStore, category_of
 
 # The clock is only read to the minute, so a second is plenty of resolution
 # and costs nothing measurable. A 60s timer would drift against the wall
@@ -95,8 +95,15 @@ class CronScheduler(QObject):
         preset = self._preset_for(job)
         if preset is None:
             self.job_failed.emit(
-                job.name, f"no preset named {job.preset_name!r} any more"
+                job.name, f"no Macro named {job.preset_name!r} any more"
             )
+            return False
+        if category_of(preset) != CATEGORY_MACROS:
+            # Reachable only by hand-editing cron.json, or by a preset that
+            # has since been changed into a Command. Refused rather than run:
+            # a Command means "the terminal I am working in", and a job has
+            # no business typing there.
+            self.job_failed.emit(job.name, f"{job.preset_name!r} is no longer a Macro")
             return False
 
         terminal = self._terminal_for(job)

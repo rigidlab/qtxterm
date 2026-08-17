@@ -169,6 +169,22 @@ def test_the_minute_in_progress_at_start_does_not_fire(tmp_path) -> None:
     scheduler.stop()
 
 
+def test_a_job_pointing_at_a_command_is_refused(qtbot, tmp_path) -> None:
+    """Only reachable by hand-editing cron.json or by a Macro later becoming a
+    Command - either way, a job has no business typing into whatever terminal
+    you happen to be using."""
+    job = CronJob(name="Wrong", expression="* * * * *", preset_name="Clear")
+    command = Preset(name="Clear", lines=["clear"], target="active")
+    scheduler, tabs, _ = make(tmp_path, [job], [command])
+
+    with qtbot.waitSignal(scheduler.job_failed) as blocker:
+        scheduler.run_due_jobs(at("2026-08-17 02:00"))
+
+    assert blocker.args[0] == "Wrong"
+    assert "Macro" in blocker.args[1]
+    assert tabs.fed == []
+
+
 def test_run_now_ignores_the_schedule(tmp_path) -> None:
     """The Manage dialog offers "Run now" - it should not have to wait for
     the next matching minute to prove a job works."""
