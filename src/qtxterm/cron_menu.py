@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMenu, QWidget
 
-from qtxterm.cron import CronStore
+from qtxterm.cron import CronJob, CronStore
 from qtxterm.cron_editor import TITLE, CronEditorDialog
+
+# add_submenu/clear_menu are generic menu helpers that happen to live beside
+# the preset menus: the first keeps a submenu owned by Qt, the second
+# disposes of them instead of leaving one dead QMenu child per rebuild.
+from qtxterm.preset_menu import add_submenu, clear_menu
 from qtxterm.presets import PresetStore
 
 
@@ -32,15 +37,12 @@ class CronMenu(QMenu):
         self.reload()
 
     def reload(self) -> None:
-        self.clear()
+        clear_menu(self)
 
-        for index, job in enumerate(self._store.jobs):
-            action = self.addAction(f"{job.name}  ({job.expression})")
-            action.setCheckable(True)
-            action.setChecked(job.enabled)
-            action.toggled.connect(
-                lambda checked, i=index: self._set_enabled(i, checked)
-            )
+        for group_name, jobs in self._grouped_jobs():
+            target = self if group_name is None else add_submenu(self, group_name)
+            for index, job in jobs:
+                self._add_job_action(target, index, job)
         if self._store.jobs:
             self.addSeparator()
 
@@ -48,6 +50,27 @@ class CronMenu(QMenu):
         new_action.triggered.connect(lambda: self._open_editor(create_new=True))
         manage_action = self.addAction(f"{TITLE}...")
         manage_action.triggered.connect(lambda: self._open_editor())
+
+    def _grouped_jobs(self) -> list[tuple[str | None, list[tuple[int, CronJob]]]]:
+        """Jobs by group: ungrouped at the top level, groups in name order.
+
+        The index travels with the job because enabling one writes back by
+        position, and grouping reorders what the menu shows.
+        """
+        groups: dict[str | None, list[tuple[int, CronJob]]] = {}
+        for index, job in enumerate(self._store.jobs):
+            groups.setdefault(job.group or None, []).append((index, job))
+
+        ordered = [name for name in groups if name is None] + sorted(
+            name for name in groups if name is not None
+        )
+        return [(name, groups[name]) for name in ordered]
+
+    def _add_job_action(self, menu, index: int, job: CronJob) -> None:
+        action = menu.addAction(f"{job.name}  ({job.expression})")
+        action.setCheckable(True)
+        action.setChecked(job.enabled)
+        action.toggled.connect(lambda checked, i=index: self._set_enabled(i, checked))
 
     def _set_enabled(self, index: int, enabled: bool) -> None:
         if 0 <= index < len(self._store.jobs):

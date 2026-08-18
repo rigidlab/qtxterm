@@ -209,6 +209,10 @@ class CronJob:
     expression: str
     preset_name: str
     enabled: bool = True
+    # Optional, and used exactly as a preset's group is: jobs that share one
+    # are nested under it in the menu. A trading setup ends up with a job per
+    # feed per session, which is more than a flat list wants to hold.
+    group: str | None = None
 
     def schedule(self) -> CronExpression:
         return CronExpression.parse(self.expression)

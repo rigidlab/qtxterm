@@ -84,6 +84,8 @@ class CronEditorDialog(QDialog):
         form_widget = QWidget()
         form = QFormLayout(form_widget)
         self._name_edit = QLineEdit()
+        self._group_edit = QLineEdit()
+        self._group_edit.setPlaceholderText("optional, groups jobs in the menu")
         self._schedule_edit = QLineEdit()
         self._schedule_edit.setPlaceholderText("*/15 * * * *")
         self._schedule_edit.textChanged.connect(self._on_schedule_changed)
@@ -98,6 +100,7 @@ class CronEditorDialog(QDialog):
         scope_label.setWordWrap(True)
 
         form.addRow("Name", self._name_edit)
+        form.addRow("Group", self._group_edit)
         form.addRow("Schedule", self._schedule_edit)
         form.addRow("", self._next_run_label)
         form.addRow("", syntax_label)
@@ -157,6 +160,7 @@ class CronEditorDialog(QDialog):
         self._current_index = row
         job = self._store.jobs[row]
         self._name_edit.setText(job.name)
+        self._group_edit.setText(job.group or "")
         self._schedule_edit.setText(job.expression)
         self._enabled_check.setChecked(job.enabled)
         index = self._preset_combo.findData(job.preset_name)
@@ -210,6 +214,7 @@ class CronEditorDialog(QDialog):
     def _job_from_form(self) -> CronJob:
         return CronJob(
             name=self._name_edit.text().strip() or "Unnamed",
+            group=self._group_edit.text().strip() or None,
             expression=self._schedule_edit.text().strip() or "*/15 * * * *",
             preset_name=self._preset_combo.currentData() or "",
             enabled=self._enabled_check.isChecked(),

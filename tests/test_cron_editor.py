@@ -151,3 +151,92 @@ def test_the_menu_rebuilds_when_jobs_change(qtbot, tmp_path: Path) -> None:
     cron_store.add(CronJob(name="New", expression="* * * * *", preset_name="Backup"))
 
     assert len([a for a in menu.actions() if a.isCheckable()]) == 1
+
+
+def test_jobs_are_nested_under_their_group(qtbot, tmp_path: Path) -> None:
+    """Same convention the preset menus use: ungrouped at the top level,
+    groups after them in name order."""
+    jobs = [
+        CronJob(name="Loose", expression="* * * * *", preset_name="Backup"),
+        CronJob(
+            name="Equities open",
+            expression="30 6 * * 1-5",
+            preset_name="Backup",
+            group="Market data",
+        ),
+        CronJob(
+            name="Futures open",
+            expression="0 15 * * 0-4",
+            preset_name="Backup",
+            group="Market data",
+        ),
+        CronJob(
+            name="Nightly", expression="0 2 * * *", preset_name="Backup", group="Admin"
+        ),
+    ]
+    cron_store, preset_store = make_stores(tmp_path, jobs)
+    menu = CronMenu(cron_store, preset_store)
+    qtbot.addWidget(menu)
+
+    top_level = [a.text() for a in menu.actions() if a.isCheckable()]
+    submenus = {a.text(): a.menu() for a in menu.actions() if a.menu() is not None}
+
+    assert top_level == ["Loose  (* * * * *)"]
+    assert list(submenus) == ["Admin", "Market data"]
+    assert [a.text() for a in submenus["Market data"].actions()] == [
+        "Equities open  (30 6 * * 1-5)",
+        "Futures open  (0 15 * * 0-4)",
+    ]
+
+
+def test_toggling_a_grouped_job_writes_back_to_the_right_one(
+    qtbot, tmp_path: Path
+) -> None:
+    """Grouping reorders what the menu shows, so the index has to travel with
+    the job rather than being read off the menu."""
+    jobs = [
+        CronJob(name="First", expression="* * * * *", preset_name="Backup"),
+        CronJob(
+            name="Grouped",
+            expression="0 2 * * *",
+            preset_name="Backup",
+            group="Admin",
+        ),
+    ]
+    cron_store, preset_store = make_stores(tmp_path, jobs)
+    menu = CronMenu(cron_store, preset_store)
+    qtbot.addWidget(menu)
+
+    admin = next(a.menu() for a in menu.actions() if a.text() == "Admin")
+    admin.actions()[0].setChecked(False)
+
+    assert cron_store.jobs[1].enabled is False
+    assert cron_store.jobs[0].enabled is True
+
+
+def test_the_group_is_saved_with_the_job(qtbot, tmp_path: Path) -> None:
+    cron_store, preset_store = make_stores(tmp_path)
+    dialog = CronEditorDialog(cron_store, preset_store, create_new=True)
+    qtbot.addWidget(dialog)
+
+    dialog._name_edit.setText("Equities open")
+    dialog._group_edit.setText("Market data")
+    dialog._schedule_edit.setText("30 6 * * 1-5")
+    dialog._save_current()
+
+    assert CronStore(path=tmp_path / "cron.json").jobs[0].group == "Market data"
+
+
+def test_clearing_the_group_makes_it_ungrouped(qtbot, tmp_path: Path) -> None:
+    job = CronJob(
+        name="Grouped", expression="0 2 * * *", preset_name="Backup", group="Admin"
+    )
+    cron_store, preset_store = make_stores(tmp_path, [job])
+    dialog = CronEditorDialog(cron_store, preset_store)
+    qtbot.addWidget(dialog)
+    dialog._list.setCurrentRow(0)
+
+    dialog._group_edit.setText("   ")
+    dialog._save_current()
+
+    assert cron_store.jobs[0].group is None

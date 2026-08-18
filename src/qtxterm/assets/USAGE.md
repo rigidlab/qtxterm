@@ -186,7 +186,9 @@ firing every five minutes doesn't bury the tab bar, and the tab's scrollback
 becomes that job's history. Close the tab and the next run opens a fresh one.
 
 Jobs are listed in the Cron menu with a checkbox each, so you can turn one
-off without opening a dialog. **Run Now** in the editor runs a job
+off without opening a dialog. Give jobs a **Group** and they nest under it in
+that menu, the same way Macros do - useful once you have a job per feed per
+session. Ungrouped jobs stay at the top level. **Run Now** in the editor runs a job
 immediately, which beats waiting until 2am to find out whether it works.
 
 Two things to know:
