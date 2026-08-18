@@ -23,11 +23,14 @@ from qtxterm.presets import CATEGORY_MACROS, PresetStore, in_category
 
 TITLE = "Manage Cron Jobs"
 
+# One example per line: as a wrapped paragraph the asterisks ran together
+# with the prose and the whole thing was unreadable.
 _SYNTAX_HINT = (
-    "<b>minute hour day-of-month month day-of-week</b> — "
-    "<code>*/15 * * * *</code> every quarter hour, "
-    "<code>0 9 * * 1-5</code> weekday mornings, "
-    "<code>0 2 1 * *</code> the 1st at 02:00."
+    "<b>minute&nbsp;&nbsp;hour&nbsp;&nbsp;day-of-month&nbsp;&nbsp;month"
+    "&nbsp;&nbsp;day-of-week</b><br>"
+    "<code>*/15 * * * *</code> &nbsp;every quarter hour<br>"
+    "<code>0 9 * * 1-5</code> &nbsp;09:00 on weekdays<br>"
+    "<code>0 2 1 * *</code> &nbsp;02:00 on the 1st"
 )
 
 # Jobs run while the app is open and nothing is replayed afterwards, which is
