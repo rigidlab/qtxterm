@@ -808,6 +808,13 @@ Four decisions, each taken over a plausible alternative:
       burst of terminals before you have touched anything. `cron.json` sits
       next to `presets.json`.
 
+- [x] Jobs carry an optional `group`, nested in the menu exactly as a
+      preset's group is - ungrouped first, groups after in name order. A
+      trading setup reaches a job per feed per session quickly, which is more
+      than a flat list holds. The menu reuses `add_submenu`/`clear_menu` from
+      the preset menus rather than growing its own copy of the ownership
+      handling those exist for.
+
 Implementation notes:
 
 - `cron.py` is schedules and storage and knows nothing about terminals;
@@ -876,6 +883,84 @@ on the window.
 
 Orthogonal and free of visual cost: the ~255ms of imports, and the ~89ms of
 `MainWindow` construction, neither of which has been attacked.
+
+### Stopping a cron job — designed, parked
+Cron starts things today and never stops them. The use case that raised it:
+stream market data 06:30-13:30 Mon-Fri (equities) and 15:00-14:00 the next
+day Sun-Thu (futures). Parked in favour of having the streamer exit on its
+own schedule, which is cheaper and cleaner - a process that knows its own
+stop time can flush and close properly, and nothing has to reach into a
+terminal. Start-only cron already serves that: `30 6 * * 1-5` and
+`0 15 * * 0-4`, both verified against the parser.
+
+Recorded because the design work is done and the blocking discovery is real.
+
+**A stop cannot be a separate job.** Each job owns its own tab, so a
+"stop equities" job would open a *second* terminal and type into it, leaving
+the stream untouched. Stopping has to belong to the job that started it, or
+name it explicitly.
+
+**The better model is a window, not two events.** Give one job an optional
+stop schedule and the tick stops being edge-triggered and becomes a
+reconciliation:
+
+    desired = inside_window(now)
+    actual  = this job's tab is open and was started by it
+    desired and not actual -> start;  actual and not desired -> stop
+
+Three problems then dissolve without special cases: a missed start (open the
+app at 07:05 and it starts, because it is inside the window), a double start
+(cannot happen - `actual` is already true), and a missed stop edge while the
+machine slept (the next tick reconciles). Note this only makes sense for
+windowed jobs; a point-in-time job still cannot sensibly fire late.
+
+**The weak joint is liveness.** We can see that the tab is open; we cannot
+see whether the process inside it is alive, so a feed that dies at 09:00
+leaves a tab at a prompt and reconciliation believes all is well. The fix is
+a fork in the design: run a windowed job's command *as the terminal process*
+rather than typing it into a shell. Process exit then is PTY exit, which is
+already observable - liveness becomes real, stop becomes killing the PTY
+(which works), and restart-on-crash becomes possible. The cost is losing the
+shell around it: no profile, no aliases, and the Macro model stops being
+"lines typed into a shell".
+
+Shape, if built: `stop_expression`, `stop_action` (interrupt | close),
+`stop_grace_seconds` (escalate to close, mirroring `docker stop -t`), and an
+opt-in `start_if_inside_window`. Start stays required, stop optional; a job
+with no stop is exactly today's behaviour. No visible "advanced" tier - one
+job type with optional fields, because two tiers is two things to learn and a
+migration when a simple job later needs a window.
+
+### Ctrl-C does not reach child processes on Windows — bug, not yet fixed
+Found while designing the above, and **independent of cron**: pressing Ctrl-C
+in any qtxterm terminal does not stop a running command on Windows.
+
+`pywinpty`'s `sendintr()` is literally `write("")`, which is what typing
+Ctrl-C already does. Measured, spawning `ping -t` and counting replies:
+
+| Backend | child started | after `` | after closing |
+|---|---|---|---|
+| **ConPTY** (what we use) | running | **still running** | killed |
+| WinPTY (legacy) | running | killed | killed |
+
+At an idle prompt the shell echoes `^C`, which makes it look like it worked;
+a running child never sees it. Closing the terminal kills the process under
+both backends, so that is the only stop that currently works.
+
+Three ways out:
+
+1. `GenerateConsoleCtrlEvent` - attach to the child console, raise
+   CTRL_C_EVENT, detach. The correct mechanism, and it fixes interactive
+   Ctrl-C too. Our own process must ignore the event first or it takes the
+   app down with it.
+2. Switch to the WinPTY backend - works immediately, but it is the
+   deprecated emulation layer with an extra agent process and worse
+   fidelity. Bad trade for the terminal's quality.
+3. Leave it, and stop things by closing the tab.
+
+Preferred: 1. Linux is unaffected - a real SIGINT to the foreground process
+group is straightforward there, and untested only because the bug is
+Windows-specific.
 
 ### Stable `Preset.id` — proposed, low priority, not implemented
 Give every preset an `id: str` (uuid4 hex), assigned in `__post_init__` when
