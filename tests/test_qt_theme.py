@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -176,10 +178,24 @@ def test_text_inputs_get_a_visible_frame() -> None:
     """Fusion's frame is invisible on a dark theme, which left "Name" and the
     command box in the macro editor looking like labels, not fields."""
     sheet = chrome_stylesheet(THEMES["VS Code Dark High Contrast"].ui)
+    without_comments = re.sub(r"/\*.*?\*/", "", sheet, flags=re.DOTALL)
 
-    assert "QLineEdit" in sheet
-    assert "QPlainTextEdit" in sheet
-    assert "QListWidget" in sheet
+    # Checked with the comments stripped, because a rule is only in force if
+    # it is actually outside one.
+    assert re.search(r"QLineEdit\s*,", without_comments)
+    assert re.search(r"QPlainTextEdit\s*,", without_comments)
+    assert re.search(r"QListWidget\s*,", without_comments)
+    assert re.search(r"QTextEdit\s*\{[^{}]*border[^{}]*\}", without_comments)
+
+
+def test_the_stylesheet_has_no_unbalanced_comment() -> None:
+    """An unclosed comment silently swallows every rule after it, and Qt
+    reports nothing. This happened: a stray `*/` left the text-input borders
+    parsed as garbage for two commits while a test asserting the selector was
+    merely *present* stayed green."""
+    sheet = chrome_stylesheet(THEMES["VS Code Dark High Contrast"].ui)
+
+    assert sheet.count("/*") == sheet.count("*/")
 
 
 def test_spin_boxes_are_left_unstyled() -> None:
