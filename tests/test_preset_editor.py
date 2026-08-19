@@ -13,6 +13,8 @@ from PySide6.QtWidgets import QDialog
 
 from qtxterm import preset_editor
 from qtxterm.preset_editor import PresetEditorDialog
+from qtxterm.preset_menu import MacrosMenu
+from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.presets import (
     STEP_DOWN,
     STEP_RIGHT,
@@ -27,6 +29,7 @@ from qtxterm.presets import (
     SELECTION_PLACEHOLDER,
     Preset,
     PresetStore,
+    category_of,
 )
 
 
@@ -355,3 +358,95 @@ def test_saving_keeps_the_separator_lines(qtbot, tmp_path: Path) -> None:
     dialog._save_current()
 
     assert dialog._store.presets[0].lines == ["first", "--- down", "second"]
+
+
+def macro_names(store: PresetStore) -> list[str]:
+    return [p.name for p in store.presets if category_of(p) == CATEGORY_MACROS]
+
+
+def test_moving_a_macro_down_reorders_it(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.presets = [
+        Preset(name="First", lines=["a"], target="new_tab"),
+        Preset(name="Second", lines=["b"], target="new_tab"),
+        Preset(name="Third", lines=["c"], target="new_tab"),
+    ]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_MACROS)
+    qtbot.addWidget(dialog)
+
+    dialog._list.setCurrentRow(0)
+    dialog._move_current(1)
+
+    assert macro_names(store) == ["Second", "First", "Third"]
+    # The selection follows the entry that moved, so pressing it again moves
+    # the same one further.
+    dialog._move_current(1)
+    assert macro_names(store) == ["Second", "Third", "First"]
+
+
+def test_moving_past_either_end_does_nothing(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.presets = [
+        Preset(name="First", lines=["a"], target="new_tab"),
+        Preset(name="Second", lines=["b"], target="new_tab"),
+    ]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_MACROS)
+    qtbot.addWidget(dialog)
+
+    dialog._list.setCurrentRow(0)
+    dialog._move_current(-1)
+    dialog._list.setCurrentRow(1)
+    dialog._move_current(1)
+
+    assert macro_names(store) == ["First", "Second"]
+
+
+def test_reordering_macros_leaves_the_other_categories_alone(
+    qtbot, tmp_path: Path
+) -> None:
+    """One list holds all three categories interleaved, so a Macro moving must
+    not shuffle the Commands sitting between them."""
+    store = make_store(tmp_path)
+    store.presets = [
+        Preset(name="MacroA", lines=["a"], target="new_tab"),
+        Preset(name="CommandX", lines=["x"], target="active"),
+        Preset(name="MacroB", lines=["b"], target="new_tab"),
+        Preset(name="CommandY", lines=["y"], target="active"),
+    ]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_MACROS)
+    qtbot.addWidget(dialog)
+
+    dialog._list.setCurrentRow(0)
+    dialog._move_current(1)
+
+    assert macro_names(store) == ["MacroB", "MacroA"]
+    commands = [p.name for p in store.presets if category_of(p) == CATEGORY_COMMANDS]
+    assert commands == ["CommandX", "CommandY"]
+
+
+def test_the_new_order_is_saved_and_shown_in_the_menu(qtbot, tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.presets = [
+        Preset(name="First", lines=["a"], target="new_tab"),
+        Preset(name="Second", lines=["b"], target="new_tab"),
+    ]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_MACROS)
+    qtbot.addWidget(dialog)
+
+    dialog._list.setCurrentRow(1)
+    dialog._move_current(-1)
+
+    assert macro_names(PresetStore(path=tmp_path / "presets.json")) == [
+        "Second",
+        "First",
+    ]
+
+    tabs = TerminalTabWidget()
+    qtbot.addWidget(tabs)
+    menu = MacrosMenu(store, tabs)
+    listed = [a.text() for a in menu.actions()][:2]
+    assert listed == ["Second", "First"]

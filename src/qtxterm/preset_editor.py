@@ -139,6 +139,22 @@ class PresetEditorDialog(QDialog):
         button_row.addWidget(new_button)
         button_row.addWidget(delete_button)
         left.addLayout(button_row)
+
+        # Order here is the order they appear in their menu (and, for
+        # Commands, in the sidebar), so it is worth being able to set.
+        order_row = QHBoxLayout()
+        up_button = QPushButton("Move Up")
+        down_button = QPushButton("Move Down")
+        for button, offset in ((up_button, -1), (down_button, 1)):
+            button.setToolTip(
+                "Reorder within this list. Grouped entries are shown under "
+                "their group in the menu, so order applies within a group."
+            )
+            button.clicked.connect(
+                lambda _checked=False, delta=offset: self._move_current(delta)
+            )
+            order_row.addWidget(button)
+        left.addLayout(order_row)
         if self._is_selection:
             # Defaults are only seeded on first run, so an install that
             # predates Selection Actions has no other way to get the worked
@@ -326,6 +342,24 @@ class PresetEditorDialog(QDialog):
             if preset.name not in existing:
                 self._store.add(preset)
         self._reload_list()
+
+    def _move_current(self, offset: int) -> None:
+        """Swap the selected preset with its neighbour in this category.
+
+        Neighbour in the *list*, not in the file: the other categories live
+        in the same list and must not shuffle because a Macro moved.
+        """
+        indexed = self._indexed_presets()
+        row = self._list.currentRow()
+        target_row = row + offset
+        if row < 0 or not 0 <= target_row < len(indexed):
+            return
+
+        self._store.swap(indexed[row][0], indexed[target_row][0])
+        self._reload_list()
+        # Follow the entry that moved, so pressing Move Up twice moves one
+        # preset two places rather than moving two presets.
+        self._list.setCurrentRow(target_row)
 
     def _delete_preset(self) -> None:
         if self._current_index is None:

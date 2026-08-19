@@ -226,3 +226,17 @@ class PresetStore(QObject):
     def delete(self, index: int) -> None:
         del self.presets[index]
         self.save()
+
+    def swap(self, first: int, second: int) -> None:
+        """Exchange two presets, which is how reordering is expressed.
+
+        A swap rather than a move: one list holds all three categories
+        interleaved, and the two entries being exchanged are neighbours
+        within their own category but rarely adjacent in the file. Swapping
+        their positions leaves every other preset exactly where it was.
+        """
+        self.presets[first], self.presets[second] = (
+            self.presets[second],
+            self.presets[first],
+        )
+        self.save()

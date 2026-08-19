@@ -200,6 +200,17 @@ Two things to know:
 - **A job names its Macro.** Rename or delete that Macro and the job says so
   in the status bar rather than running something else.
 
+## Ordering
+
+Each Manage dialog has **Move Up** and **Move Down** under its list. The
+order there is the order they appear in — the Macros menu, the right-click
+Command submenu, and the sidebar buttons.
+
+One thing to know: entries with a **Group** are shown nested under that group
+in the menu, so moving one only reorders it *within* its group. Moving a
+grouped entry past an ungrouped one changes the stored order without visibly
+changing the menu.
+
 ## Creating and editing
 
 Each menu manages its own category: **Manage Commands...** under Commands,
