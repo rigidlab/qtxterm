@@ -832,6 +832,28 @@ Implementation notes:
 - Verified end to end against a real shell: two firings, one tab named after
   the job, both runs landing in the same terminal.
 
+### Phase 4t — Reordering presets ✅ done
+Move Up / Move Down in every Manage dialog. The order in that list is the
+order they appear in their menu, and for Commands in the sidebar too, so it
+was the one property of a preset you could not set.
+
+- [x] `PresetStore.swap()` rather than a move: one list holds all three
+      categories interleaved, and the two entries being exchanged are
+      neighbours within their category but rarely adjacent in the file.
+      Swapping their positions leaves every other preset exactly where it
+      was - there is a test asserting Commands do not shuffle when a Macro
+      moves past another.
+- [x] Offered for all three categories, not only Macros. It is the same
+      dialog and the same code, and "why can I order Macros but not
+      Commands?" is a worse answer than the feature.
+- [x] The selection follows the entry that moved, so pressing Move Up twice
+      moves one preset two places rather than moving two presets - the same
+      rule the right-click menu order editor uses.
+- [x] Known limit, documented in USAGE.md rather than fixed: the menus nest
+      grouped entries under their group, so reordering across a group
+      boundary changes the stored order without changing what the menu
+      shows.
+
 ## Open Questions / Deferred
 
 ### Start-up latency — measured, not yet decided
