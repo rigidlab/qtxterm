@@ -1,4 +1,4 @@
-# qtxterm — Cross-Platform GUI Terminal (PySide6 + xterm.js)
+# qtxterm - Cross-Platform GUI Terminal (PySide6 + xterm.js)
 
 ## Overview
 A desktop terminal application (Windows + Linux) built with PySide6, rendering
@@ -16,18 +16,18 @@ and a Macros menu for multi-step/multi-tab command sequences.
 | Project tooling | `uv` (installed via `pipx install uv`), `pyproject.toml` + `uv.lock` |
 | Packaging (later) | PyInstaller, one spec per OS |
 
-## Data Model — unified "Command Preset"
+## Data Model - unified "Command Preset"
 
 Commands and macros share one storage format and one `Preset` shape, but
 `target` is a strict, mutually-exclusive category, not just an execution
-detail — every preset is *either* a Command *or* a Macro, never both:
+detail - every preset is *either* a Command *or* a Macro, never both:
 
 - **Command** (`target: active`): a short interaction with a terminal you're
-  actively working in and staying in — `git status`, `clear`, etc. Sent to
+  actively working in and staying in - `git status`, `clear`, etc. Sent to
   whichever tab is currently active; you keep using that tab afterwards.
 - **Macro** (`target: new_tab`): a script for something long-running or
-  disruptive to run alongside your current work — starting a dev server,
-  a build, a deploy — so it gets its own fresh tab rather than hijacking
+  disruptive to run alongside your current work - starting a dev server,
+  a build, a deploy - so it gets its own fresh tab rather than hijacking
   the terminal you're in.
 
 ```yaml
@@ -39,7 +39,7 @@ Preset:
                                     # active if len(lines)==1 else new_tab
   show_in_sidebar: bool            # opt-in to sidebar button; only meaningful
                                     # (and only offered in the editor) for
-                                    # target: active presets — Macros don't
+                                    # target: active presets - Macros don't
                                     # appear in the sidebar, only the Macros menu
 ```
 
@@ -53,7 +53,7 @@ Stored as a single JSON file under the platformdirs user config dir
   presets, with Run / Edit / New / Delete. Clicking one always opens a fresh
   tab, spawns a PTY, and feeds `lines` into it in sequence. (Phase 4.)
 
-### Why the split survives — settled
+### Why the split survives - settled
 
 **Decision: keep the Commands/Macros separation, and only Commands appear as
 sidebar buttons.** Considered and rejected: collapsing both into one type
@@ -68,14 +68,14 @@ taxonomy, and it argues for one "Command" with a `run in: active | new tab`
 field.
 
 The split holds because the real distinction is **the interaction pattern,
-not the execution target** — where it runs falls out of that, not the other
+not the execution target** - where it runs falls out of that, not the other
 way round:
 
-- **Command — contextual and frequent.** You're looking at a terminal and you
+- **Command - contextual and frequent.** You're looking at a terminal and you
   reach for it. That is a button beside the terminal. `Command` and `sidebar
   button` are close to synonymous; running in the active tab is a consequence
   of being a thing you click *while working in that tab*.
-- **Macro — occasional, and it launches something that goes elsewhere.** You
+- **Macro - occasional, and it launches something that goes elsewhere.** You
   are not mid-flow in a terminal when you start a dev server. That is a menu
   item, and a fresh tab is a consequence of it being disruptive.
 
@@ -89,10 +89,10 @@ Two things follow, and both are deliberate:
   would be a third surface to keep in sync (sidebar, right-click, menu bar).
   Individual Command listings were removed from the Commands menu in `4ce011c`
   for exactly this reason. If the underlying need turns out to be *keyboard*
-  access, the answer is per-preset keyboard shortcuts, not menu items — that
+  access, the answer is per-preset keyboard shortcuts, not menu items - that
   serves the contextual model instead of fighting it.
 
-Known costs, accepted deliberately — these are consequences of the decision,
+Known costs, accepted deliberately - these are consequences of the decision,
 not oversights to be "fixed":
 
 - A Macro cannot be pinned to the sidebar, even if it is your most-used
@@ -105,7 +105,7 @@ not oversights to be "fixed":
 If it is ever reopened, note that unification needs **no storage change**:
 `target` and `show_in_sidebar` already exist, so it is a presentation change,
 cheap to reverse in either direction. The plausible trigger would be a
-concrete case the split cannot serve — most likely wanting a one-click "start
+concrete case the split cannot serve - most likely wanting a one-click "start
 dev server" button.
 
 Selection Actions are a genuinely different category and are unaffected by
@@ -114,7 +114,7 @@ touches a shell at all. The durable line is *takes input* vs *doesn't*.
 
 ### Sidebar Layout (separate from preset content)
 
-Layout is a distinct, user-editable arrangement on top of the preset list —
+Layout is a distinct, user-editable arrangement on top of the preset list -
 editing *placement/appearance*, not the command itself:
 
 ```yaml
@@ -132,7 +132,7 @@ and content can evolve independently.
 
 ## Phased Build Plan
 
-### Phase 1 — Single-tab terminal ✅ done
+### Phase 1 - Single-tab terminal ✅ done
 Goal: prove the core rendering + I/O loop works cross-platform before any
 tabs/macros/sidebar complexity.
 
@@ -147,21 +147,21 @@ tabs/macros/sidebar complexity.
 - [x] Verify: shell prompt renders, keyboard I/O works, resizing the window resizes the PTY, full-screen apps (vim) render correctly, process exit closes cleanly (caught + fixed a PTY-leak-on-close bug: child widgets never get `closeEvent` from a closing `QMainWindow`)
 - [x] pytest + pytest-qt suite: PTY backend (real spawn/write/read/resize), bridge signal re-emission, widget wiring against a fake PtySession
 
-**Definition of done for Phase 1**: one window, one working real terminal, on both Windows and Linux, no crashes on resize/exit. *(Windows verified end-to-end; Linux backend implemented but untested — no Linux machine available yet.)*
+**Definition of done for Phase 1**: one window, one working real terminal, on both Windows and Linux, no crashes on resize/exit. *(Windows verified end-to-end; Linux backend implemented but untested - no Linux machine available yet.)*
 
-### Phase 2 — Tabs ✅ done
+### Phase 2 - Tabs ✅ done
 - [x] `TerminalTabWidget(QTabWidget)` central widget, each tab = one `TerminalWidget` + `PtySession`
-- [x] New tab (`+` corner button, Ctrl+Shift+T), close tab (per-tab "x", Ctrl+Shift+W), Ctrl+Tab/Ctrl+Shift+Tab to switch — deliberately not plain Ctrl+T/W, which would fight bash/readline's Ctrl+W word-delete
+- [x] New tab (`+` corner button, Ctrl+Shift+T), close tab (per-tab "x", Ctrl+Shift+W), Ctrl+Tab/Ctrl+Shift+Tab to switch - deliberately not plain Ctrl+T/W, which would fight bash/readline's Ctrl+W word-delete
 - [x] Tab labels: tmux-style `"{index}:{shell}"` (`bash`, `cmd`, `powershell`), renumbered on add/close/reorder. Deliberately *not* the shell's OSC title: Git Bash sends `MINGW64:/c/Users/dev/git/qtxterm` and cmd its own full exe path, which made tabs unreadably wide. The live OSC title (`xterm.js onTitleChange` -> bridge) becomes the tab's tooltip instead, so the cwd is still reachable
 - [x] `active_terminal()` tracks the current tab's `TerminalWidget` for later command/macro targeting
 - [x] Closing the last tab closes the window; closing the window (titlebar X) shuts down every tab's PTY, not just the active one
 - [x] pytest-qt suite: tab creation/labeling/renumbering, active-terminal tracking, all-tabs-closed vs close-all-tabs semantics, next/prev wraparound
 
-### Phase 3 — Command Presets + Sidebar ✅ done
+### Phase 3 - Command Presets + Sidebar ✅ done
 - [x] `Preset` dataclass + `PresetStore` JSON persistence (`presets.json` under the
       platformdirs user config dir), seeded with example presets on first run
 - [x] `CommandSidebar` dock widget: buttons grouped by `group` (ungrouped flat at
-      top), single column — full drag-and-drop `SidebarLayout` arrangement deferred
+      top), single column - full drag-and-drop `SidebarLayout` arrangement deferred
       to Phase 4, per-scope decision (not enough presets/macros yet to need it)
 - [x] Click -> `run_in_active()` sends `lines` + Enter to the active terminal's PTY.
       Only ever shows `target: active` presets (Commands) - see the Commands vs
@@ -170,7 +170,7 @@ tabs/macros/sidebar complexity.
 - [x] pytest suite: PresetStore CRUD/persistence, sidebar grouping/click emission,
       editor dialog New/Save/Delete flows
 
-### Phase 4 — Macros menu + new-tab execution ✅ done
+### Phase 4 - Macros menu + new-tab execution ✅ done
 - [x] Commands vs Macros finalized as a strict split on `target` (see "Data Model"
       above): every preset is a Command (`active`) or a Macro (`new_tab`), never
       both. `PresetEditorDialog` gained an explicit Type dropdown - target is no
@@ -192,7 +192,7 @@ tabs/macros/sidebar complexity.
 - [x] Verified end-to-end: menu renders grouped/ungrouped macros correctly;
       triggering one opens a new tab and runs every script line in sequence
 
-### Phase 4b — File menu & multi-shell support ✅ done
+### Phase 4b - File menu & multi-shell support ✅ done
 - [x] `File` menu (before `Macros` in the menu bar): `New Terminal` submenu +
       `Exit`. `New Terminal` always has "Default Shell" (Ctrl+Shift+T shown as
       a hint, not a duplicate binding) plus one entry per shell `known_shells()`
@@ -220,7 +220,7 @@ tabs/macros/sidebar complexity.
 - [x] pytest suite for `known_shells()`; verified end-to-end that all four
       shells spawn correctly in a new tab
 
-### Phase 4c — Commands menu ✅ done
+### Phase 4c - Commands menu ✅ done
 - [x] `Commands` menu item (menu bar order: File, Commands, Macros), alongside
       the existing sidebar rather than replacing it
 - [x] `MacrosMenu` refactored into a shared `_PresetCategoryMenu` base
@@ -232,7 +232,7 @@ tabs/macros/sidebar complexity.
 - [x] pytest suite (renamed to `test_preset_menu.py`, covers both menus);
       verified end-to-end
 
-### Phase 4d — Terminal right-click menu ✅ done
+### Phase 4d - Terminal right-click menu ✅ done
 - [x] Right-clicking a terminal opens a context menu with a `Command`
       submenu of every `target: active` preset, grouped by `group`; picking
       one sends it to that terminal. Lists all Commands, not just
@@ -260,7 +260,7 @@ tabs/macros/sidebar complexity.
       unnecessary; `clear_menu` disposes of them on reload so rebuilding
       doesn't orphan a QMenu per change.
 
-### Phase 4e — Selection Actions ✅ done
+### Phase 4e - Selection Actions ✅ done
 - [x] Third preset category alongside Commands and Macros, keyed off a new
       `input` field (`none` | `selection`); `category_of()` is now the single
       place the split is decided, replacing scattered `target ==` checks.
@@ -298,7 +298,7 @@ tabs/macros/sidebar complexity.
       Actions... -> Add Examples`
       adds the built-in examples by name without duplicating.
 
-### Phase 4f — Default shell preference + per-distro WSL ✅ done
+### Phase 4f - Default shell preference + per-distro WSL ✅ done
 - [x] `File -> Preferences...` gains a Default shell combo: System default,
       or any detected shell. Resolved in `TerminalTabWidget.new_tab()` rather
       than by callers, so every route to a new tab (+ button, Ctrl+Shift+T,
@@ -316,7 +316,7 @@ tabs/macros/sidebar complexity.
       new tab picks the redirection form for the shell that tab will
       actually run.
 
-### Phase 4g — Browser tabs ✅ done
+### Phase 4g - Browser tabs ✅ done
 - [x] `File -> New Browser` opens a `BrowserWidget` (address bar +
       QWebEngineView + back/forward/reload) as a tab beside the terminals.
 - [x] `normalize_url()` guesses between "go here" and "look this up": a
@@ -336,7 +336,7 @@ tabs/macros/sidebar complexity.
       - a web page must never reach `TerminalBridge` and be able to write to
       a PTY.
 
-### Phase 5 — Packaging & polish
+### Phase 5 - Packaging & polish
 - Sidebar "Edit Layout" mode (drag reorder, section management) - deferred here
   from Phase 3/4 twice now; revisit once real usage shows it's actually needed
 - PyInstaller specs (Windows `.exe`, Linux binary/AppImage)
@@ -352,7 +352,7 @@ tabs/macros/sidebar complexity.
 
 ## Execution semantics: multiline presets vs. a real script
 
-Both Commands and Macros execute the same way — each line is written to the
+Both Commands and Macros execute the same way - each line is written to the
 PTY followed by Enter. They differ only in *where* they run (`target`), not in
 how. Verified empirically:
 
@@ -371,7 +371,7 @@ how. Verified empirically:
   live terminal's keyboard buffer; the tradeoff for running in a session you
   can keep interacting with.
 
-### Phase 4h — Tab rename ✅ done
+### Phase 4h - Tab rename ✅ done
 - [x] Double-click a tab to rename it (`QInputDialog`, prefilled with the
       current name); blank restores the automatic name.
 - [x] Titles are two layers rather than one: `_auto_titles` (shell name, or a
@@ -383,7 +383,7 @@ how. Verified empirically:
 - [x] `tabBarDoubleClicked` fires with -1 for a double-click on empty tab bar
       space; that is ignored rather than prompting for a nonexistent tab.
 
-### Phase 4i — Split panes, step 1: focus tracking ✅ done
+### Phase 4i - Split panes, step 1: focus tracking ✅ done
 Groundwork only - no visible change. A tab still holds exactly one terminal.
 
 - [x] `active_terminal()` now means *the focused pane of the current tab*
@@ -401,7 +401,7 @@ fail *silently*. If the active pane is wrong, a sidebar click sends `git
 status` to the wrong terminal with no error. Everything else about splitting
 (the splitter tree, close semantics, the active-pane border) fails visibly.
 
-### Phase 4i — Split panes, step 2 ✅ done
+### Phase 4i - Split panes, step 2 ✅ done
 - [x] `split_active()` builds a nested `QSplitter` tree; `close_active_pane()`
       closes one pane and unwraps any splitter left holding a single child, so
       the tree doesn't accumulate pointless single-child splitters.
@@ -423,7 +423,7 @@ status` to the wrong terminal with no error. Everything else about splitting
     widget starts hidden; a hidden splitter child is laid out at zero size.
     Both panes are shown explicitly.
 
-### Phase 4i — Split panes, step 3: moving panes ✅ done
+### Phase 4i - Split panes, step 3: moving panes ✅ done
 - [x] `move_active_pane(forward)` swaps the focused pane with its neighbour;
       the size list is deliberately left alone, so positions keep their widths
       and the panes trade places rather than shuffling the layout.
@@ -441,7 +441,7 @@ becomes a hard requirement, nesting a `QMainWindow` per tab with panes as
 `QDockWidget`s would get it from Qt for free, at the cost of a title bar on
 every pane.
 
-### Phase 4l — Browsers as panes ✅ done
+### Phase 4l - Browsers as panes ✅ done
 - [x] `PaneWidget` base class, inherited by `TerminalWidget` and
       `BrowserWidget`, carrying the shared contract (`default_title`,
       `shutdown()`, `apply_appearance()`) and the active-pane outline.
@@ -471,7 +471,7 @@ peripheral tool windows around a central widget, carry title bars you would
 not want on every pane, and bring float/drag-out behaviour that a splitter
 does not need. The sidebar stays a dock; terminals do not.
 
-### Phase 4j — The window outlives its terminals ✅ done
+### Phase 4j - The window outlives its terminals ✅ done
 - [x] Startup no longer opens a terminal, and closing the last one no longer
       closes the window (`all_tabs_closed` is still emitted, just not wired to
       `close()`). Opening the app doesn't decide what you wanted to open, and
@@ -483,7 +483,7 @@ does not need. The sidebar stays a dock; terminals do not.
       `cornerWidget().isVisible()` still returns True, which is how the first
       version of the hint came to advertise a button that wasn't on screen.
 
-### Phase 4k — First-terminal latency ✅ done
+### Phase 4k - First-terminal latency ✅ done
 Opening the app empty (Phase 4j) exposed a cost that used to hide inside
 start-up: the first terminal flashed while Chromium started.
 
@@ -509,7 +509,7 @@ start-up: the first terminal flashed while Chromium started.
 - [x] Warm-up lives in `app.main()`, not `MainWindow.__init__`: tests build
       windows constantly and shouldn't each spawn a render process.
 
-### Phase 4m — Visible chrome borders ✅ done
+### Phase 4m - Visible chrome borders ✅ done
 Menus, tabs and the content frame all had borders too faint to see on dark
 themes.
 
@@ -559,7 +559,7 @@ themes.
       `app.style().objectName() == "fusion"` had to change - restoring the
       native style is still covered separately.
 
-## Process cleanup on close — verified, no leak
+## Process cleanup on close - verified, no leak
 
 "If a terminal starts a long-running process, does closing the tab kill it?"
 Measured on Windows against real PTYs (`ping -n 600` to a unique address, so
@@ -596,7 +596,7 @@ path is ever reworked.
 
 ### Terminal sizing is pushed from Qt, never measured by the page ✅ done
 Found while testing multi-step Macros: a macro that split a pane and then
-opened a second tab left a PowerShell stack trace across the new pane —
+opened a second tab left a PowerShell stack trace across the new pane -
 `PSConsoleReadLine.SelfInsert` → `SetCursorPosition` →
 `ArgumentOutOfRangeException: Actual value was -1`.
 
@@ -604,7 +604,7 @@ opened a second tab left a PowerShell stack trace across the new pane —
       **started at 54x1**. PSReadLine renders its prompt into a one-row
       console, computes a cursor row of -1, and throws.
 - [x] Cause: Chromium skips layout for a view whose tab is in the
-      background. Measured with the panes left in a background tab — Qt
+      background. Measured with the panes left in a background tab - Qt
       geometry 429x248, page viewport 30px; switching to that tab made it
       248px immediately. `fitAddon.fit()` had faithfully fitted the stale
       viewport. `page().setVisible(True)`, hide/show and a ±1px resize poke
@@ -613,7 +613,7 @@ opened a second tab left a PowerShell stack trace across the new pane —
       `window.applySize(w, h)`, which sizes `#terminal` in explicit pixels,
       fits, and reports `ready` (first call) or `resize` (later ones).
       `TerminalWidget._apply_size()` pushes the view's size on `resizeEvent`
-      and on the new `bridge.loaded()` handshake — Qt logical pixels map 1:1
+      and on the new `bridge.loaded()` handshake - Qt logical pixels map 1:1
       to CSS pixels, verified (view 425x505 → document 505px).
 - [x] The old `window.addEventListener("resize")` path is gone; one source
       of truth. Verified afterwards: 3/3 crash-free runs (was 3/3 crashing),
@@ -621,15 +621,15 @@ opened a second tab left a PowerShell stack trace across the new pane —
       on window resize, split, splitter drag and font-size change.
 - [x] Font-size changes now report the new grid too. `applyAppearance()`
       refitted without telling the PTY, so the shell kept wrapping to the old
-      width — a pre-existing bug this path exposed.
+      width - a pre-existing bug this path exposed.
 
-### Phase 4n — Right-click menu order preference ✅ done
+### Phase 4n - Right-click menu order preference ✅ done
 Where each group sits in the terminal right-click menu is a matter of
 which one you reach for, so it is a preference rather than a fixed opinion.
 
 - [x] `menu_prefs.ContextMenuOrderStore` persists the order of the four
       sections (`menu/context_order` in the ini) and emits `changed`, so the
-      one shared `TerminalContextMenu` rebuilds itself the moment it's saved —
+      one shared `TerminalContextMenu` rebuilds itself the moment it's saved -
       same pattern as `PresetStore.changed`.
 - [x] Copy/Paste is a movable section too, not a pinned header. It still
       *leads by default* - it's the one thing here people hit by muscle
@@ -639,18 +639,18 @@ which one you reach for, so it is a preference rather than a fixed opinion.
       separators wherever it lands: two bare actions butting straight against
       a run of submenus read as part of the list above them.
 - [x] `normalise_order()` drops unknown sections and appends missing ones, so
-      a stale or hand-edited setting can never make a section disappear —
+      a stale or hand-edited setting can never make a section disappear -
       a silently vanishing menu item would be a miserable thing to debug.
 - [x] Up/Down buttons, not drag-and-drop: four rows are too few and too
       short a target for dragging to be worth its discoverability cost. The
       moved row keeps the selection, so Move Up twice moves one entry two
       places.
 - [x] `QListWidget` picked up a themed border in `chrome_stylesheet()` for
-      the same reason menus and tabs did — Fusion's frame is invisible on a
+      the same reason menus and tabs did - Fusion's frame is invisible on a
       dark theme, which left the rows reading as loose text in the form. Also
       improves the Manage dialogs' lists.
 
-### Phase 4o — Soak test: does it survive being left open? ✅ done
+### Phase 4o - Soak test: does it survive being left open? ✅ done
 A terminal is an app you open on Monday and close on Friday, so the failure
 that matters is not a crash but decay: it gets heavier, then slower, then
 stops drawing. `tests/test_soak.py` runs one compressed session over and
@@ -684,7 +684,7 @@ over and asserts that nothing keeps climbing.
 - [x] Structural invariants, which need no trend at all: only the long-lived
       terminal is alive at the end, the per-widget bookkeeping dicts don't
       hold closed widgets, the context menu doesn't accumulate submenus, and
-      the count of receivers on each long-lived store is unchanged — a menu
+      the count of receivers on each long-lived store is unchanged - a menu
       that connects per tab and never disconnects makes every save slower
       than the last.
 - [x] Results, 199 cycles: memory settles ~350MB and stops, handles ~1780
@@ -695,7 +695,7 @@ over and asserts that nothing keeps climbing.
       this app, and the leak-prone half - a QWebEngineView and a Chromium
       render process per terminal - runs either way.
 
-### Phase 4p — Scrollback preference ✅ done
+### Phase 4p - Scrollback preference ✅ done
 xterm.js defaults to **1000 lines** of scrollback (`scrollback: 1e3` in the
 vendored bundle) and `terminal.js` never overrode it, so that was qtxterm's
 default by accident rather than by choice. It is now a preference, sitting
@@ -720,7 +720,7 @@ next to font size in Preferences.
       1000 -> 17391px, 5000 -> 34017px (capped by the 2000 lines written,
       not by the setting). Each is exactly 17px per retained line.
 
-### Phase 4q — Macro step syntax, discoverable ✅ done
+### Phase 4q - Macro step syntax, discoverable ✅ done
 Multi-step Macros were only documented in SPEC.md, which is no help to
 someone staring at an empty command box.
 
@@ -742,7 +742,7 @@ someone staring at an empty command box.
       deliberately excluded - styling any part of it hands its painting to
       the style sheet and its arrows come back as one squashed glyph.
 
-### Phase 4r — First real Linux run ✅ done
+### Phase 4r - First real Linux run ✅ done
 The README claimed Windows + Linux while `PosixPtySession` had never been
 run on Linux. Tested under WSL (Ubuntu 24.04, Python 3.12.3, PySide6 6.11.1,
 `QT_QPA_PLATFORM=offscreen`) before wiring up CI. First run: 284 passed, 5
@@ -776,7 +776,7 @@ failed. All five are now fixed, and none were bugs in the app's behaviour.
       and the proper fix is for a widget to stop its page the way
       `BrowserWidget.shutdown()` already does.
 
-### Phase 4s — Cron ✅ done
+### Phase 4s - Cron ✅ done
 Run a Macro on a schedule, for as long as the app is open.
 
 Four decisions, each taken over a plausible alternative:
@@ -832,7 +832,7 @@ Implementation notes:
 - Verified end to end against a real shell: two firings, one tab named after
   the job, both runs landing in the same terminal.
 
-### Phase 4t — Reordering presets ✅ done
+### Phase 4t - Reordering presets ✅ done
 Move Up / Move Down in every Manage dialog. The order in that list is the
 order they appear in their menu, and for Commands in the sidebar too, so it
 was the one property of a preset you could not set.
@@ -856,7 +856,7 @@ was the one property of a preset you could not set.
 
 ## Open Questions / Deferred
 
-### Start-up latency — measured, not yet decided
+### Start-up latency - measured, not yet decided
 The window takes **~950ms** to appear. Investigated and parked: what remains
 is a UX choice, not a missing measurement.
 
@@ -877,7 +877,7 @@ flags (`--disable-gpu`, `--in-process-gpu`, …) make no difference, because
 they do not change that the process has to start.
 
 Phase 4k put that load before `show()` so the native-window rebuild happens
-off screen. Re-verified on Qt 6.11 and the constraint still holds — and it is
+off screen. Re-verified on Qt 6.11 and the constraint still holds - and it is
 tighter than it looks:
 
 - The rebuild fires on **`load()`**, not on view creation (HWND 6817848 →
@@ -906,7 +906,7 @@ on the window.
 Orthogonal and free of visual cost: the ~255ms of imports, and the ~89ms of
 `MainWindow` construction, neither of which has been attacked.
 
-### Stopping a cron job — designed, parked
+### Stopping a cron job - designed, parked
 Cron starts things today and never stops them. The use case that raised it:
 stream market data 06:30-13:30 Mon-Fri (equities) and 15:00-14:00 the next
 day Sun-Thu (futures). Parked in favour of having the streamer exit on its
@@ -953,7 +953,7 @@ with no stop is exactly today's behaviour. No visible "advanced" tier - one
 job type with optional fields, because two tiers is two things to learn and a
 migration when a simple job later needs a window.
 
-### Ctrl-C does not reach child processes on Windows — bug, not yet fixed
+### Ctrl-C does not reach child processes on Windows - bug, not yet fixed
 Found while designing the above, and **independent of cron**: pressing Ctrl-C
 in any qtxterm terminal does not stop a running command on Windows.
 
@@ -984,7 +984,7 @@ Preferred: 1. Linux is unaffected - a real SIGINT to the foreground process
 group is straightforward there, and untested only because the bug is
 Windows-specific.
 
-### Stable `Preset.id` — proposed, low priority, not implemented
+### Stable `Preset.id` - proposed, low priority, not implemented
 Give every preset an `id: str` (uuid4 hex), assigned in `__post_init__` when
 absent, and key `PresetStore.update()`/`delete()` off it instead of list
 position. One namespace across all three categories, since they share one
@@ -993,7 +993,7 @@ dataclass and one `presets.json`.
 **This is future-proofing, not a bug fix.** Nothing here is reproducible
 through normal use today:
 
-- **Index is not identity — latent, not live.** `update(index, preset)` /
+- **Index is not identity - latent, not live.** `update(index, preset)` /
   `delete(index)` key off list position, and `PresetEditorDialog` holds a
   store index (`_current_index`) across reloads. That is safe only because
   the editor is modal (`dialog.exec()`) and there is one window per process,
@@ -1001,15 +1001,15 @@ through normal use today:
   circumstance rather than by construction, which is the actual objection.
   The one case that breaks now is **two app instances**: both hold the whole
   list in memory and rewrite the entire file on save, so the later save
-  clobbers the earlier. An id alone would not fix that — it needs
-  merge-on-write — but it turns "lost an edit" into "edited the right
+  clobbers the earlier. An id alone would not fix that - it needs
+  merge-on-write - but it turns "lost an edit" into "edited the right
   preset".
-- **Value equality is not identity — already worked around.** `Preset` is a
+- **Value equality is not identity - already worked around.** `Preset` is a
   plain dataclass, so two presets with identical fields compare equal. This
   bit `_indexed_presets()`, where `preset in filtered_list` matched the wrong
   entry; it was rewritten to compare by category. Fixed instance, same class
   of problem.
-- **Name is not identity — only matters if references appear.** Names aren't
+- **Name is not identity - only matters if references appear.** Names aren't
   unique, and the `SidebarLayout` sketch above refers to presets by name
   (`preset_refs: list[str]`), so a rename would orphan its button. This is
   the real trigger, and it only fires once something *outside* `presets.json`
@@ -1018,8 +1018,8 @@ through normal use today:
 **Current status: no such references exist.** Buttons are `show_in_sidebar`,
 a field on the preset itself (see the split rationale above), so nothing
 stores a handle to a preset. That removes the main argument for doing this
-now. Even the lighter version of sidebar arrangement — an `order` field on
-the preset — needs no ids.
+now. Even the lighter version of sidebar arrangement - an `order` field on
+the preset - needs no ids.
 
 Do it **before**, not after, if any of these land: a separate
 `sidebar_layout.json`, per-preset keyboard bindings, recently-used tracking,
@@ -1031,9 +1031,9 @@ Migration is additive whenever it happens: entries without an `id` get one on
 load and the file is saved once. Existing `presets.json` files keep working
 and stay hand-editable.
 
-- Multi-step macro *scripting* (wait-for-pattern, conditional branching) —
+- Multi-step macro *scripting* (wait-for-pattern, conditional branching) -
   deferred; would mean either running presets as a real temp script file (true
   script semantics, but a subshell, so `cd` wouldn't persist) or Expect-style
   prompt detection.
-- Session persistence across app restarts (reopen tabs) — not yet decided.
+- Session persistence across app restarts (reopen tabs) - not yet decided.
 - Config file format: JSON assumed above; can switch to YAML/TOML if preferred.
