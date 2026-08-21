@@ -1,4 +1,4 @@
-# qtxterm — Usage
+# qtxterm - Usage
 
 A tabbed terminal with one-click command buttons and reusable command presets.
 
@@ -19,15 +19,15 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 
 Only shells actually installed on your machine appear under **New Terminal**,
 and every installed WSL distro gets its own entry (`WSL: Ubuntu-22.04`).
-Docker Desktop's `docker-desktop` and `docker-desktop-data` are left out —
+Docker Desktop's `docker-desktop` and `docker-desktop-data` are left out -
 they're data-only and give no usable shell.
 
-Tabs are labelled tmux-style as `index:shell` — `0:powershell`, `1:bash`,
+Tabs are labelled tmux-style as `index:shell` - `0:powershell`, `1:bash`,
 `2:cmd`. Hover a tab to see what the shell is reporting (usually the current
 directory or running command); that goes in the tooltip rather than the
 label, since some shells report a full path and would stretch the tab bar.
 
-Double-click a tab to rename it — useful once several tabs run the same
+Double-click a tab to rename it - useful once several tabs run the same
 shell and `0:powershell` / `1:powershell` stop telling them apart. The index
 prefix stays, and renumbering keeps your name attached to the right tab.
 Leave the box blank to go back to the automatic name. A rename sticks: a
@@ -38,10 +38,10 @@ it.
 on purpose: bash and readline bind `Ctrl+W` to "delete previous word", so
 reusing it for "close tab" would break normal shell line-editing.
 
-qtxterm opens with no terminal — you choose what to start, and closing the
+qtxterm opens with no terminal - you choose what to start, and closing the
 last tab leaves the window open rather than quitting. An empty window tells
 you how to open one: `Ctrl+Shift+T` or **File → New Terminal**. The `+`
-button isn't available there — Qt only draws it alongside existing tabs.
+button isn't available there - Qt only draws it alongside existing tabs.
 
 ## Split panes
 
@@ -52,7 +52,7 @@ group.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
 
 Browser panes split too, and a split gives you **another pane of the same
-kind** — splitting a browser gives a browser, splitting a terminal gives a
+kind** - splitting a browser gives a browser, splitting a terminal gives a
 terminal. In a browser pane the shortcuts are the only route: right-clicking
 a web page shows Chromium's own menu, which you want for links and images.
 
@@ -63,12 +63,12 @@ pane, so it answers "where will this land?".
 
 **Pane → Move Left/Right** (labelled Up/Down in a stacked split) swaps the
 active pane with its neighbour. **Move to New Tab** pulls it out into a tab
-of its own — the usual fix for "I split the wrong one". Either way the
+of its own - the usual fix for "I split the wrong one". Either way the
 pane keeps its shell, scrollback and running processes; only its container
 changes.
 
 Panes can't be dragged with the mouse. Neither can Windows Terminal's,
-iTerm2's or tmux's — it needs a custom drag-and-drop layer, and the menu
+iTerm2's or tmux's - it needs a custom drag-and-drop layer, and the menu
 commands cover the cases that actually come up.
 
 **Pane → Close** (`Alt+Shift+W`) closes just that terminal; closing the last
@@ -80,44 +80,44 @@ full-screen apps rarely bind them.
 
 **File → New Browser** opens a web page in a tab beside your terminals. Type
 in the address bar and press Enter: a full URL loads as-is, a bare host like
-`example.com` or `localhost:8080` gets `https://`, and anything else — words
-with spaces, say — becomes a search rather than a broken URL. The `←` `→` `⟳`
+`example.com` or `localhost:8080` gets `https://`, and anything else - words
+with spaces, say - becomes a search rather than a broken URL. The `←` `→` `⟳`
 buttons are back, forward, and reload.
 
 Browser tabs are labelled by host (`1:example.com`), with the page title in
 the tooltip. Commands and Selection Actions do nothing while a browser is the
-active pane — there's no shell to send them to. They don't quietly pick some
+active pane - there's no shell to send them to. They don't quietly pick some
 other terminal in the tab either, which would run your command somewhere you
 weren't looking; click the terminal pane you meant first.
 
 ## Commands vs. Macros
 
-Both are the same underlying thing — a named list of shell lines — but they
+Both are the same underlying thing - a named list of shell lines - but they
 serve different jobs, and each preset is one or the other:
 
-- **Command** — runs in the terminal tab you're *already working in*, and you
+- **Command** - runs in the terminal tab you're *already working in*, and you
   stay in it. For quick, short interactions: `git status`, `clear`.
-- **Macro** — always opens a *fresh tab* and runs there. For anything
+- **Macro** - always opens a *fresh tab* and runs there. For anything
   long-running or disruptive that shouldn't hijack your current session:
   a dev server, a build, a deploy.
 
 ## Running them
 
-- **Sidebar buttons** — one click sends that Command to the active terminal.
+- **Sidebar buttons** - one click sends that Command to the active terminal.
   The sidebar is the curated view: only Commands you've pinned with *Show in
   sidebar* appear there.
-- **Right-click in a terminal → Command** — every Command, grouped the
+- **Right-click in a terminal → Command** - every Command, grouped the
   same way as the sidebar, without leaving the terminal you're typing in.
   Unlike the sidebar this lists *all* of them, pinned or not. Picking one
   sends it to that terminal. The same menu has **Copy** and **Paste** (see
   below).
-- **Macros menu** — every Macro. Picking one opens a new tab and runs it.
+- **Macros menu** - every Macro. Picking one opens a new tab and runs it.
 
 The Commands menu in the menu bar is management-only (New Command...,
-Manage Commands..., Show Sidebar) — it doesn't list individual Commands.
+Manage Commands..., Show Sidebar) - it doesn't list individual Commands.
 
 Show or hide the sidebar with **Commands → Show Sidebar**. Closing it from
-its own title-bar button works too — either way it just hides, and the menu
+its own title-bar button works too - either way it just hides, and the menu
 item flips back to unchecked so you can bring it back.
 
 ## Copy and paste
@@ -137,8 +137,8 @@ Select text in a terminal, right-click, and pick **Selection** to run
 something against it. The submenu shows what you selected at the top, so you
 can see the payload before sending it. Two built-in examples ship:
 
-- **Search Google** — opens your browser on a search for the selected text.
-- **Explain with Claude** — opens a new tab running `claude -p`, with the
+- **Search Google** - opens your browser on a search for the selected text.
+- **Explain with Claude** - opens a new tab running `claude -p`, with the
   selection as its input.
 
 Each action is one of two kinds, chosen in **Manage Selection Actions...**:
@@ -150,12 +150,12 @@ Each action is one of two kinds, chosen in **Manage Selection Actions...**:
 
 The selection is never pasted into a command line. That keeps text
 containing quotes, `;`, `&&` or backticks from being executed as part of the
-command, and means multi-line and very long selections work — both of which
+command, and means multi-line and very long selections work - both of which
 break if text is spliced into a command. URL actions cap the selection at
 1500 characters, since browsers and search engines reject longer URLs.
 
-If the right-click **Selection** submenu is empty — an install created before
-this feature existed keeps its own presets — open **Manage Selection
+If the right-click **Selection** submenu is empty - an install created before
+this feature existed keeps its own presets - open **Manage Selection
 Actions...** and press **Add Examples**.
 
 ## Cron: running something on a schedule
@@ -203,7 +203,7 @@ Two things to know:
 ## Ordering
 
 Each Manage dialog has **Move Up** and **Move Down** under its list. The
-order there is the order they appear in — the Macros menu, the right-click
+order there is the order they appear in - the Macros menu, the right-click
 Command submenu, and the sidebar buttons.
 
 One thing to know: entries with a **Group** are shown nested under that group
@@ -223,14 +223,15 @@ create a Command from the Macros dialog or vice versa.
 | Name | Label shown in menus and on sidebar buttons |
 | Group | Optional. Groups presets into sidebar sections and menu submenus |
 | Commands | One shell line per row |
-| Show in sidebar | Commands only — pins it as a sidebar button. Macros never appear there |
+| Show in sidebar | Commands only - pins it as a sidebar button. Macros never appear there |
 
 Changes save immediately, and the sidebar and both menus refresh straight away.
 
 Presets are stored as JSON, so you can hand-edit or back them up:
 
-- Windows — `%LOCALAPPDATA%\qtxterm\presets.json`
-- Linux — `~/.config/qtxterm/presets.json`
+- Windows - `%LOCALAPPDATA%\qtxterm\presets.json`
+- Linux - `~/.config/qtxterm/presets.json`
+- macOS - `~/Library/Application Support/qtxterm/presets.json`
 
 ## Preferences
 
@@ -239,14 +240,14 @@ font size.
 
 ### Default shell
 
-Which shell new tabs open with — the startup tab, the `+` button,
+Which shell new tabs open with - the startup tab, the `+` button,
 `Ctrl+Shift+T`, and Macros. **System default** follows the OS
 (`powershell.exe` on Windows, `$SHELL` elsewhere); otherwise pick any
 detected shell, including a specific WSL distro. Existing tabs keep the
 shell they started with, and **File → New Terminal** still opens whichever
 shell you pick there regardless of this setting.
 
-If the chosen shell later disappears — a WSL distro you removed — new tabs
+If the chosen shell later disappears - a WSL distro you removed - new tabs
 quietly fall back to the system default rather than failing to open.
 
 ### Appearance
@@ -254,13 +255,13 @@ quietly fall back to the system default rather than failing to open.
 | Theme | Look |
 |---|---|
 | Qt Default | The original terminal colors, with your platform's native window chrome left untouched |
-| VS Code Dark High Contrast | Pure black ground, saturated ANSI colors — VS Code's `hc-black` |
+| VS Code Dark High Contrast | Pure black ground, saturated ANSI colors - VS Code's `hc-black` |
 | VS Code Light+ | VS Code's default light theme |
 | Solarized Dark | The classic low-contrast dark palette |
 | Solarized Light | Solarized on its cream ground |
 
-Everything except **Qt Default** themes the whole window — menus, tabs,
-sidebar, and dialogs — not only the terminal grid. **Qt Default** deliberately
+Everything except **Qt Default** themes the whole window - menus, tabs,
+sidebar, and dialogs - not only the terminal grid. **Qt Default** deliberately
 leaves the native look alone.
 
 Changes apply immediately to every open tab, and are remembered for next time.
@@ -268,16 +269,17 @@ Changes apply immediately to every open tab, and are remembered for next time.
 ## What else is remembered
 
 The window's size and position, and whether the Commands sidebar is showing,
-are restored the next time you open qtxterm — alongside the appearance
+are restored the next time you open qtxterm - alongside the appearance
 settings above. They live next to your presets:
 
-- Windows — `%LOCALAPPDATA%\qtxterm\window_state.ini`
-- Linux — `~/.config/qtxterm/window_state.ini`
+- Windows - `%LOCALAPPDATA%\qtxterm\window_state.ini`
+- Linux - `~/.config/qtxterm/window_state.ini`
+- macOS - `~/Library/Application Support/qtxterm/window_state.ini`
 
 ## How multiline presets run
 
 Each line is typed into the terminal followed by Enter. Lines run strictly in
-order, each finishing before the next begins — a preset starting with a
+order, each finishing before the next begins - a preset starting with a
 3-second sleep won't run its second line until that sleep is done.
 
 Two differences from a real `.sh` or `.bat` script are worth knowing:

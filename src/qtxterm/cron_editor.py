@@ -150,7 +150,7 @@ class CronEditorDialog(QDialog):
         self._list.clear()
         for job in self._store.jobs:
             suffix = "" if job.enabled else "  (disabled)"
-            self._list.addItem(f"{job.name}  —  {job.expression}{suffix}")
+            self._list.addItem(f"{job.name}  -  {job.expression}{suffix}")
         self._list.blockSignals(False)
 
     def _on_row_changed(self, row: int) -> None:
@@ -229,7 +229,7 @@ class CronEditorDialog(QDialog):
         except CronError as exc:
             # Refused rather than stored: a job with an unreadable schedule
             # would sit there doing nothing.
-            self._next_run_label.setText(f"⚠ not saved — {exc}")
+            self._next_run_label.setText(f"⚠ not saved - {exc}")
             return False
         saved_index = self._current_index
         self._store.update(saved_index, job)
