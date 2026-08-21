@@ -54,10 +54,26 @@ def test_real_pty_roundtrip(qtbot) -> None:
     session.start([default_shell()], cols=80, rows=24)
     qtbot.waitUntil(lambda: session.is_alive, timeout=5000)
 
-    session.write("echo pytest_roundtrip_ok\r\n")
-    qtbot.waitUntil(
-        lambda: "pytest_roundtrip_ok" in "".join(output_chunks), timeout=10000
-    )
+    # `is_alive` only means the process exists - ConPTY reports that the
+    # instant it spawns, well before the shell starts reading. Wait for it to
+    # say something first; a banner or a prompt is the shell announcing it is
+    # up. Without this the command below can be typed into a shell that is not
+    # listening yet, and PSReadLine drops typeahead rather than buffering it.
+    qtbot.waitUntil(lambda: "".join(output_chunks).strip() != "", timeout=30000)
+
+    # Even then, "it printed something" is not "it is reading stdin", and the
+    # gap between the two stretches on a loaded CI runner. Re-send until the
+    # echo comes back rather than trusting one write to land - `echo` is
+    # idempotent, so a duplicate costs nothing but a second line of output.
+    def echoed() -> bool:
+        return "pytest_roundtrip_ok" in "".join(output_chunks)
+
+    for _ in range(15):
+        session.write("echo pytest_roundtrip_ok\r\n")
+        qtbot.wait(1000)
+        if echoed():
+            break
+    assert echoed(), f"no echo after 15 attempts; got {''.join(output_chunks)!r}"
 
     session.close()
     qtbot.waitUntil(lambda: not session.is_alive, timeout=5000)
