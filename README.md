@@ -2,69 +2,48 @@
 
 [![CI](https://github.com/rigidlab/qtxterm/actions/workflows/ci.yml/badge.svg)](https://github.com/rigidlab/qtxterm/actions/workflows/ci.yml)
 
-A cross-platform tabbed terminal (Windows + Linux) built with PySide6, rendering
-terminals via embedded [xterm.js](https://xtermjs.org/) in a `QWebEngineView`,
-backed by real PTYs — ConPTY on Windows, `openpty` on Linux.
+A cross-platform tabbed terminal (Windows, Linux, macOS) built with PySide6,
+rendering terminals via embedded [xterm.js](https://xtermjs.org/) in a
+`QWebEngineView`, backed by real PTYs - ConPTY on Windows, `openpty` elsewhere.
 
 ![qtxterm](docs/screenshot.png)
 
 *One macro produced that layout: a tab split three ways, each pane running its
-own command. Shown in the default theme — several dark themes ship with it.*
+own command. Shown in the default theme - several dark themes ship with it.*
 
 ## Features
 
-- **Tabs and split panes** — split any pane right or down, move panes within a
-  tab or out into a tab of their own. Tabs carry tmux-style `{index}:{shell}`
-  labels and can be renamed by double-clicking.
-- **Any shell on the box** — PowerShell, Command Prompt, Git Bash, or a
-  specific WSL distro, discovered at runtime and listed individually under
-  **File → New Terminal**. Pick the one new tabs open with in Preferences.
-- **Commands** — reusable one-liners sent to the terminal you're already
-  working in, as one-click sidebar buttons and from the right-click menu.
-- **Macros** — multi-step scripts that open their own tabs *and panes*. A
-  `---` line splits a macro into steps, and `--- right` / `--- down` place a
-  step in a split pane:
+- **Tabs and split panes** - split any pane right or down, move panes between
+  tabs or out into their own.
+- **Any shell on the box** - PowerShell, Command Prompt, Git Bash or a specific
+  WSL distro, discovered at runtime.
+- **Commands and Macros** - saved one-liners sent to the terminal you're in;
+  macros that open their own tabs *and* panes.
+- **Cron** - run a macro on a schedule for as long as the app is open.
+- **Selection Actions** - search or pipe selected text, without interpolating it
+  into a shell line.
+- **Browser tabs and panes** - a page beside a terminal.
+- **Themes and typography** - applied to the terminal *and* the window chrome,
+  plus font, size and scrollback.
 
-  ```
-  npm run dev
-  --- right
-  npm run test:watch
-  --- down
-  git status
-  ```
-
-- **Selection Actions** — do something with the text you've selected: open it
-  in a search URL, or feed it to a command on stdin. The selection is
-  percent-encoded or written to a temp file rather than interpolated into a
-  shell line, so a selection full of quotes and semicolons stays inert.
-- **Browser tabs and panes** — put a page beside a terminal, for docs or a
-  local dev server.
-- **Themes and typography** — VS Code Dark High Contrast, Solarized and others
-  applied to the terminal *and* the window chrome, plus font, font size, and
-  how many lines of scrollback each terminal keeps.
-- **Customizable right-click menu** — reorder its Copy/Paste, Pane, Command and
-  Selection groups to taste.
-- Window geometry, sidebar visibility, and preferences persist between runs.
+Each is covered in [Usage](src/qtxterm/assets/USAGE.md).
 
 ## Install
-
-No clone needed — [uv](https://docs.astral.sh/uv/) builds and installs it
-straight from here:
+Needs [uv](https://docs.astral.sh/uv/) and Python 3.12+ (uv fetches it). No
+clone needed - uv builds and installs straight from here:
 
 ```bash
 uv tool install git+https://github.com/rigidlab/qtxterm.git
 qtxterm
 ```
 
-`pipx install git+https://github.com/rigidlab/qtxterm.git` and `pip install
-git+...` work the same way.
+That installs two commands: **`qtxterm`** (console, so it prints where you ran it from) and **`qtxtermw`** (no console window - what a desktop shortcut should point at). On Windows, `scripts/install-shortcut.ps1` creates Desktop and Start Menu shortcuts with the app icon.
 
-That installs two commands: **`qtxterm`** (console, so it prints where you
-ran it from) and **`qtxtermw`** (no console window — what a desktop shortcut
-should point at). On Windows, `scripts/install-shortcut.ps1` creates Desktop
-and Start Menu shortcuts with the app icon.
+## Usage
+The full guide is in the app under **Help → Usage**, or read [`src/qtxterm/assets/USAGE.md`](src/qtxterm/assets/USAGE.md).
 
-## Run from source
+## Development
+### Run from source
 
 ```bash
 git clone https://github.com/rigidlab/qtxterm.git
@@ -73,36 +52,75 @@ uv sync
 uv run qtxterm
 ```
 
-To build and install your own wheel: `uv build`, then `uv tool install
-dist/qtxterm-1.0.0-py3-none-any.whl`.
-
-## Usage
-
-The full guide is in the app under **Help → Usage**, or read
-[`src/qtxterm/assets/USAGE.md`](src/qtxterm/assets/USAGE.md).
-
-## Development
-
+To build (if needed):
 ```bash
-uv run pytest              # ~290 tests, a few seconds
-uv run pytest -m soak      # long-session reliability, ~90s
-uv run ruff check src/
+uv build
+uv tool install dist/qtxterm-1.0.0-py3-none-any.whl  # replace version
 ```
 
-CI runs the tests and lint on Windows and Linux for every push, and builds
-the wheel. The soak test is excluded there - it is measured in minutes.
+### Making a change
+```bash
+git checkout main && git pull
+git checkout -b feat/change-123   # feat|fix|docs|chore|refactor|test|perf
+```
 
-The soak test is the interesting one: it runs a compressed session — tabs,
-panes, macros, theme and preset churn — in a loop around a terminal that is
-never closed, and asserts that memory, GDI/USER and kernel handles, live
-widgets and event-loop latency all stop climbing. `--soak-minutes 1440` runs
-it for a day; `--soak-csv` dumps the curve.
+One logical change per commit, and add or update tests as you go.
 
-[`SPEC.md`](SPEC.md) is the design record: what was decided, what was
-measured, and why several obvious-looking approaches were rejected.
+### Test locally
+```bash
+uv run pytest            # ~340 tests, about 15 seconds
+uv run ruff check src/
+uv run ruff format src/  # CI runs --check; both cover src/ only
+```
+
+The soak test is excluded from that run and from CI because it takes minutes.
+Run `uv run pytest -m soak` (~90s) if you touched anything owning a widget, a
+timer or a PTY.
+
+### Open a PR
+```bash
+git add <files>          # not `git add .`
+git commit -m "feat: implement change 123"
+git push -u origin feat/change-123
+```
+
+Open the PR on GitHub and say what changed and why - a screenshot saves a round
+trip for anything visual. CI then runs the checks above on Windows, Linux and
+macOS, and builds the wheel.
+
+### After CI passes
+Green and approved, the PR is merged from the GitHub UI - merge, squash or
+rebase, whichever suits the change. Then delete the branch and `git checkout
+main && git pull` before starting the next one.
+
+Merging is itself a push to `main`, so CI runs once more on the result. That
+run is the one that catches a PR which was green against a stale base and
+broke against what landed in the meantime - worth a glance before you move on.
+
+Releases are cut by tag, and only by a maintainer:
+
+```bash
+# bump `version` in pyproject.toml first, on main
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+That builds the wheel, checks the tag and the package version agree, installs
+it into a clean venv on Linux and Windows and runs the app from it, and only
+then publishes a GitHub Release with the artifacts attached. A failing smoke
+test leaves the tag in git but publishes nothing.
+
+### Where things live
+
+| Path (under `src/qtxterm/`) | What |
+|---|---|
+| `terminal_widget.py` | one terminal: xterm.js in a web view, wired to a PTY |
+| `terminal_tabs.py` | tabs, split panes, what runs where |
+| `pty_backend/` | ConPTY on Windows, `openpty` elsewhere |
+| `presets.py`, `cron*.py` | Commands/Macros/Selection Actions, and schedules |
+| `assets/` | `terminal.html`/`terminal.js`, vendored xterm.js |
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). Vendored xterm.js is MIT too, with its notice
+MIT - see [`LICENSE`](LICENSE). Vendored xterm.js is MIT as well, with its notice
 alongside the code it covers in
 [`src/qtxterm/assets/xterm/LICENSE`](src/qtxterm/assets/xterm/LICENSE).
