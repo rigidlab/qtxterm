@@ -25,9 +25,9 @@ SELECTION_PLACEHOLDER = "{selection}"
 # The separator carries where that terminal goes, so the layout is authored
 # inline and needs no extra fields or editor controls:
 #
-#     npm run dev
+#     uv run python -m app.server
 #     --- right
-#     npm run test:watch
+#     uv run pytest -q
 #     --- down
 #     git status
 #
