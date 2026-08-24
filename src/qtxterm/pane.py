@@ -42,6 +42,16 @@ class PaneWidget(QWidget):
     def apply_appearance(self, appearance) -> None:
         """Terminal theme and font. A no-op for panes they don't apply to."""
 
+    def focus_pane(self) -> None:
+        """Put the keyboard in this pane.
+
+        Overridden by panes that host a QWebEngineView, where focusing the
+        PaneWidget itself is not enough: the thing that actually receives
+        keystrokes is a Chromium child widget, and inside a terminal it is an
+        element inside the page below that.
+        """
+        self.setFocus()
+
     def set_pane_state(self, in_split: bool, active: bool) -> None:
         """Tell the pane whether it shares its tab, and whether it is focused.
 

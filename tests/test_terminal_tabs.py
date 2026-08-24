@@ -6,11 +6,14 @@ from pathlib import Path
 
 from conftest import FakePtySession
 from PySide6.QtCore import QPoint, QSettings, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QSplitter
 
 from qtxterm.appearance import Appearance, AppearanceStore
 from qtxterm import terminal_tabs
 from qtxterm.pty_backend import default_shell
+from qtxterm import shortcuts
+from qtxterm.pane import PANE_BORDER_WIDTH
 from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.browser_widget import BrowserWidget
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
@@ -286,6 +289,31 @@ def test_running_a_command_with_a_browser_tab_active_is_a_no_op(qtbot) -> None:
     tabs.run_in_active(["git status"])
 
     assert pty.write_calls == []
+
+
+def test_find_opens_in_the_focused_terminal(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    opened = []
+    terminal.show_find = lambda: opened.append(True)
+
+    tabs.show_find_in_active()
+
+    assert opened == [True]
+
+
+def test_find_with_a_browser_tab_active_is_a_no_op(qtbot) -> None:
+    """Same rule as commands: a web page has no scrollback to search, and
+    quietly searching another terminal would put the bar out of sight."""
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    opened = []
+    terminal.show_find = lambda: opened.append(True)
+    tabs.new_browser_tab(url="about:blank")
+
+    tabs.show_find_in_active()
+
+    assert opened == []
 
 
 def test_closing_a_browser_tab_shuts_it_down_and_renumbers(qtbot) -> None:
@@ -855,3 +883,487 @@ def test_run_macro_feeds_each_step_its_own_lines(qtbot) -> None:
 
     assert ptys[0].write_calls == ["first\r"]
     assert ptys[1].write_calls == ["second\r"]
+
+
+def test_a_new_tab_takes_the_keyboard(qtbot, monkeypatch) -> None:
+    """addTab leaves Qt's focus on the tab bar, so without this a new terminal
+    needs a click before it accepts a keystroke - and until that click, arrow
+    keys reach the QTabBar and switch tabs instead."""
+    tabs = make_tabs(qtbot)
+    focused = []
+    monkeypatch.setattr(TerminalWidget, "focus_pane", lambda self: focused.append(self))
+
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert focused == [terminal]
+
+
+def test_splitting_gives_the_keyboard_to_the_new_pane(qtbot, monkeypatch) -> None:
+    """The reported bug: after a split, focus stayed on the QTabBar, so the
+    arrow keys switched tabs rather than moving between panes."""
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    focused = []
+    monkeypatch.setattr(TerminalWidget, "focus_pane", lambda self: focused.append(self))
+
+    new = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert focused[-1] is new
+
+
+def test_closing_a_pane_gives_the_keyboard_to_the_survivor(qtbot, monkeypatch) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    focused = []
+    monkeypatch.setattr(TerminalWidget, "focus_pane", lambda self: focused.append(self))
+
+    tabs.close_active_pane()
+
+    assert focused[-1] is first
+
+
+def _nested_layout(qtbot, tabs):
+    """LEFT beside a stacked TOPRIGHT / BOTRIGHT, laid out for real.
+
+    Shown and resized because this is the one behaviour decided by on-screen
+    geometry - an unlaid-out tab gives every pane the same rect, and the test
+    would then be passing on nothing.
+    """
+    tabs.resize(800, 600)
+    tabs.show()
+    left = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    top = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+    bottom = tabs.split_active(Qt.Orientation.Vertical, pty_session=FakePtySession())
+    qtbot.waitUntil(
+        lambda: tabs._pane_rect(left).width() > 0
+        and tabs._pane_rect(top).top() < tabs._pane_rect(bottom).top(),
+        timeout=5000,
+    )
+    return left, top, bottom
+
+
+def test_alt_arrow_moves_between_panes_by_geometry(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    left, top_right, bottom_right = _nested_layout(qtbot, tabs)
+
+    tabs._focused_panes[tabs.currentWidget()] = bottom_right
+    assert tabs.focus_pane_in_direction(-1, 0) is left
+    assert tabs.focus_pane_in_direction(1, 0) is top_right
+    assert tabs.focus_pane_in_direction(0, 1) is bottom_right
+    assert tabs.focus_pane_in_direction(0, -1) is top_right
+
+
+def test_moving_right_prefers_the_pane_that_lines_up(qtbot) -> None:
+    """From the tall left pane, the two right-hand panes' centres sat 138 and
+    139 pixels off axis - one pixel apart, so ranking by centre distance made
+    the choice a coin flip that would flip again if the splitter moved.
+    Overlap is stable under that, and the top-left tie-break settles a tie."""
+    tabs = make_tabs(qtbot)
+    left, top_right, _bottom = _nested_layout(qtbot, tabs)
+
+    tabs._focused_panes[tabs.currentWidget()] = left
+
+    assert tabs.focus_pane_in_direction(1, 0) is top_right
+
+
+def test_navigating_past_the_edge_does_nothing(qtbot) -> None:
+    """No wraparound: panes are a spatial layout, and jumping from the
+    rightmost pane back to the leftmost is not what "right" means."""
+    tabs = make_tabs(qtbot)
+    _left, top_right, _bottom = _nested_layout(qtbot, tabs)
+
+    tabs._focused_panes[tabs.currentWidget()] = top_right
+
+    assert tabs.focus_pane_in_direction(0, -1) is None
+    assert tabs.focus_pane_in_direction(1, 0) is None
+
+
+def test_alt_arrow_does_nothing_in_an_unsplit_tab(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert tabs.focus_pane_in_direction(1, 0) is None
+
+
+def _shortcut_for(tabs, sequence: str):
+    """The QShortcut registered for `sequence`, or None."""
+    from PySide6.QtGui import QShortcut
+
+    for shortcut in tabs.findChildren(QShortcut):
+        if shortcut.key().toString() == sequence:
+            return shortcut
+    return None
+
+
+def test_split_is_bound_to_the_chord_the_keyboard_actually_sends(qtbot) -> None:
+    """The reported bug: neither split shortcut fired from a real keyboard.
+
+    Qt matches "Alt+Shift+=" against Key_Equal, but holding Shift and pressing
+    that key sends Key_Plus - and "Alt+Shift+-" arrives as Key_Underscore. Both
+    spellings have to be registered or the documented chord does nothing.
+    """
+    tabs = make_tabs(qtbot)
+
+    for sequence in (
+        # Alt+Shift fails one way: Qt matches "Alt+Shift+=" against Key_Equal,
+        # but Shift plus that key sends Key_Plus.
+        "Alt+Shift+=",
+        "Alt+Shift++",
+        "Alt+Shift+-",
+        "Alt+Shift+_",
+        # Ctrl+Shift fails the opposite way: with Ctrl held the character is a
+        # control code (Ctrl+_ is 0x1f), so Qt cannot derive "_" from the
+        # layout and reports the base key - Key_Minus, or Key_Backslash for
+        # the bar.
+        "Ctrl+Shift+|",
+        "Ctrl+Shift+\\",
+        "Ctrl+Shift+_",
+        "Ctrl+Shift+-",
+    ):
+        assert _shortcut_for(tabs, sequence) is not None, sequence
+
+
+def test_every_split_chord_actually_splits(qtbot) -> None:
+    """Activated directly rather than by a key press, so this asserts the
+    wiring without depending on which window the runner has active."""
+    cases = [
+        ("Alt+Shift+=", Qt.Orientation.Horizontal),
+        ("Alt+Shift++", Qt.Orientation.Horizontal),
+        ("Ctrl+Shift+|", Qt.Orientation.Horizontal),
+        ("Ctrl+Shift+\\", Qt.Orientation.Horizontal),
+        ("Alt+Shift+-", Qt.Orientation.Vertical),
+        ("Alt+Shift+_", Qt.Orientation.Vertical),
+        ("Ctrl+Shift+_", Qt.Orientation.Vertical),
+        ("Ctrl+Shift+-", Qt.Orientation.Vertical),
+    ]
+    for sequence, orientation in cases:
+        tabs = make_tabs(qtbot)
+        tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+        shortcut = _shortcut_for(tabs, sequence)
+        assert shortcut is not None, sequence
+
+        shortcut.activated.emit()
+
+        assert len(tabs._panes_in(tabs.currentWidget())) == 2, sequence
+        splitter = tabs.currentWidget()
+        assert isinstance(splitter, QSplitter)
+        assert splitter.orientation() is orientation, sequence
+
+def test_copy_shortcut_copies_the_active_terminals_selection(qtbot) -> None:
+    from PySide6.QtGui import QGuiApplication
+
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    terminal._bridge.setSelection("selected output")
+
+    assert tabs.copy_in_active() is True
+    assert QGuiApplication.clipboard().text() == "selected output"
+
+
+def test_copy_with_nothing_selected_does_not_clear_the_clipboard(qtbot) -> None:
+    """Matters most on macOS, where the binding is plain Cmd+C: pressing it
+    with no selection should do nothing, not wipe what you already copied."""
+    from PySide6.QtGui import QGuiApplication
+
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    QGuiApplication.clipboard().setText("kept")
+
+    assert tabs.copy_in_active() is False
+    assert QGuiApplication.clipboard().text() == "kept"
+
+
+def test_paste_goes_through_the_terminal_so_bracketed_paste_is_honoured(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    pasted = []
+    terminal.paste_from_clipboard = lambda: pasted.append(True)
+
+    tabs.paste_in_active()
+
+    assert pasted == [True]
+
+
+def test_copy_and_paste_do_nothing_while_a_browser_pane_is_active(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    terminal = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    pasted = []
+    terminal.paste_from_clipboard = lambda: pasted.append(True)
+    tabs.new_browser_tab(url="about:blank")
+
+    tabs.paste_in_active()
+
+    assert pasted == []
+    assert tabs.copy_in_active() is False
+
+
+def test_zoom_changes_the_stored_font_size(qtbot, tmp_path: Path) -> None:
+    """Saved through the store rather than pushed at the open terminals, so
+    it survives a restart and reaches panes opened later."""
+    store = make_appearance_store(tmp_path)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+    start = store.current.font_size
+
+    assert tabs.zoom_font(1) == start + 1
+    assert store.current.font_size == start + 1
+    assert tabs.zoom_font(-1) == start
+    assert store.current.font_size == start
+
+
+def test_zoom_stops_at_the_same_bounds_the_preferences_dialog_uses(
+    qtbot, tmp_path: Path
+) -> None:
+    """Zooming past a size the dialog refuses to show would leave a
+    preference you could see but not edit back."""
+    from qtxterm.appearance import MAX_FONT_SIZE, MIN_FONT_SIZE
+
+    store = make_appearance_store(tmp_path)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+
+    for _ in range(200):
+        tabs.zoom_font(1)
+    assert store.current.font_size == MAX_FONT_SIZE
+
+    for _ in range(200):
+        tabs.zoom_font(-1)
+    assert store.current.font_size == MIN_FONT_SIZE
+
+
+def test_zoom_reset_returns_to_the_default_size(qtbot, tmp_path: Path) -> None:
+    from qtxterm.appearance import DEFAULT_FONT_SIZE
+
+    store = make_appearance_store(tmp_path)
+    tabs = TerminalTabWidget(appearance_store=store)
+    qtbot.addWidget(tabs)
+    tabs.zoom_font(5)
+
+    assert tabs.reset_font_zoom() == DEFAULT_FONT_SIZE
+    assert store.current.font_size == DEFAULT_FONT_SIZE
+
+
+def test_zoom_is_a_no_op_without_an_appearance_store(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    assert tabs.zoom_font(1) is None
+    assert tabs.reset_font_zoom() is None
+
+
+def test_tab_slots_select_by_position(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    for _ in range(4):
+        tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert tabs.activate_tab_slot(1) is True
+    assert tabs.currentIndex() == 0
+    assert tabs.activate_tab_slot(3) is True
+    assert tabs.currentIndex() == 2
+
+
+def test_the_last_slot_means_the_last_tab_not_the_ninth(qtbot) -> None:
+    """Following browsers and Windows Terminal, so it stays useful with more
+    tabs than slots - and does not simply fail with fewer."""
+    tabs = make_tabs(qtbot)
+    for _ in range(3):
+        tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    assert tabs.activate_tab_slot(shortcuts.LAST_TAB_SLOT) is True
+    assert tabs.currentIndex() == 2
+
+
+def test_a_slot_past_the_last_tab_does_nothing(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    tabs.setCurrentIndex(0)
+
+    assert tabs.activate_tab_slot(5) is False
+    assert tabs.currentIndex() == 0
+
+
+def test_tab_slots_do_nothing_with_no_tabs_open(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+
+    assert tabs.activate_tab_slot(1) is False
+
+
+def test_every_shortcut_action_is_registered_on_the_widget(qtbot) -> None:
+    """Catches an action added to the table but never wired up - which would
+    look fine everywhere except when you pressed the key."""
+    tabs = make_tabs(qtbot)
+    registered = {s.key().toString() for s in tabs.findChildren(QShortcut)}
+
+    for action in shortcuts.all_actions():
+        for sequence in shortcuts.sequences_for(action):
+            assert QKeySequence(sequence).toString() in registered, (action, sequence)
+
+def make_exit_store(tmp_path: Path, choice: str):
+    from qtxterm.exit_prefs import PaneExitStore
+
+    settings = QSettings(str(tmp_path / "exit.ini"), QSettings.Format.IniFormat)
+    store = PaneExitStore(settings)
+    store.save(choice)
+    return store
+
+
+def make_tabs_with_exit(qtbot, tmp_path: Path, choice: str) -> TerminalTabWidget:
+    tabs = TerminalTabWidget(exit_store=make_exit_store(tmp_path, choice))
+    qtbot.addWidget(tabs)
+    return tabs
+
+
+def test_a_clean_shell_exit_closes_its_pane(qtbot, tmp_path: Path) -> None:
+    from qtxterm.exit_prefs import CLOSE_CLEAN
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_CLEAN)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    assert tabs.count() == 2
+
+    pty.exited.emit(0)
+
+    qtbot.waitUntil(lambda: tabs.count() == 1, timeout=2000)
+
+
+def test_a_failed_shell_keeps_its_pane_so_you_can_read_the_error(
+    qtbot, tmp_path: Path
+) -> None:
+    from qtxterm.exit_prefs import CLOSE_CLEAN
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_CLEAN)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+
+    pty.exited.emit(1)
+    qtbot.wait(200)
+
+    assert tabs.count() == 1
+
+
+def test_always_closes_even_a_failed_shell(qtbot, tmp_path: Path) -> None:
+    from qtxterm.exit_prefs import CLOSE_ALWAYS
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_ALWAYS)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+
+    pty.exited.emit(1)
+
+    qtbot.waitUntil(lambda: tabs.count() == 0, timeout=2000)
+
+
+def test_never_leaves_the_pane_alone(qtbot, tmp_path: Path) -> None:
+    from qtxterm.exit_prefs import CLOSE_NEVER
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_NEVER)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+
+    pty.exited.emit(0)
+    qtbot.wait(200)
+
+    assert tabs.count() == 1
+
+
+def test_an_exiting_shell_closes_only_its_own_pane_in_a_split(
+    qtbot, tmp_path: Path
+) -> None:
+    """A shell exits in whichever pane it was running, very often not the one
+    you are looking at - which is why closing acts on the pane that exited
+    rather than the focused one."""
+    from qtxterm.exit_prefs import CLOSE_CLEAN
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_CLEAN)
+    first_pty = FakePtySession()
+    first = tabs.new_tab(shell="/bin/bash", pty_session=first_pty)
+    second = tabs.split_active(
+        Qt.Orientation.Horizontal, pty_session=FakePtySession()
+    )
+    assert len(tabs._panes_in(tabs.currentWidget())) == 2
+
+    first_pty.exited.emit(0)
+
+    qtbot.waitUntil(
+        lambda: tabs._panes_in(tabs.currentWidget()) == [second], timeout=2000
+    )
+    assert first not in tabs._panes_in(tabs.currentWidget())
+
+
+def test_no_exit_store_means_the_old_behaviour(qtbot) -> None:
+    """A TerminalTabWidget built without one - as tests and embedders do -
+    must not start closing panes on its own."""
+    tabs = make_tabs(qtbot)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+
+    pty.exited.emit(0)
+    qtbot.wait(200)
+
+    assert tabs.count() == 1
+
+
+def test_a_tab_closed_before_the_deferred_close_runs_is_survivable(
+    qtbot, tmp_path: Path
+) -> None:
+    """Closing is deferred a turn of the event loop, because deleting the
+    widget that owns the object currently emitting is how you get a crash
+    instead of a closed pane. That gap means the pane can already be gone."""
+    from qtxterm.exit_prefs import CLOSE_CLEAN
+
+    tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_CLEAN)
+    pty = FakePtySession()
+    tabs.new_tab(shell="/bin/bash", pty_session=pty)
+
+    pty.exited.emit(0)
+    tabs.close_tab_at(0)
+    qtbot.wait(200)
+
+    assert tabs.count() == 0
+
+def test_panes_in_a_split_get_different_slices_of_the_background(qtbot) -> None:
+    """The whole point of spanning: each pane is a separate page, so left to
+    itself every one paints the entire picture and a tab split three ways
+    shows it three times."""
+    tabs = make_tabs(qtbot)
+    left, top_right, bottom_right = _nested_layout(qtbot, tabs)
+    pushed = {}
+    for pane in (left, top_right, bottom_right):
+        pane.set_background_geometry = (
+            lambda x, y, w, h, p=pane: pushed.__setitem__(p, (x, y, w, h))
+        )
+
+    tabs.refresh_background_geometry()
+
+    assert len(pushed) == 3
+    origins = {(x, y) for x, y, _w, _h in pushed.values()}
+    assert len(origins) == 3, origins
+    # Every pane is told the same tab size - that is what they window into.
+    sizes = {(w, h) for _x, _y, w, h in pushed.values()}
+    assert len(sizes) == 1, sizes
+    # The left pane starts at the tab's left edge; the right ones do not.
+    assert pushed[left][0] < pushed[top_right][0]
+    # The stacked pair share a column but not a row.
+    assert pushed[top_right][0] == pushed[bottom_right][0]
+    assert pushed[top_right][1] < pushed[bottom_right][1]
+
+
+def test_an_unsplit_pane_spans_its_whole_tab(qtbot) -> None:
+    tabs = make_tabs(qtbot)
+    tabs.resize(700, 500)
+    tabs.show()
+    pane = tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+    pushed = []
+    pane.set_background_geometry = lambda x, y, w, h: pushed.append((x, y, w, h))
+
+    tabs.refresh_background_geometry()
+
+    assert pushed, "no geometry pushed"
+    x, y, w, h = pushed[-1]
+    # Not (0, 0): the origin is the *page*, which starts inside the pane's
+    # border margin. Measuring the pane instead would shift every slice by
+    # that margin and leave visible seams where panes meet.
+    assert (x, y) == (PANE_BORDER_WIDTH, PANE_BORDER_WIDTH)
+    assert w > 0 and h > 0

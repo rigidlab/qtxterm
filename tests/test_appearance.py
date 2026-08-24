@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
@@ -96,3 +98,39 @@ def test_a_hand_edited_scrollback_is_clamped(tmp_path: Path) -> None:
 
     settings.setValue("appearance/scrollback", 10**9)
     assert AppearanceStore(make_settings(tmp_path)).current.scrollback == MAX_SCROLLBACK
+
+
+def test_background_image_and_opacity_round_trip(tmp_path) -> None:
+    from qtxterm.appearance import DEFAULT_BACKGROUND_OPACITY
+
+    settings = QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat)
+    store = AppearanceStore(settings)
+    assert store.current.background_image == ""
+    assert store.current.background_opacity == DEFAULT_BACKGROUND_OPACITY
+
+    store.save(replace(store.current, background_image="C:/wall.png", background_opacity=70))
+
+    reloaded = AppearanceStore(QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat))
+    assert reloaded.current.background_image == "C:/wall.png"
+    assert reloaded.current.background_opacity == 70
+
+
+def test_background_opacity_is_clamped_on_load(tmp_path) -> None:
+    """The ini is hand-editable, and a nonsense percentage should not produce
+    an invalid CSS alpha."""
+    from qtxterm.appearance import MAX_BACKGROUND_OPACITY
+
+    settings = QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat)
+    settings.setValue("appearance/backgroundOpacity", 900)
+    assert AppearanceStore(settings).current.background_opacity == MAX_BACKGROUND_OPACITY
+
+    settings.setValue("appearance/backgroundOpacity", -5)
+    assert AppearanceStore(settings).current.background_opacity == 0
+
+
+def test_the_default_background_strength_keeps_text_readable() -> None:
+    """A photograph at full strength behind text is unreadable, so trying the
+    feature for the first time should still leave a working terminal."""
+    from qtxterm.appearance import DEFAULT_BACKGROUND_OPACITY
+
+    assert 0 < DEFAULT_BACKGROUND_OPACITY <= 50

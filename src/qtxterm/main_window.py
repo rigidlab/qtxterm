@@ -9,6 +9,7 @@ from qtxterm.branding import app_icon
 from qtxterm.cron import CronStore
 from qtxterm.cron_menu import CronMenu
 from qtxterm.cron_scheduler import CronScheduler
+from qtxterm.exit_prefs import PaneExitStore
 from qtxterm.help_dialog import HelpDialog
 from qtxterm.menu_prefs import ContextMenuOrderStore
 from qtxterm.preferences_dialog import PreferencesDialog
@@ -46,10 +47,12 @@ class MainWindow(QMainWindow):
         self._apply_qt_theme()
         self._shell_store = ShellPreferenceStore(self._settings)
         self._menu_order_store = ContextMenuOrderStore(self._settings)
+        self._exit_store = PaneExitStore(self._settings)
         self._tabs = TerminalTabWidget(
             parent=self,
             appearance_store=self._appearance_store,
             shell_store=self._shell_store,
+            exit_store=self._exit_store,
         )
         # Deliberately not wired to close(): the window outlives its
         # terminals. Closing the last one leaves an empty window you can open
@@ -225,6 +228,7 @@ class MainWindow(QMainWindow):
             self,
             shell_store=self._shell_store,
             order_store=self._menu_order_store,
+            exit_store=self._exit_store,
         ).exec()
 
     def closeEvent(self, event) -> None:

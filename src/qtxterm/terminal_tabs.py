@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import html
+from dataclasses import replace
 
-from PySide6.QtCore import QPoint, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QPainter, QPalette, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -13,8 +14,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from qtxterm.appearance import Appearance, AppearanceStore
+from qtxterm import shortcuts
+from qtxterm.appearance import (
+    DEFAULT_FONT_SIZE,
+    MAX_FONT_SIZE,
+    MIN_FONT_SIZE,
+    Appearance,
+    AppearanceStore,
+)
 from qtxterm.browser_widget import BrowserWidget
+from qtxterm.exit_prefs import PaneExitStore, should_close
 from qtxterm.pane import PaneWidget
 from qtxterm.presets import STEP_RIGHT, STEP_TAB, macro_steps
 from qtxterm.pty_backend import PtySession, default_shell
@@ -40,9 +49,11 @@ class TerminalTabWidget(QTabWidget):
         parent: QWidget | None = None,
         appearance_store: AppearanceStore | None = None,
         shell_store: ShellPreferenceStore | None = None,
+        exit_store: PaneExitStore | None = None,
     ) -> None:
         super().__init__(parent)
         self._shell_store = shell_store
+        self._exit_store = exit_store
         # Two layers: the automatic name (shell name, or a browser tab's
         # host) and an optional user-set one that overrides it. Kept apart so
         # a rename isn't silently overwritten the next time the automatic name
@@ -100,25 +111,60 @@ class TerminalTabWidget(QTabWidget):
         )
 
     def _install_shortcuts(self) -> None:
-        def bind(sequence: str, slot) -> QShortcut:
-            shortcut = QShortcut(QKeySequence(sequence), self)
-            shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
-            shortcut.activated.connect(slot)
-            return shortcut
+        """Bind every action, using the sequences chosen for this platform.
 
-        self._new_tab_shortcut = bind("Ctrl+Shift+T", lambda: self.new_tab())
-        self._close_tab_shortcut = bind("Ctrl+Shift+W", self._close_current_tab)
-        self._next_tab_shortcut = bind("Ctrl+Tab", self._activate_next_tab)
-        self._prev_tab_shortcut = bind("Ctrl+Shift+Tab", self._activate_prev_tab)
-        # Alt+Shift chords, following Windows Terminal: shells and TUIs rarely
-        # bind them, unlike Ctrl+Shift which readline and editors do use.
-        self._split_right_shortcut = bind(
-            "Alt+Shift+=", lambda: self.split_active(Qt.Orientation.Horizontal)
+        Application context on purpose: a QShortcut is matched before the
+        focused widget sees the key, which is what keeps the QTabBar from
+        treating a bare arrow as "switch tab" while a pane has focus.
+        """
+
+        def bind(sequences: list[str], slot) -> list[QShortcut]:
+            bound = []
+            for sequence in sequences:
+                shortcut = QShortcut(QKeySequence(sequence), self)
+                shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+                shortcut.activated.connect(slot)
+                bound.append(shortcut)
+            return bound
+
+        def seq(action: str) -> list[str]:
+            return shortcuts.sequences_for(action)
+
+        # Kept in one list so nothing is garbage-collected: PySide6 will
+        # collect a QShortcut whose only reference was a local.
+        self._shortcuts: list[QShortcut] = []
+
+        def register(action: str, slot) -> None:
+            self._shortcuts.extend(bind(seq(action), slot))
+
+        register(shortcuts.NEW_TAB, lambda: self.new_tab())
+        register(shortcuts.CLOSE_TAB, self._close_current_tab)
+        register(shortcuts.NEXT_TAB, self._activate_next_tab)
+        register(shortcuts.PREV_TAB, self._activate_prev_tab)
+        register(
+            shortcuts.SPLIT_RIGHT,
+            lambda: self.split_active(Qt.Orientation.Horizontal),
         )
-        self._split_down_shortcut = bind(
-            "Alt+Shift+-", lambda: self.split_active(Qt.Orientation.Vertical)
+        register(
+            shortcuts.SPLIT_DOWN,
+            lambda: self.split_active(Qt.Orientation.Vertical),
         )
-        self._close_pane_shortcut = bind("Alt+Shift+W", self.close_active_pane)
+        register(shortcuts.CLOSE_PANE, self.close_active_pane)
+        register(shortcuts.FIND, self.show_find_in_active)
+        register(shortcuts.COPY, self.copy_in_active)
+        register(shortcuts.PASTE, self.paste_in_active)
+        register(shortcuts.ZOOM_IN, lambda: self.zoom_font(1))
+        register(shortcuts.ZOOM_OUT, lambda: self.zoom_font(-1))
+        register(shortcuts.ZOOM_RESET, self.reset_font_zoom)
+        register(shortcuts.FOCUS_PANE_LEFT, lambda: self.focus_pane_in_direction(-1, 0))
+        register(shortcuts.FOCUS_PANE_RIGHT, lambda: self.focus_pane_in_direction(1, 0))
+        register(shortcuts.FOCUS_PANE_UP, lambda: self.focus_pane_in_direction(0, -1))
+        register(shortcuts.FOCUS_PANE_DOWN, lambda: self.focus_pane_in_direction(0, 1))
+        for slot in range(1, shortcuts.TAB_SLOTS + 1):
+            register(
+                shortcuts.tab_slot_action(slot),
+                lambda checked=False, s=slot: self.activate_tab_slot(s),
+            )
 
     def _make_terminal(
         self,
@@ -147,6 +193,9 @@ class TerminalTabWidget(QTabWidget):
             lambda title, w=widget: self._update_tab_tooltip(w, title)
         )
         widget.context_menu_requested.connect(self.context_menu_requested)
+        widget.process_exited.connect(
+            lambda code, w=widget: self._on_process_exited(w, code)
+        )
         return widget
 
     def new_tab(
@@ -174,6 +223,11 @@ class TerminalTabWidget(QTabWidget):
         index = self.addTab(widget, "")
         self.setCurrentIndex(index)
         self._renumber()
+        # addTab leaves Qt's focus on the tab bar, so a brand new terminal
+        # needs a click before it accepts a keystroke - and until that click,
+        # arrow keys switch tabs instead.
+        widget.focus_pane()
+        self._schedule_background_refresh()
         return widget
 
     @staticmethod
@@ -216,6 +270,9 @@ class TerminalTabWidget(QTabWidget):
         for i in range(self.count()):
             for pane in self._panes_in(self.widget(i)):
                 pane.apply_appearance(appearance)
+        # A new image needs its slices recomputed; a new theme needs the veil
+        # repainted over them.
+        self._schedule_background_refresh()
 
     def close_tab_at(self, index: int) -> None:
         widget = self.widget(index)
@@ -368,12 +425,22 @@ class TerminalTabWidget(QTabWidget):
             splitter.widget(i).show()
 
         self._even_out(splitter)
+        # A new pane changes every sibling's slice of the background.
+        splitter.splitterMoved.connect(
+            lambda *_args: self.refresh_background_geometry()
+        )
         # Again once the layout has run: at this point the splitter has just
         # been inserted and has no geometry, so its extent is 0 and there is
         # nothing to divide yet.
         QTimer.singleShot(0, lambda s=splitter: self._even_out(s))
         self._focused_panes[self.widget(index)] = new_terminal
         self._refresh_pane_indicators()
+        self._schedule_background_refresh()
+        # Qt leaves focus on the tab bar after the tab surgery above, which
+        # is worse than it sounds: the new pane looks active and swallows
+        # nothing, while arrow keys reach the QTabBar and switch *tabs*. The
+        # pane you just made is the one you want to type in, so focus it.
+        new_terminal.focus_pane()
         return new_terminal
 
     @staticmethod
@@ -461,7 +528,15 @@ class TerminalTabWidget(QTabWidget):
 
     def close_active_pane(self) -> None:
         """Close the focused pane; the last pane closes the whole tab."""
-        terminal = self.active_pane()
+        self.close_pane(self.active_pane())
+
+    def close_pane(self, terminal: PaneWidget | None) -> None:
+        """Close one pane; the last pane in a tab closes the tab.
+
+        Takes the pane rather than assuming the focused one, because a shell
+        that exits does so in whichever pane it was running - very often not
+        the one you are looking at.
+        """
         if terminal is None:
             return
         index = self.tab_index_of(terminal)
@@ -481,6 +556,10 @@ class TerminalTabWidget(QTabWidget):
         self._focused_panes[self.widget(index)] = remaining[0]
         self._collapse_single_child_splitters(index)
         self._refresh_pane_indicators()
+        # Closing the focused pane leaves the keyboard nowhere. Hand it to
+        # the pane that inherited the space.
+        remaining[0].focus_pane()
+        self._schedule_background_refresh()
 
     def _collapse_single_child_splitters(self, index: int) -> None:
         """Unwrap splitters left holding one pane, so the tree doesn't grow
@@ -624,6 +703,209 @@ class TerminalTabWidget(QTabWidget):
         """
         pane = self.active_pane()
         return pane if isinstance(pane, TerminalWidget) else None
+
+    def _pane_rect(self, pane: PaneWidget) -> QRect:
+        """A pane's geometry in this widget's coordinates.
+
+        Mapped rather than read directly so panes nested at different depths
+        of the splitter tree are comparable with each other.
+        """
+        return QRect(pane.mapTo(self, pane.rect().topLeft()), pane.size())
+
+    def focus_pane_in_direction(self, dx: int, dy: int) -> PaneWidget | None:
+        """Move the keyboard to the neighbouring pane in a direction.
+
+        Geometry, not tree order: `dx`/`dy` are a unit direction and panes are
+        compared by where they sit on screen, so Alt+Right in a nested split
+        lands on the pane genuinely to the right rather than on whatever comes
+        next in the splitter tree.
+
+        Candidates are ranked by how much of their edge lines up with the
+        current pane, then by distance, then top-left first. Ranking by
+        distance between centres looked equivalent and was not: with a tall
+        pane on the left and two stacked on the right, the two candidates'
+        centres sat 138 and 139 pixels off axis, so which one Alt+Right chose
+        came down to a single pixel and would flip if the splitter moved.
+        Overlap is stable under that, and the final top-left tie-break means
+        an exact tie still resolves the same way every time.
+        """
+        current = self.active_pane()
+        tab = self.currentWidget()
+        panes = self._panes_in(tab)
+        if current is None or len(panes) < 2:
+            return None
+
+        origin = self._pane_rect(current)
+        best: PaneWidget | None = None
+        best_score: tuple[int, int, int, int] | None = None
+        for pane in panes:
+            if pane is current:
+                continue
+            rect = self._pane_rect(pane)
+            if dx:
+                along = (rect.center().x() - origin.center().x()) * dx
+                overlap = min(rect.bottom(), origin.bottom()) - max(
+                    rect.top(), origin.top()
+                )
+            else:
+                along = (rect.center().y() - origin.center().y()) * dy
+                overlap = min(rect.right(), origin.right()) - max(
+                    rect.left(), origin.left()
+                )
+            # Strictly beyond us in the direction asked for, and sharing at
+            # least some edge - a pane diagonally opposite is not "to the
+            # right", and stepping to it would be a jump nobody predicted.
+            if along <= 0 or overlap <= 0:
+                continue
+            score = (-overlap, along, rect.top(), rect.left())
+            if best_score is None or score < best_score:
+                best, best_score = pane, score
+
+        if best is None:
+            return None
+        self._focused_panes[tab] = best
+        best.focus_pane()
+        self._refresh_pane_indicators()
+        return best
+
+    def _on_process_exited(self, terminal: TerminalWidget, exit_code: int) -> None:
+        """Close the pane whose shell just exited, if the preference says so.
+
+        Deferred to the next turn of the event loop rather than closed here:
+        this runs from the PTY's own `exited` signal, and deleting the widget
+        that owns the object currently emitting is how you get a crash rather
+        than a closed pane. The pane is also re-checked at that point, since
+        a tab closed in the meantime would leave nothing to act on.
+        """
+        if self._exit_store is None:
+            return
+        if not should_close(self._exit_store.current, exit_code):
+            return
+        QTimer.singleShot(0, lambda: self._close_exited_pane(terminal))
+
+    def _close_exited_pane(self, terminal: TerminalWidget) -> None:
+        if self.tab_index_of(terminal) == -1:
+            return
+        self.close_pane(terminal)
+
+    def refresh_background_geometry(self) -> None:
+        """Push every terminal pane its rectangle within its own tab.
+
+        Cheap enough to do for all tabs rather than only the visible one: a
+        background tab that is resized while hidden would otherwise paint a
+        stale slice the moment you switched to it.
+        """
+        for index in range(self.count()):
+            page = self.widget(index)
+            if page is None:
+                continue
+            for pane in self._panes_in(page):
+                if not isinstance(pane, TerminalWidget):
+                    continue
+                # The view, not the pane: the pane's border margin is not part
+                # of the page, so using it would shift every slice by two
+                # pixels and leave visible seams between panes.
+                origin = pane.view_origin_in(page)
+                pane.set_background_geometry(
+                    origin.x(), origin.y(), page.width(), page.height()
+                )
+
+    def _schedule_background_refresh(self) -> None:
+        """Refresh now and again after the layout settles.
+
+        A pane inserted into a splitter has no geometry yet, so the immediate
+        pass would push zeros; the deferred one catches the real numbers. The
+        same trick, and the same reason, as _even_out.
+        """
+        self.refresh_background_geometry()
+        QTimer.singleShot(0, self.refresh_background_geometry)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._schedule_background_refresh()
+
+    def copy_in_active(self) -> bool:
+        """Copy the focused terminal's selection. False if there was none.
+
+        Returning rather than always swallowing the key matters for the
+        macOS binding: there Cmd+C is copy, and with nothing selected the
+        sensible thing is to do nothing at all rather than clear the
+        clipboard.
+        """
+        terminal = self.active_terminal()
+        return bool(terminal and terminal.copy_selection())
+
+    def paste_in_active(self) -> None:
+        """Paste into the focused terminal, honouring bracketed paste.
+
+        Routed through the terminal rather than written to the PTY directly
+        so a multi-line clipboard arrives as a paste, not as a series of
+        typed commands with their newlines acted on.
+        """
+        terminal = self.active_terminal()
+        if terminal is not None:
+            terminal.paste_from_clipboard()
+
+    def zoom_font(self, steps: int) -> int | None:
+        """Grow or shrink the terminal font, and remember it.
+
+        Saved through the appearance store rather than pushed straight at the
+        open terminals, so it survives a restart and reaches panes opened
+        later - the same path the Preferences font size uses, which also
+        means the shell is told its new grid size rather than left wrapping
+        to the old width.
+        """
+        if self._appearance_store is None:
+            return None
+        current = self._appearance_store.current
+        size = max(MIN_FONT_SIZE, min(current.font_size + steps, MAX_FONT_SIZE))
+        if size == current.font_size:
+            return size
+        self._appearance_store.save(replace(current, font_size=size))
+        return size
+
+    def reset_font_zoom(self) -> int | None:
+        """Back to the default font size, not to whatever Preferences last held.
+
+        There is only one stored size, so zooming *is* editing the
+        preference; without a fixed point to return to, Ctrl+0 would have
+        nothing to mean.
+        """
+        if self._appearance_store is None:
+            return None
+        current = self._appearance_store.current
+        if current.font_size != DEFAULT_FONT_SIZE:
+            self._appearance_store.save(replace(current, font_size=DEFAULT_FONT_SIZE))
+        return DEFAULT_FONT_SIZE
+
+    def activate_tab_slot(self, slot: int) -> bool:
+        """Switch to the tab in position `slot`, counting from 1.
+
+        The last slot means the *last* tab rather than the ninth, following
+        browsers and Windows Terminal, so it keeps working once there are
+        more tabs than slots.
+        """
+        if self.count() == 0:
+            return False
+        index = self.count() - 1 if slot >= shortcuts.LAST_TAB_SLOT else slot - 1
+        if not 0 <= index < self.count():
+            return False
+        self.setCurrentIndex(index)
+        pane = self.active_pane()
+        if pane is not None:
+            pane.focus_pane()
+        return True
+
+    def show_find_in_active(self) -> None:
+        """Open the find bar in the focused pane, if that pane is a terminal.
+
+        No-op on a browser pane, for the same reason commands are: there is
+        no scrollback to search, and silently searching some other terminal in
+        the tab would put the bar somewhere you weren't looking.
+        """
+        terminal = self.active_terminal()
+        if terminal is not None:
+            terminal.show_find()
 
     def _set_tab_title(self, widget, title: str) -> None:
         """Update the automatic name. A user rename still wins over it."""

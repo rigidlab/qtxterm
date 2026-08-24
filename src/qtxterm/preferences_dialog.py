@@ -1,28 +1,41 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFontComboBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QSlider,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from qtxterm.appearance import (
+    MAX_BACKGROUND_OPACITY,
+    MAX_FONT_SIZE,
     MAX_SCROLLBACK,
+    MIN_BACKGROUND_OPACITY,
+    MIN_FONT_SIZE,
     MIN_SCROLLBACK,
     Appearance,
     AppearanceStore,
 )
+from qtxterm.exit_prefs import CHOICES as EXIT_CHOICES
+from qtxterm.exit_prefs import LABELS as EXIT_LABELS
+from qtxterm.exit_prefs import PaneExitStore
 from qtxterm.menu_prefs import SECTION_LABELS, ContextMenuOrderStore
 from qtxterm.shell_prefs import (
     SYSTEM_DEFAULT,
@@ -52,6 +65,7 @@ class PreferencesDialog(QDialog):
         parent: QWidget | None = None,
         shell_store: ShellPreferenceStore | None = None,
         order_store: ContextMenuOrderStore | None = None,
+        exit_store: PaneExitStore | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preferences")
@@ -61,6 +75,7 @@ class PreferencesDialog(QDialog):
         self._store = store
         self._shell_store = shell_store
         self._order_store = order_store
+        self._exit_store = exit_store
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -87,9 +102,54 @@ class PreferencesDialog(QDialog):
         form.addRow("Font", self._font_combo)
 
         self._size_spin = QSpinBox()
-        self._size_spin.setRange(6, 72)
+        self._size_spin.setRange(MIN_FONT_SIZE, MAX_FONT_SIZE)
         self._size_spin.setValue(store.current.font_size)
         form.addRow("Font size", self._size_spin)
+
+        if exit_store is not None:
+            self._exit_combo = QComboBox()
+            for choice in EXIT_CHOICES:
+                self._exit_combo.addItem(EXIT_LABELS[choice], choice)
+            index = self._exit_combo.findData(exit_store.current)
+            self._exit_combo.setCurrentIndex(max(index, 0))
+            # Phrased as the question it answers, because "Close on exit"
+            # alone reads as a checkbox and gives no clue that the middle
+            # option - the useful one - exists at all.
+            form.addRow("When a shell exits", self._exit_combo)
+
+        # Background image, as a row of [path][Browse...][Clear]. A plain
+        # line edit as well as the picker, because a path is worth being able
+        # to paste or hand-edit.
+        self._background_edit = QLineEdit(store.current.background_image)
+        self._background_edit.setPlaceholderText("None")
+        browse = QPushButton("Browse...")
+        browse.clicked.connect(self._pick_background_image)
+        clear = QPushButton("Clear")
+        clear.clicked.connect(self._background_edit.clear)
+        background_row = QHBoxLayout()
+        background_row.addWidget(self._background_edit, 1)
+        background_row.addWidget(browse)
+        background_row.addWidget(clear)
+        form.addRow("Background image", background_row)
+
+        self._background_opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self._background_opacity_slider.setRange(
+            MIN_BACKGROUND_OPACITY, MAX_BACKGROUND_OPACITY
+        )
+        self._background_opacity_slider.setValue(store.current.background_opacity)
+        self._background_opacity_label = QLabel()
+        # A slider with no readout leaves you guessing what you set, and the
+        # value is the whole point of this control.
+        self._background_opacity_slider.valueChanged.connect(
+            lambda value: self._background_opacity_label.setText(f"{value}%")
+        )
+        self._background_opacity_label.setText(
+            f"{self._background_opacity_slider.value()}%"
+        )
+        opacity_row = QHBoxLayout()
+        opacity_row.addWidget(self._background_opacity_slider, 1)
+        opacity_row.addWidget(self._background_opacity_label)
+        form.addRow("Image strength", opacity_row)
 
         self._scrollback_spin = QSpinBox()
         self._scrollback_spin.setRange(MIN_SCROLLBACK, MAX_SCROLLBACK)
@@ -169,17 +229,34 @@ class PreferencesDialog(QDialog):
             for row in range(self._order_list.count())
         ]
 
+    def _pick_background_image(self) -> None:
+        """Choose an image file, starting where the current one lives."""
+        current = self._background_edit.text().strip()
+        start = str(Path(current).parent) if current else ""
+        path, _filter = QFileDialog.getOpenFileName(
+            self,
+            "Background image",
+            start,
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All files (*)",
+        )
+        if path:
+            self._background_edit.setText(path)
+
     def _save(self) -> None:
         if self._order_store is not None:
             self._order_store.save(self._section_order())
         if self._shell_store is not None:
             self._shell_store.save(self._shell_combo.currentData())
+        if self._exit_store is not None:
+            self._exit_store.save(self._exit_combo.currentData())
         self._store.save(
             Appearance(
                 theme_name=self._theme_combo.currentText(),
                 font_family=self._font_combo.currentFont().family(),
                 font_size=self._size_spin.value(),
                 scrollback=self._scrollback_spin.value(),
+                background_image=self._background_edit.text().strip(),
+                background_opacity=self._background_opacity_slider.value(),
             )
         )
         self.accept()

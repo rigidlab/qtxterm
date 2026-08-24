@@ -268,3 +268,151 @@ def test_changing_scrollback_is_pushed_to_an_open_terminal(qtbot) -> None:
     widget.apply_appearance(Appearance(scrollback=50))
 
     assert '"scrollback": 50' in pushed[-1]
+
+
+def test_show_find_opens_the_in_page_find_bar(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+
+    widget.show_find()
+
+    assert calls == ["window.showFind && window.showFind();"]
+
+
+def test_hide_find_closes_it(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    calls = []
+    widget._view.page().runJavaScript = lambda script: calls.append(script)
+
+    widget.hide_find()
+
+    assert calls == ["window.hideFind && window.hideFind();"]
+
+
+def test_ctrl_clicking_an_http_link_opens_it(qtbot, monkeypatch) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    opened = []
+    monkeypatch.setattr(
+        "qtxterm.terminal_widget.QDesktopServices.openUrl",
+        lambda url: opened.append(url.toString()),
+    )
+
+    widget._bridge.openLink("https://example.com/a?b=1")
+
+    assert opened == ["https://example.com/a?b=1"]
+
+
+def test_a_link_with_a_scheme_we_do_not_open_is_refused(qtbot, monkeypatch) -> None:
+    """The link addon's regex matches only http/https, but it is not a
+    security boundary - the text it ran against came out of the terminal,
+    which over SSH means it came from the remote host. QDesktopServices will
+    launch a registered handler for any scheme, so the check is repeated
+    where it decides whether anything is launched at all.
+    """
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    opened = []
+    monkeypatch.setattr(
+        "qtxterm.terminal_widget.QDesktopServices.openUrl",
+        lambda url: opened.append(url.toString()),
+    )
+
+    for uri in (
+        "file:///C:/Windows/System32/calc.exe",
+        "ms-msdt:/id PCWDiagnostic",
+        "javascript:alert(1)",
+        "vbscript:msgbox",
+        "",
+    ):
+        assert widget.open_link(uri) is False, uri
+
+    assert opened == []
+
+
+def test_an_http_link_reports_that_it_opened(qtbot, monkeypatch) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    monkeypatch.setattr(
+        "qtxterm.terminal_widget.QDesktopServices.openUrl", lambda url: None
+    )
+
+    assert widget.open_link("http://localhost:8080/") is True
+
+def test_background_image_becomes_a_file_url_for_the_page(qtbot, tmp_path) -> None:
+    """A bare filesystem path will not do: the page is served from file://
+    and would resolve it relative to the assets directory."""
+    image = tmp_path / "wall.png"
+    image.write_bytes(b"not really a png, but it exists")
+    appearance = Appearance(background_image=str(image))
+
+    url = TerminalWidget._background_image_url(appearance)
+
+    assert url.startswith("file://")
+    assert url.endswith("wall.png")
+
+
+def test_a_missing_background_image_resolves_to_nothing(qtbot, tmp_path) -> None:
+    """Deleting the image should leave a normal terminal, not a half-painted
+    one with a broken url()."""
+    appearance = Appearance(background_image=str(tmp_path / "gone.png"))
+
+    assert TerminalWidget._background_image_url(appearance) == ""
+    assert TerminalWidget._background_image_url(Appearance()) == ""
+
+
+def test_background_settings_are_in_the_initial_page_url(qtbot, tmp_path) -> None:
+    image = tmp_path / "wall.png"
+    image.write_bytes(b"x")
+    appearance = Appearance(background_image=str(image), background_opacity=42)
+
+    query = parse_qs(TerminalWidget._terminal_url(appearance).query())
+
+    assert query["backgroundOpacity"] == ["42"]
+    assert query["backgroundImage"][0].endswith("wall.png")
+
+
+def test_background_changes_are_pushed_to_an_open_terminal(qtbot, tmp_path) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+    image = tmp_path / "wall.png"
+    image.write_bytes(b"x")
+
+    widget.apply_appearance(
+        Appearance(background_image=str(image), background_opacity=15)
+    )
+
+    assert '"backgroundOpacity": 15' in pushed[-1]
+    assert "wall.png" in pushed[-1]
+
+def test_background_geometry_is_pushed_to_the_page(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    widget._bridge.loaded()
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+
+    widget.set_background_geometry(40, 12, 800, 600)
+
+    assert "applyBackgroundGeometry(40, 12, 800, 600)" in pushed[-1]
+
+
+def test_geometry_pushed_before_the_page_loads_is_replayed(qtbot) -> None:
+    """Dropping it silently left the first pane of a tab painting the whole
+    background while its neighbours painted their slices."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    pushed = []
+    widget._view.page().runJavaScript = lambda script: pushed.append(script)
+
+    widget.set_background_geometry(7, 9, 500, 400)
+    assert not any("applyBackgroundGeometry" in s for s in pushed)
+
+    widget._bridge.loaded()
+
+    assert any("applyBackgroundGeometry(7, 9, 500, 400)" in s for s in pushed)
