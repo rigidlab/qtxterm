@@ -1374,3 +1374,76 @@ def test_an_unsplit_pane_spans_its_whole_tab(qtbot) -> None:
     # that margin and leave visible seams where panes meet.
     assert (x, y) == (PANE_BORDER_WIDTH, PANE_BORDER_WIDTH)
     assert w > 0 and h > 0
+
+def make_keybinding_store(tmp_path: Path):
+    from qtxterm.keybindings import KeybindingStore
+
+    return KeybindingStore(path=tmp_path / "keybindings.json")
+
+
+def test_a_custom_binding_is_used_instead_of_the_default(qtbot, tmp_path: Path) -> None:
+    store = make_keybinding_store(tmp_path)
+    store.set_sequences(shortcuts.NEW_TAB, ["Ctrl+Alt+Shift+N"])
+    tabs = TerminalTabWidget(keybinding_store=store)
+    qtbot.addWidget(tabs)
+
+    assert _shortcut_for(tabs, "Ctrl+Alt+Shift+N") is not None
+    default = shortcuts.sequences_for(shortcuts.NEW_TAB)[0]
+    assert _shortcut_for(tabs, default) is None
+
+
+def test_rebinding_takes_effect_without_a_restart(qtbot, tmp_path: Path) -> None:
+    store = make_keybinding_store(tmp_path)
+    tabs = TerminalTabWidget(keybinding_store=store)
+    qtbot.addWidget(tabs)
+    default = shortcuts.sequences_for(shortcuts.FIND)[0]
+    assert _shortcut_for(tabs, default) is not None
+
+    store.set_sequences(shortcuts.FIND, ["Ctrl+Alt+Shift+F"])
+
+    assert _shortcut_for(tabs, "Ctrl+Alt+Shift+F") is not None
+    assert _shortcut_for(tabs, default) is None
+
+
+def test_the_old_shortcut_does_not_survive_a_rebind(qtbot, tmp_path: Path) -> None:
+    """A left-behind QShortcut keeps firing, and once its replacement exists
+    the two are ambiguous - at which point Qt fires neither."""
+    from PySide6.QtGui import QShortcut
+
+    store = make_keybinding_store(tmp_path)
+    tabs = TerminalTabWidget(keybinding_store=store)
+    qtbot.addWidget(tabs)
+    before = len(tabs.findChildren(QShortcut))
+
+    for i in range(5):
+        store.set_sequences(shortcuts.FIND, [f"Ctrl+Alt+Shift+F{i + 1}"])
+    qtbot.wait(50)
+
+    after = len([s for s in tabs.findChildren(QShortcut) if s.key().toString()])
+    assert after == before, f"{before} shortcuts became {after}"
+
+
+def test_an_action_bound_to_nothing_registers_no_shortcut(
+    qtbot, tmp_path: Path
+) -> None:
+    store = make_keybinding_store(tmp_path)
+    store.set_sequences(shortcuts.FIND, [])
+    tabs = TerminalTabWidget(keybinding_store=store)
+    qtbot.addWidget(tabs)
+
+    default = shortcuts.sequences_for(shortcuts.FIND)[0]
+    assert _shortcut_for(tabs, default) is None
+
+
+def test_a_rebound_shortcut_still_does_its_job(qtbot, tmp_path: Path) -> None:
+    """The binding is only half of it - the new chord has to reach the same
+    slot the default did."""
+    store = make_keybinding_store(tmp_path)
+    store.set_sequences(shortcuts.SPLIT_RIGHT, ["Ctrl+Alt+Shift+R"])
+    tabs = TerminalTabWidget(keybinding_store=store)
+    qtbot.addWidget(tabs)
+    tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
+
+    _shortcut_for(tabs, "Ctrl+Alt+Shift+R").activated.emit()
+
+    assert len(tabs._panes_in(tabs.currentWidget())) == 2

@@ -174,6 +174,39 @@ def display_sequences_for(action: str) -> list[str]:
     return [display_sequence(sequence) for sequence in sequences_for(action)]
 
 
+# What each action is called in the shortcuts editor. Kept beside the table so
+# a new action cannot be added without a name to show for it - an editor row
+# reading "focus_pane_left" would be nobody's idea of a preference.
+ACTION_LABELS = {
+    NEW_TAB: "New tab",
+    CLOSE_TAB: "Close tab",
+    NEXT_TAB: "Next tab",
+    PREV_TAB: "Previous tab",
+    FIND: "Find in the scrollback",
+    COPY: "Copy",
+    PASTE: "Paste",
+    ZOOM_IN: "Bigger text",
+    ZOOM_OUT: "Smaller text",
+    ZOOM_RESET: "Default text size",
+    SPLIT_RIGHT: "Split right",
+    SPLIT_DOWN: "Split down",
+    CLOSE_PANE: "Close pane",
+    FOCUS_PANE_LEFT: "Focus pane left",
+    FOCUS_PANE_RIGHT: "Focus pane right",
+    FOCUS_PANE_UP: "Focus pane up",
+    FOCUS_PANE_DOWN: "Focus pane down",
+}
+
+for _slot in range(1, TAB_SLOTS + 1):
+    ACTION_LABELS[tab_slot_action(_slot)] = (
+        "Go to the last tab" if _slot == LAST_TAB_SLOT else f"Go to tab {_slot}"
+    )
+
+
+def label_for(action: str) -> str:
+    return ACTION_LABELS.get(action, action)
+
+
 def sequences_for(action: str) -> list[str]:
     """Every key sequence that should trigger `action` on this platform."""
     other, mac = _TABLE[action]

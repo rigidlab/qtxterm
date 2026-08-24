@@ -11,6 +11,8 @@ from qtxterm.cron_menu import CronMenu
 from qtxterm.cron_scheduler import CronScheduler
 from qtxterm.exit_prefs import PaneExitStore
 from qtxterm.help_dialog import HelpDialog
+from qtxterm.keybindings import KeybindingStore
+from qtxterm.keybindings_dialog import KeybindingsDialog
 from qtxterm.menu_prefs import ContextMenuOrderStore
 from qtxterm.preferences_dialog import PreferencesDialog
 from qtxterm.preset_menu import (
@@ -48,11 +50,15 @@ class MainWindow(QMainWindow):
         self._shell_store = ShellPreferenceStore(self._settings)
         self._menu_order_store = ContextMenuOrderStore(self._settings)
         self._exit_store = PaneExitStore(self._settings)
+        # JSON beside presets.json rather than in the ini: a binding is a list
+        # of chords, and it is worth being hand-editable.
+        self._keybinding_store = KeybindingStore()
         self._tabs = TerminalTabWidget(
             parent=self,
             appearance_store=self._appearance_store,
             shell_store=self._shell_store,
             exit_store=self._exit_store,
+            keybinding_store=self._keybinding_store,
         )
         # Deliberately not wired to close(): the window outlives its
         # terminals. Closing the last one leaves an empty window you can open
@@ -207,6 +213,9 @@ class MainWindow(QMainWindow):
         browser_action.triggered.connect(lambda: self._tabs.new_browser_tab())
 
         self._file_menu.addSeparator()
+        shortcuts_action = self._file_menu.addAction("Keyboard Shortcuts...")
+        shortcuts_action.triggered.connect(self.show_keybindings)
+
         preferences_action = self._file_menu.addAction("Preferences...")
         preferences_action.triggered.connect(self.show_preferences)
 
@@ -221,6 +230,9 @@ class MainWindow(QMainWindow):
         were doing, possibly while you were away - and possibly once a minute.
         """
         self.statusBar().showMessage(f"Cron job {name!r}: {reason}", 10000)
+
+    def show_keybindings(self) -> None:
+        KeybindingsDialog(self._keybinding_store, self).exec()
 
     def show_preferences(self) -> None:
         PreferencesDialog(

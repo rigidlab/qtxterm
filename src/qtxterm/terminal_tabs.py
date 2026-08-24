@@ -24,6 +24,7 @@ from qtxterm.appearance import (
 )
 from qtxterm.browser_widget import BrowserWidget
 from qtxterm.exit_prefs import PaneExitStore, should_close
+from qtxterm.keybindings import KeybindingStore
 from qtxterm.pane import PaneWidget
 from qtxterm.presets import STEP_RIGHT, STEP_TAB, macro_steps
 from qtxterm.pty_backend import PtySession, default_shell
@@ -50,10 +51,13 @@ class TerminalTabWidget(QTabWidget):
         appearance_store: AppearanceStore | None = None,
         shell_store: ShellPreferenceStore | None = None,
         exit_store: PaneExitStore | None = None,
+        keybinding_store: KeybindingStore | None = None,
     ) -> None:
         super().__init__(parent)
         self._shell_store = shell_store
         self._exit_store = exit_store
+        self._keybinding_store = keybinding_store
+        self._shortcuts: list[QShortcut] = []
         # Two layers: the automatic name (shell name, or a browser tab's
         # host) and an optional user-set one that overrides it. Kept apart so
         # a rename isn't silently overwritten the next time the automatic name
@@ -82,6 +86,11 @@ class TerminalTabWidget(QTabWidget):
         self.setCornerWidget(add_button, Qt.Corner.TopRightCorner)
 
         self._install_shortcuts()
+        if self._keybinding_store is not None:
+            # Rebuilt rather than patched: working out which QShortcuts a
+            # changed table implies is more code than simply making them all
+            # again, and the set is small.
+            self._keybinding_store.changed.connect(self._install_shortcuts)
 
         # focusChanged rather than an event filter per terminal: keyboard
         # focus inside a terminal lands on a Chromium child widget, not on the
@@ -118,6 +127,15 @@ class TerminalTabWidget(QTabWidget):
         treating a bare arrow as "switch tab" while a pane has focus.
         """
 
+        # Dispose of the previous set first, or every rebind would leave its
+        # predecessor behind - still matched, still firing, and eventually
+        # ambiguous with whatever replaced it.
+        for stale in self._shortcuts:
+            stale.setEnabled(False)
+            stale.setParent(None)
+            stale.deleteLater()
+        self._shortcuts = []
+
         def bind(sequences: list[str], slot) -> list[QShortcut]:
             bound = []
             for sequence in sequences:
@@ -128,11 +146,12 @@ class TerminalTabWidget(QTabWidget):
             return bound
 
         def seq(action: str) -> list[str]:
+            # Through the store when there is one, so a user override wins;
+            # straight from the table otherwise, which is what tests and
+            # embedders get.
+            if self._keybinding_store is not None:
+                return self._keybinding_store.sequences_for(action)
             return shortcuts.sequences_for(action)
-
-        # Kept in one list so nothing is garbage-collected: PySide6 will
-        # collect a QShortcut whose only reference was a local.
-        self._shortcuts: list[QShortcut] = []
 
         def register(action: str, slot) -> None:
             self._shortcuts.extend(bind(seq(action), slot))
