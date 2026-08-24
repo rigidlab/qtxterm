@@ -147,6 +147,42 @@ there, not `Cmd+Tab`, which belongs to the OS application switcher. And
 Windows chords, since that is what Mac terminal users already have in their
 fingers.
 
+### Changing a shortcut
+
+**File -> Keyboard Shortcuts...** rebinds any of them. Pick an action, press
+the keys you want, and press **Add**. **Remove** drops a chord, **Reset** puts
+one action back to its default, and **Reset All** puts back the lot. Actions
+you have changed are shown in bold.
+
+An action can hold more than one chord - that is why several of them ship with
+two - and it can hold none at all, if you would rather have the key back for
+the shell.
+
+Two things the editor will not let you do, both for the same reason. A chord
+already used by another action is refused, naming the action holding it; and a
+chord you type replaces nothing silently. Qt fires **neither** of two shortcuts
+that share a chord, so quietly accepting a duplicate would break both actions
+with nothing to show for it.
+
+Changes apply immediately - there is no restart, and open tabs pick the new
+chord up at once.
+
+Only the shortcuts you actually change are saved, so anything you leave alone
+keeps following the defaults, including in later versions that improve them.
+The file is JSON and hand-editable, beside your presets:
+
+- Windows - `%LOCALAPPDATA%\qtxterm\keybindings.json`
+- macOS - `~/Library/Application Support/qtxterm/keybindings.json`
+- Linux - `~/.config/qtxterm/keybindings.json`
+
+If a chord in that file cannot be read it is ignored rather than stopping the
+app, and the action falls back to its default.
+
+This is also the answer to a shortcut that never arrives. A tiling window
+manager that owns `Alt+Arrow`, or a desktop that has claimed a chord for
+itself, takes the key before qtxterm ever sees it - no default table can
+predict that, so rebind it to something free.
+
 ## Browser tabs
 
 **File → New Browser** opens a web page in a tab beside your terminals. Type

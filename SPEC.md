@@ -967,6 +967,56 @@ still work as a terminal. `allowTransparency` is set at construction, and
 xterm's own background goes transparent only when an image is set, so the
 no-image case renders exactly as before.
 
+#### Shortcuts are rebindable, and only the differences are stored
+Added because no default table can be right everywhere, and the reason is not
+taste. A tiling window manager that owns Alt+Arrow, a desktop that has claimed
+a chord, a shell binding somebody depends on - none of these are visible from
+inside qtxterm, and all of them take the key before the app sees it. Rebinding
+makes the defaults a starting point rather than a verdict.
+
+The alternative considered first was adding a second default chord per action
+as a fallback, which is what prompted the question this settles: **is binding
+several chords to one action good practice?** The distinction that matters:
+
+- A **compatibility hedge** is two spellings of one physical gesture where
+  only one can ever fire - Alt+Shift+= and Alt+Shift++ are the same keypress.
+  Free: no keyspace consumed, nothing shadowed, nothing extra to learn.
+- A **true alias** is two different gestures for one action - Ctrl+= and
+  Ctrl++, or Ctrl+Shift+C and Ctrl+Insert. Each costs a chord permanently, and
+  in a terminal the keyspace is scarce because the shell owns most of it.
+
+Hedge freely; alias only against evidence. Measured at the time: 26 actions
+resolved to 44 sequences on Windows/Linux against 29 on macOS, and the
+tab-number slots alone (Alt+N *and* Ctrl+Alt+N) accounted for roughly half the
+aliasing. Adding Ctrl+Shift+Arrow as a speculative Linux fallback was rejected
+on those grounds - it would have been a "just in case" alias, and rebinding is
+the honest answer to environmental capture.
+
+Three decisions in the implementation:
+
+- **Only overrides are written.** Saving the resolved table would freeze
+  today's defaults into every config file, so a later version that improved a
+  binding or added an action would never reach anyone who had opened the
+  editor once. An untouched action follows the defaults forever.
+- **A conflict is refused, not accepted.** Two QShortcuts sharing a sequence
+  makes Qt fire *neither* - it reports the ambiguity and gives up - so a
+  last-one-wins policy would silently disable both actions. The store rejects
+  the save and names the action already holding the chord.
+- **Shortcuts are rebuilt, not patched.** Working out which QShortcuts a
+  changed table implies is more code than making them all again, and the set
+  is small. The previous set is disposed first: a left-behind QShortcut keeps
+  firing, and once its replacement exists the two are ambiguous - which is the
+  failure above, self-inflicted.
+
+`shortcuts.py` stays a pure table with no Qt storage in it; `keybindings.py`
+layers overrides on top, and `terminal_tabs` resolves through the store when
+it has one and straight from the table when it does not, which is what tests
+and embedders get.
+
+An empty binding list is a real setting, distinct from resetting: an action
+nobody wants a key for is a legitimate thing to ask for, and the difference is
+"no shortcut" versus "the default shortcut".
+
 #### Documentation is tested, not proofread
 `tests/test_usage_docs.py` asserts that every shortcut the app binds appears
 in USAGE.md, and that the guide survives `QTextBrowser.setMarkdown` - whose
