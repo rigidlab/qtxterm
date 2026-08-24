@@ -140,6 +140,40 @@ for _slot in range(1, TAB_SLOTS + 1):
     )
 
 
+# Qt's names for the modifiers are not the names a Mac user sees. Qt "Ctrl"
+# is the Command key there, "Meta" is Control and "Alt" is Option - so the
+# sequence Qt calls "Ctrl+T" appears on screen, in menus and in the docs as
+# "Cmd+T". Anything comparing a binding against user-facing text has to
+# translate first, which is what caught the usage guide out on macOS CI: the
+# guide correctly said Cmd+T and the test correctly asked for Ctrl+T.
+#
+# Substituting the "Mod+" form rather than the bare word keeps "Ctrl++"
+# (zoom in, Ctrl and the plus key) intact, where matching on the word alone
+# would have to reason about which trailing + is a separator.
+#
+# Order matters: Ctrl becomes Cmd first, so the Meta rule that follows
+# cannot rewrite a Ctrl that was already translated.
+_MAC_DISPLAY_NAMES = (("Ctrl+", "Cmd+"), ("Meta+", "Ctrl+"), ("Alt+", "Opt+"))
+
+
+def display_sequence(sequence: str) -> str:
+    """A key sequence written the way this platform's users see it.
+
+    The identity everywhere except macOS, where Qt's modifier names and the
+    keys people actually press are shuffled three ways.
+    """
+    if not IS_MAC:
+        return sequence
+    for qt_name, shown in _MAC_DISPLAY_NAMES:
+        sequence = sequence.replace(qt_name, shown)
+    return sequence
+
+
+def display_sequences_for(action: str) -> list[str]:
+    """Every sequence for `action`, named as the user sees it."""
+    return [display_sequence(sequence) for sequence in sequences_for(action)]
+
+
 def sequences_for(action: str) -> list[str]:
     """Every key sequence that should trigger `action` on this platform."""
     other, mac = _TABLE[action]

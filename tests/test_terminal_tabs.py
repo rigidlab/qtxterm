@@ -996,13 +996,20 @@ def _shortcut_for(tabs, sequence: str):
     return None
 
 
-def test_split_is_bound_to_the_chord_the_keyboard_actually_sends(qtbot) -> None:
+def test_split_is_bound_to_the_chord_the_keyboard_actually_sends(
+    qtbot, monkeypatch
+) -> None:
     """The reported bug: neither split shortcut fired from a real keyboard.
 
     Qt matches "Alt+Shift+=" against Key_Equal, but holding Shift and pressing
     that key sends Key_Plus - and "Alt+Shift+-" arrives as Key_Underscore. Both
     spellings have to be registered or the documented chord does nothing.
     """
+    # Pinned to the Windows/Linux table, because that is what the test is
+    # about: the punctuation chords only exist there. macOS splits on Cmd+D,
+    # where no such ambiguity arises - and asserting these chords on a Mac
+    # failed CI for a binding that was never meant to be registered.
+    monkeypatch.setattr(shortcuts, "IS_MAC", False)
     tabs = make_tabs(qtbot)
 
     for sequence in (
@@ -1027,15 +1034,15 @@ def test_split_is_bound_to_the_chord_the_keyboard_actually_sends(qtbot) -> None:
 def test_every_split_chord_actually_splits(qtbot) -> None:
     """Activated directly rather than by a key press, so this asserts the
     wiring without depending on which window the runner has active."""
+    # Taken from the table rather than written out, so this covers whichever
+    # platform it runs on - the Windows chords do not exist on macOS, and
+    # hardcoding them failed CI there.
     cases = [
-        ("Alt+Shift+=", Qt.Orientation.Horizontal),
-        ("Alt+Shift++", Qt.Orientation.Horizontal),
-        ("Ctrl+Shift+|", Qt.Orientation.Horizontal),
-        ("Ctrl+Shift+\\", Qt.Orientation.Horizontal),
-        ("Alt+Shift+-", Qt.Orientation.Vertical),
-        ("Alt+Shift+_", Qt.Orientation.Vertical),
-        ("Ctrl+Shift+_", Qt.Orientation.Vertical),
-        ("Ctrl+Shift+-", Qt.Orientation.Vertical),
+        (sequence, Qt.Orientation.Horizontal)
+        for sequence in shortcuts.sequences_for(shortcuts.SPLIT_RIGHT)
+    ] + [
+        (sequence, Qt.Orientation.Vertical)
+        for sequence in shortcuts.sequences_for(shortcuts.SPLIT_DOWN)
     ]
     for sequence, orientation in cases:
         tabs = make_tabs(qtbot)

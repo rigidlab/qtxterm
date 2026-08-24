@@ -52,11 +52,16 @@ def rendered(qtbot) -> str:
 def test_every_documented_action_is_in_the_guide(action, source) -> None:
     """Catches a shortcut changed in the code and left stale in the docs -
     which is exactly how the guide came to advertise chords that could not
-    fire from a keyboard."""
-    assert any(sequence in source for sequence in shortcuts.sequences_for(action)), (
-        action,
-        shortcuts.sequences_for(action),
-    )
+    fire from a keyboard.
+
+    Matched against the *displayed* names, not Qt's. On macOS the two differ:
+    Qt calls the binding "Ctrl+T" and the guide correctly calls it "Cmd+T",
+    so comparing Qt's spelling failed this test on macOS CI while both the
+    code and the guide were right.
+    """
+    shown = shortcuts.display_sequences_for(action)
+
+    assert any(sequence in source for sequence in shown), (action, shown)
 
 
 def test_the_guide_renders_without_escaping_artefacts(rendered) -> None:

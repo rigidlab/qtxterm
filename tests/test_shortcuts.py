@@ -114,3 +114,38 @@ def test_the_last_tab_slot_means_the_last_tab(monkeypatch) -> None:
     once there are more tabs than slots."""
     assert shortcuts.LAST_TAB_SLOT == shortcuts.TAB_SLOTS
     assert shortcuts.tab_slot_action(3) in shortcuts.all_actions()
+
+def test_display_names_are_unchanged_off_mac(on_windows) -> None:
+    for action in shortcuts.all_actions():
+        assert shortcuts.display_sequences_for(action) == shortcuts.sequences_for(action)
+
+
+def test_mac_display_names_use_the_keys_people_actually_press(on_mac) -> None:
+    """Qt's "Ctrl" is Command on macOS, so a binding Qt spells Ctrl+T is
+    Cmd+T on the keycap, in the menus and in the guide. Comparing Qt's
+    spelling against user-facing text is what failed the docs test on macOS
+    CI while both the code and the guide were correct."""
+    assert shortcuts.display_sequences_for(shortcuts.NEW_TAB) == ["Cmd+T"]
+    assert shortcuts.display_sequences_for(shortcuts.SPLIT_RIGHT) == ["Cmd+D"]
+
+
+def test_mac_display_names_translate_meta_to_control(on_mac) -> None:
+    """Meta is physical Control on macOS. Ctrl is translated to Cmd first
+    precisely so this rule cannot rewrite a Ctrl it just produced."""
+    shown = shortcuts.display_sequences_for(shortcuts.NEXT_TAB)
+
+    assert "Ctrl+Tab" in shown
+    assert "Cmd+Tab" not in shown, "Cmd+Tab is the OS app switcher"
+
+
+def test_mac_display_names_translate_alt_to_option(on_mac) -> None:
+    assert shortcuts.display_sequences_for(shortcuts.FOCUS_PANE_LEFT) == [
+        "Cmd+Opt+Left"
+    ]
+
+
+def test_display_translation_leaves_a_trailing_plus_alone(on_mac) -> None:
+    """Zoom in is Ctrl and the plus key. Substituting the bare word "Ctrl"
+    rather than "Ctrl+" would have to reason about which trailing + is a
+    separator and which is the key."""
+    assert "Cmd++" in shortcuts.display_sequences_for(shortcuts.ZOOM_IN)
