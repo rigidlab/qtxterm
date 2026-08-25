@@ -18,13 +18,119 @@
      resolve CSS custom properties inside ::-webkit-scrollbar-* pseudo
      elements, so a var() rule silently falls back and never follows the
      theme. */
+
+  /* Find bar. Lives in the page rather than in a Qt widget above the view so
+     that showing it doesn't resize the terminal - a Qt bar would take rows
+     off the grid, reflowing the shell's output every time you searched.
+     Overlaid, so it costs the terminal nothing.
+
+     Colors come from the theme as custom properties set by terminal.js
+     (applyFindTheme). Only the four roots are injected; every shade below is
+     mixed off them, so a new theme needs no new variables. */
+  #find-bar[hidden] { display: none; }
+  #find-bar {
+    position: fixed;
+    top: 0;
+    /* Clear of the scrollbar (8px) so the bar never sits on top of it. */
+    right: 14px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 6px;
+    /* Lifted off the terminal ground, or the bar reads as output. */
+    background: color-mix(in srgb, var(--find-fg) 10%, var(--find-bg));
+    border: 1px solid color-mix(in srgb, var(--find-fg) 32%, var(--find-bg));
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    /* The UI font, not the terminal's: this is chrome, not output. */
+    font: 12px/1.4 system-ui, "Segoe UI", sans-serif;
+    color: var(--find-fg);
+  }
+  #find-input {
+    width: 180px;
+    padding: 3px 6px;
+    font: inherit;
+    color: var(--find-fg);
+    background: var(--find-bg);
+    border: 1px solid color-mix(in srgb, var(--find-fg) 32%, var(--find-bg));
+    border-radius: 3px;
+    outline: none;
+  }
+  #find-input:focus { border-color: var(--find-accent); }
+  #find-bar.no-results #find-input { border-color: var(--find-error); }
+  #find-count {
+    min-width: 66px;
+    text-align: right;
+    opacity: 0.75;
+    /* So the width doesn't twitch as the index counts up. */
+    font-variant-numeric: tabular-nums;
+  }
+  #find-bar button {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    font: inherit;
+    line-height: 1;
+    color: var(--find-fg);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  #find-bar button:hover {
+    background: color-mix(in srgb, var(--find-fg) 18%, transparent);
+  }
+  #find-bar button.active {
+    background: color-mix(in srgb, var(--find-accent) 30%, transparent);
+    border-color: var(--find-accent);
+  }
+
+  /* Hovering a URL shows what it points at and how to follow it.
+     Both halves matter: a link can be wrapped across two rows or run off the
+     edge of the terminal, so the text under the cursor is not necessarily
+     the whole target - and the modifier is not guessable. Positioned from
+     JS, since it follows the pointer. */
+  #link-tip[hidden] { display: none; }
+  #link-tip {
+    position: fixed;
+    z-index: 11;
+    max-width: 60ch;
+    padding: 4px 7px;
+    /* Breaks anywhere, because a URL has no spaces to wrap at and would
+       otherwise push the tip wider than the window. */
+    overflow-wrap: anywhere;
+    font: 12px/1.4 system-ui, "Segoe UI", sans-serif;
+    color: var(--find-fg);
+    background: color-mix(in srgb, var(--find-fg) 10%, var(--find-bg));
+    border: 1px solid color-mix(in srgb, var(--find-fg) 32%, var(--find-bg));
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+  }
+  #link-tip .link-hint {
+    opacity: 0.7;
+  }
 </style>
 </head>
 <body>
 <div id="terminal"></div>
+<div id="link-tip" hidden></div>
+<div id="find-bar" hidden>
+  <input id="find-input" type="text" placeholder="Find" spellcheck="false" />
+  <span id="find-count"></span>
+  <button id="find-case" title="Match case">Aa</button>
+  <button id="find-regex" title="Regular expression">.*</button>
+  <button id="find-prev" title="Previous match (Shift+Enter)">&#8593;</button>
+  <button id="find-next" title="Next match (Enter)">&#8595;</button>
+  <button id="find-close" title="Close (Esc)">&#10005;</button>
+</div>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="xterm/xterm.js"></script>
 <script src="xterm/addon-fit.js"></script>
+<script src="xterm/addon-search.js"></script>
+<script src="xterm/addon-web-links.js"></script>
 <script src="terminal.js"></script>
 </body>
 </html>

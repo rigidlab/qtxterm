@@ -20,6 +20,7 @@ class TerminalBridge(QObject):
     script_loaded = Signal()
     title_changed = Signal(str)
     selection_changed = Signal(str)
+    link_activated = Signal(str)
 
     @Slot(str)
     def sendInput(self, data: str) -> None:
@@ -60,3 +61,14 @@ class TerminalBridge(QObject):
         is about to be shown.
         """
         self.selection_changed.emit(text)
+
+    @Slot(str)
+    def openLink(self, uri: str) -> None:
+        """A URL in the output was Ctrl+clicked.
+
+        The URI is whatever the terminal printed, which on an SSH session is
+        whatever the remote host printed - so it is untrusted, and
+        TerminalWidget checks the scheme before handing it to the OS rather
+        than trusting the link addon's regex to be the only gate.
+        """
+        self.link_activated.emit(uri)

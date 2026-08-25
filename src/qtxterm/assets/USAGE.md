@@ -4,6 +4,10 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 
 ## Terminals and tabs
 
+Shortcuts below are the Windows and Linux ones. macOS uses Command in
+place of Ctrl and drops the Shift - `Cmd+T`, `Cmd+W`, `Cmd+F`. The full
+side-by-side list is under [Keyboard shortcuts](#keyboard-shortcuts).
+
 | Action | How |
 |---|---|
 | New tab (default shell) | `Ctrl+Shift+T`, or the `+` button at the right of the tab bar |
@@ -11,9 +15,14 @@ A tabbed terminal with one-click command buttons and reusable command presets.
 | New browser tab | **File → New Browser** |
 | Close tab | `Ctrl+Shift+W`, or the `x` on the tab |
 | Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Go to tab 1-8, or the last | `Alt+1` ... `Alt+9`, or `Ctrl+Alt+1` ... |
 | Rename a tab | Double-click the tab |
-| Split the pane | `Alt+Shift+=` (right) / `Alt+Shift+-` (down), or right-click → **Pane → Split** |
+| Find in the scrollback | `Ctrl+Shift+F` |
+| Copy / paste | `Ctrl+Shift+C` / `Ctrl+Shift+V` |
+| Bigger / smaller / default text | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
+| Split the pane | Right-click → **Pane → Split**, or see [Split panes](#split-panes) |
 | Close a pane | `Alt+Shift+W`, or right-click → **Pane → Close** |
+| Move the keyboard between panes | `Alt+←` `Alt+→` `Alt+↑` `Alt+↓` |
 | Move a pane | Right-click → **Pane → Move Left/Right** (or Up/Down) |
 | Pull a pane into its own tab | Right-click → **Pane → Move to New Tab** |
 
@@ -46,15 +55,30 @@ button isn't available there - Qt only draws it alongside existing tabs.
 ## Split panes
 
 A tab can hold several panes side by side. Right-click a terminal and pick
-**Pane → Split Right** or **Split Down**, or use `Alt+Shift+=` /
-`Alt+Shift+-`. Everything that rearranges panes lives under that one **Pane**
-group.
+**Pane → Split Right** or **Split Down**, or use a keyboard chord -
+there are two pairs and either works:
+
+- `Ctrl+Shift+|` splits **right** - a vertical bar for a vertical divider
+- `Ctrl+Shift+_` splits **down** - an underscore for a horizontal one
+- `Alt+Shift++` splits right, `Alt+Shift+-` splits down, matching Windows
+  Terminal
+
+Everything that rearranges panes lives under that one **Pane** group.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
 
 Browser panes split too, and a split gives you **another pane of the same
 kind** - splitting a browser gives a browser, splitting a terminal gives a
 terminal. In a browser pane the shortcuts are the only route: right-clicking
 a web page shows Chromium's own menu, which you want for links and images.
+
+`Alt+←` `Alt+→` `Alt+↑` `Alt+↓` move the keyboard between panes. They go by
+where panes actually sit on screen, not by the order they were created, so
+`Alt+→` lands on the pane genuinely to the right even in a nested split. There
+is no wraparound - from the rightmost pane, `Alt+→` stays put.
+
+A new pane takes the keyboard as soon as it opens, whether it came from a
+split or a new tab, so you can type into it straight away without clicking
+first.
 
 The pane you last clicked or typed in is the **active** one, outlined in the
 highlight colour whenever a tab has more than one. That outline matters:
@@ -73,8 +97,91 @@ commands cover the cases that actually come up.
 
 **Pane → Close** (`Alt+Shift+W`) closes just that terminal; closing the last
 pane closes the tab. `Ctrl+Shift+W` still closes the whole tab, panes and
-all. `Alt+Shift` chords are used rather than `Ctrl+Shift` because shells and
-full-screen apps rarely bind them.
+all. `Alt+Shift+W` rather than a `Ctrl` chord, because closing a pane
+sits next to the `Alt+Shift` splits above it.
+
+## Keyboard shortcuts
+
+Every shortcut, on each platform. The two columns differ more than a
+find-and-replace would suggest, and the reason is worth a sentence:
+
+- **On Windows and Linux the shell owns `Ctrl`+letter.** `Ctrl+C` interrupts,
+  `Ctrl+W` deletes a word, `Ctrl+F` moves forward a character. So qtxterm's
+  own actions take `Ctrl+Shift`, exactly as Windows Terminal, GNOME Terminal
+  and VS Code's terminal do.
+- **On macOS the opposite holds.** The shell uses Control and Command is
+  free, so the binding is plain `Cmd`+letter, like every other Mac app. In
+  particular `Cmd+C` is copy while Control+C still interrupts, because they
+  are different keys.
+
+| Action | Windows / Linux | macOS |
+|---|---|---|
+| New tab | `Ctrl+Shift+T` | `Cmd+T` |
+| Close tab | `Ctrl+Shift+W` | `Cmd+W` |
+| Next tab | `Ctrl+Tab` | `Ctrl+Tab` or `Cmd+Shift+]` |
+| Previous tab | `Ctrl+Shift+Tab` | `Ctrl+Shift+Tab` or `Cmd+Shift+[` |
+| Go to tab 1-8, or the last with 9 | `Alt+1`..`Alt+9` or `Ctrl+Alt+1`..`9` | `Cmd+1`..`Cmd+9` |
+
+Where two chords are listed they both work on purpose. `Alt+1` is GNOME
+Terminal's and `Ctrl+Alt+1` is Windows Terminal's, and people arrive with
+one or the other already in their fingers.
+| Find | `Ctrl+Shift+F` | `Cmd+F` |
+| Copy | `Ctrl+Shift+C` or `Ctrl+Insert` | `Cmd+C` |
+| Paste | `Ctrl+Shift+V` or `Shift+Insert` | `Cmd+V` |
+| Bigger text | `Ctrl+=` or `Ctrl+Shift+=` | `Cmd+=` or `Cmd+Shift+=` |
+| Smaller text | `Ctrl+-` | `Cmd+-` |
+| Default text size | `Ctrl+0` | `Cmd+0` |
+| Split right | `Alt+Shift++` | `Cmd+D` |
+| Split down | `Alt+Shift+-` | `Cmd+Shift+D` |
+| Close pane | `Alt+Shift+W` | `Cmd+Shift+W` |
+| Move between panes | `Alt+←` `Alt+→` `Alt+↑` `Alt+↓` | `Cmd+Opt+←` and friends |
+| Follow a link | `Ctrl+click` | `Cmd+click` |
+
+On Windows and Linux the splits have a second pair, `Ctrl+Shift+|` for right
+and `Ctrl+Shift+_` for down, which read as what they do - a vertical bar for
+a vertical divider, an underscore for a horizontal one.
+
+Two macOS choices are worth calling out. Next tab is a physical `Ctrl+Tab`
+there, not `Cmd+Tab`, which belongs to the OS application switcher. And
+`Cmd+D` / `Cmd+Shift+D` for splitting come from iTerm2 rather than from the
+Windows chords, since that is what Mac terminal users already have in their
+fingers.
+
+### Changing a shortcut
+
+**File -> Keyboard Shortcuts...** rebinds any of them. Pick an action, press
+the keys you want, and press **Add**. **Remove** drops a chord, **Reset** puts
+one action back to its default, and **Reset All** puts back the lot. Actions
+you have changed are shown in bold.
+
+An action can hold more than one chord - that is why several of them ship with
+two - and it can hold none at all, if you would rather have the key back for
+the shell.
+
+Two things the editor will not let you do, both for the same reason. A chord
+already used by another action is refused, naming the action holding it; and a
+chord you type replaces nothing silently. Qt fires **neither** of two shortcuts
+that share a chord, so quietly accepting a duplicate would break both actions
+with nothing to show for it.
+
+Changes apply immediately - there is no restart, and open tabs pick the new
+chord up at once.
+
+Only the shortcuts you actually change are saved, so anything you leave alone
+keeps following the defaults, including in later versions that improve them.
+The file is JSON and hand-editable, beside your presets:
+
+- Windows - `%LOCALAPPDATA%\qtxterm\keybindings.json`
+- macOS - `~/Library/Application Support/qtxterm/keybindings.json`
+- Linux - `~/.config/qtxterm/keybindings.json`
+
+If a chord in that file cannot be read it is ignored rather than stopping the
+app, and the action falls back to its default.
+
+This is also the answer to a shortcut that never arrives. A tiling window
+manager that owns `Alt+Arrow`, or a desktop that has claimed a chord for
+itself, takes the key before qtxterm ever sees it - no default table can
+predict that, so rebind it to something free.
 
 ## Browser tabs
 
@@ -122,7 +229,17 @@ item flips back to unchecked so you can bring it back.
 
 ## Copy and paste
 
-Right-click in a terminal for **Copy** and **Paste**.
+`Ctrl+Shift+C` and `Ctrl+Shift+V`, or right-click for **Copy** and **Paste**.
+`Ctrl+Insert` and `Shift+Insert` work too. On macOS it is plain `Cmd+C` and
+`Cmd+V`.
+
+`Ctrl+C` is deliberately left alone on Windows and Linux: it is the
+interrupt, and a terminal that stole it to mean copy would be unable to stop
+a running command. macOS has no such clash, because copy is `Cmd+C` there
+while the interrupt is Control+C - two different keys.
+
+Copying with nothing selected does nothing at all rather than emptying the
+clipboard, which matters most on macOS where the binding is a bare `Cmd+C`.
 
 - **Copy** takes the text you've selected with the mouse. It's greyed out
   when nothing is selected.
@@ -130,6 +247,62 @@ Right-click in a terminal for **Copy** and **Paste**.
   you, so you can check a pasted command before running it. Multi-line
   clipboard text is handed to the terminal as a paste, not as typing, so
   shells and editors that use bracketed paste treat it correctly.
+
+## Find in the scrollback
+
+`Ctrl+Shift+F` opens a find bar in the top-right corner of the active
+terminal. It searches the whole scrollback, not just the lines on screen, so
+it will find something that scrolled past a thousand lines ago - as far back
+as your scrollback setting keeps.
+
+| Key | What |
+|---|---|
+| `Ctrl+Shift+F` | Open the find bar (again to re-focus it) |
+| `Enter` | Next match |
+| `Shift+Enter` | Previous match |
+| `Esc` | Close, clear the highlights, and put the cursor back in the terminal |
+
+`Aa` makes the search case-sensitive, `.*` treats what you typed as a regular
+expression. The counter reads `3 of 17`, or `No results` with the box outlined
+in red.
+
+Every match is tinted, and the one you are on is brighter with an outline
+around it. Both are drawn in the theme's own colors, so the bar and the
+highlights follow whatever theme you have set - including a theme change while
+the bar is open.
+
+Typing extends the current match rather than jumping ahead on every keystroke,
+so searching for `error` doesn't walk you through three matches on the way to
+finishing the word.
+
+`Ctrl+Shift+F` rather than `Ctrl+F` because `Ctrl+F` is forward-char in
+bash and readline, and is bound to something in most full-screen apps. Find
+does nothing in a browser pane - there is no scrollback to search, and it
+won't quietly search a terminal you aren't looking at.
+
+## Clickable links
+
+A URL in the output is a link. Hover it and it underlines, with a tip showing
+where it goes; **Ctrl+click** (Cmd+click on macOS) opens it in your normal
+browser.
+
+Ctrl rather than a plain click, matching VS Code's terminal, Windows Terminal
+and iTerm2: an ordinary click already places the cursor and starts a
+selection, and terminal output is full of URLs you did not mean to visit.
+
+Only `http://` and `https://` are linkified, and only those are ever opened.
+A bare `example.com` stays plain text. That is deliberate rather than
+fussiness - what the terminal prints is not necessarily yours: over SSH it is
+whatever the remote host chose to print. Restricting the schemes keeps a
+printed line from launching a local handler.
+
+The tip shows the whole target, which is worth reading before you click: a
+link can wrap across two rows or run off the edge of the terminal, so the
+text under your cursor is not always the whole URL.
+
+Links open in your system browser rather than a qtxterm browser tab. That is
+where your extensions, blocklists and logged-in sessions already live, and
+it is the safer home for a URL that arrived as untrusted output.
 
 ## Selection Actions
 
@@ -230,13 +403,34 @@ Changes save immediately, and the sidebar and both menus refresh straight away.
 Presets are stored as JSON, so you can hand-edit or back them up:
 
 - Windows - `%LOCALAPPDATA%\qtxterm\presets.json`
-- Linux - `~/.config/qtxterm/presets.json`
 - macOS - `~/Library/Application Support/qtxterm/presets.json`
+- Linux - `~/.config/qtxterm/presets.json`
+
+## Background image
+
+**File -> Preferences... -> Background image** puts a picture behind the
+terminal. **Image strength** controls how much of it shows through.
+
+The theme colour is laid over the image as a veil rather than replaced by it,
+so lowering the strength dims the picture toward your theme's normal
+background. The default is 30%, because a photograph at full strength behind
+text is unreadable - start there and raise it until it stops being
+comfortable.
+
+**The image spans the tab, not each pane.** Split a tab three ways and you
+get one continuous picture with the dividers cutting across it, rather than
+the same image repeated in every pane. Each tab shows the whole image again.
+
+The path is stored, not a copy of the file, so replacing the image on disk
+changes the background without touching the setting. Point it at a file that
+no longer exists and you simply get a normal terminal rather than a broken
+one. **Clear** removes it.
 
 ## Preferences
 
-**File → Preferences...** sets the default shell, color theme, font, and
-font size.
+**File → Preferences...** sets the default shell, what happens when a shell
+exits, the color theme, font, font size, scrollback, and the order of the
+right-click menu.
 
 ### Default shell
 
@@ -249,6 +443,25 @@ shell you pick there regardless of this setting.
 
 If the chosen shell later disappears - a WSL distro you removed - new tabs
 quietly fall back to the system default rather than failing to open.
+
+### When a shell exits
+
+What happens to a pane once its shell finishes:
+
+| Setting | What it does |
+|---|---|
+| Close it, unless the shell failed | The default. A shell you exited on purpose takes its pane with it; one that died leaves the pane open |
+| Always close it | Even when the shell failed |
+| Leave it open | What qtxterm did before this setting existed |
+
+The default is the middle ground on purpose. Exiting a shell yourself means
+you are finished with that pane, so keeping it costs a second keystroke. But
+a shell that *died* has usually printed why, and closing its pane throws that
+away exactly when you wanted to read it.
+
+Only the pane closes, not the tab around it - unless it was the last pane, in
+which case the tab goes too. The window still outlives its terminals either
+way.
 
 ### Appearance
 
@@ -266,6 +479,14 @@ leaves the native look alone.
 
 Changes apply immediately to every open tab, and are remembered for next time.
 
+`Ctrl+=` and `Ctrl+-` resize the text without opening this dialog, and
+`Ctrl+0` puts it back to the default. `Ctrl+Shift+=` zooms in too - it is
+the same key with Shift held, which is how most people press "plus", and
+every browser accepts both. There is only one stored size, so
+zooming *is* editing the preference - which is why `Ctrl+0` returns to the
+default rather than to whatever the dialog last held, since otherwise it
+would have nothing to mean.
+
 ## What else is remembered
 
 The window's size and position, and whether the Commands sidebar is showing,
@@ -273,8 +494,8 @@ are restored the next time you open qtxterm - alongside the appearance
 settings above. They live next to your presets:
 
 - Windows - `%LOCALAPPDATA%\qtxterm\window_state.ini`
-- Linux - `~/.config/qtxterm/window_state.ini`
 - macOS - `~/Library/Application Support/qtxterm/window_state.ini`
+- Linux - `~/.config/qtxterm/window_state.ini`
 
 ## How multiline presets run
 

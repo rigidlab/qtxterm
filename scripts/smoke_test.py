@@ -30,6 +30,8 @@ REQUIRED_ASSETS = [
     "assets/xterm/xterm.js",
     "assets/xterm/xterm.css",
     "assets/xterm/addon-fit.js",
+    "assets/xterm/addon-search.js",
+    "assets/xterm/addon-web-links.js",
     "assets/USAGE.md",
     "assets/logo.ico",
 ]

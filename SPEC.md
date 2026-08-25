@@ -854,6 +854,176 @@ was the one property of a preset you could not set.
       boundary changes the stored order without changing what the menu
       shows.
 
+### Phase 5a - Terminal parity ✅ done
+Everything a mainstream terminal has that qtxterm did not. Grouped here
+because the individual features are small; what was not small was discovering
+that three of the shortcuts already documented had never worked.
+
+- [x] **Find in the scrollback** (`Ctrl+Shift+F`), on the vendored
+      `addon-search`. The bar lives *in the page*, not in a Qt widget above
+      the view: a Qt bar would take rows off the grid and reflow the shell's
+      output every time you searched.
+  - Two failures that unit tests passed straight through. xterm 5.5 gates
+    `registerMarker`/`registerDecoration` behind `allowProposedApi`, so the
+    addon threw *after* finding its matches, while selecting one - which
+    surfaced as "No results" on a query with three. And the two overview
+    ruler colours read as optional but are passed straight to
+    `registerDecoration`, where an undefined colour throws.
+  - The match highlight is a **translucent** tint, and that is not a
+    cosmetic choice. xterm draws search decorations *over* the glyphs, so an
+    opaque highlight erases the text it is pointing at. Reusing the theme's
+    `selectionBackground` looked safe - it is the one background a theme
+    guarantees its foreground on - and turned every match into a solid white
+    block on VS Code Dark High Contrast, whose selection colour is white.
+    Now yellow at 25%, the current match at 50% with a foreground-coloured
+    border. Caught by looking at a screenshot, not by a test.
+- [x] **Clickable URLs**, on the vendored `addon-web-links`. Ctrl+click
+      (Cmd on macOS), following VS Code, Windows Terminal and iTerm2: a bare
+      click already places the cursor and starts a selection.
+  - Opens in the **system** browser, not a qtxterm browser tab, even though
+    the app has them. That is where the user's extensions, blocklists and
+    sessions are, and the URL is untrusted output.
+  - The scheme is checked again in Python. The addon's regex matches only
+    http/https, but it is not a security boundary - the text it ran against
+    came out of the terminal, which over SSH means it came from the remote
+    host - and `QDesktopServices.openUrl` will launch a registered handler
+    for any scheme. Tested against file, ms-msdt (Follina), javascript and
+    vbscript URLs.
+- [x] **Copy/paste, font zoom and tab-by-number** shortcuts, plus
+      **close-on-exit** and a **background image**.
+
+#### Focus after a split was landing on the tab bar - fixed
+Reported as "pane navigation moves between tabs". It was not the navigation:
+after `split_active()` (and after `addTab`) Qt left keyboard focus on the
+**QTabBar**, which handles Left/Right by switching tabs. So a freshly split
+pane could not be typed into until it was clicked, and arrows moved tabs.
+
+- [x] `PaneWidget.focus_pane()`, called after a split, a new tab, and a pane
+      close. For a terminal it takes two steps: `setFocus()` on the view
+      moves Qt's focus off the tab bar, and `term.focus()` moves it again
+      *inside* the page to the hidden textarea xterm reads from. Without the
+      second the pane looks focused and types nowhere. A pane split a moment
+      ago has no page yet, so the request is remembered and replayed from
+      `_on_script_loaded`.
+- [x] Alt+Arrow pane navigation ranks candidates by how much their edges
+      **overlap**, not by distance between centres. Measured: with a tall
+      pane left of two stacked right, the two candidates' centres sat 138 and
+      139 pixels off axis - a one-pixel coin flip that would flip again if
+      the splitter moved.
+
+#### Punctuation shortcuts fail in two opposite ways - fixed
+The `Alt+Shift` splits were documented from Phase 4i and could never have
+fired from a keyboard. Both classes are now covered by registering every
+spelling.
+
+| Chord | Qt matches | Keyboard sends |
+|---|---|---|
+| Alt+Shift+equals | `Key_Equal` | `Key_Plus`, because Shift+equals is plus |
+| Alt+Shift+minus | `Key_Minus` | `Key_Underscore` |
+| Ctrl+Shift+underscore | `Key_Underscore` | `Key_Minus` - with Ctrl held the character is a control code, so Qt cannot derive the shifted character from the layout and reports the base key |
+
+Worth knowing for the next such bug: **`QTest.keyClick` cannot catch this.**
+It hands Qt an event you constructed, so it only ever confirms that a binding
+matches the event you invented. An earlier "all six chords work" measurement
+was made that way and was worthless. `SendInput` is the honest test, and it
+is unavailable in some environments - it returned 0 here even with the window
+confirmed foreground.
+
+#### Shortcuts are per platform, not translated - `shortcuts.py`
+Qt maps `Ctrl` to Command on macOS, `Meta` to Control and `Alt` to Option.
+That does half the job and ruins the other half, so the table spells out both
+sides:
+
+- On Windows and Linux the shell owns Ctrl+letter, so the app takes
+  `Ctrl+Shift`. On macOS the shell uses Control and Command is free, so the
+  binding is a plain Cmd+letter - translating `Ctrl+Shift+T` would give
+  Cmd+Shift+T, a different gesture entirely.
+- `Ctrl+Tab` on macOS becomes Cmd+Tab, the OS application switcher, so
+  next-tab is spelled `Meta+Tab` there.
+- `Ctrl+C` on macOS is Cmd+C and is genuinely copy; the interrupt is
+  `Meta+C` and is deliberately left unbound. A test asserts it stays that
+  way.
+- `shortcuts.conflicts()` exists because a collision is invisible: two
+  QShortcuts sharing a sequence makes Qt fire **neither**. A test calls it on
+  both platforms rather than trusting the table to have been read carefully.
+  It caught the split-down chord being a tempting second spelling for
+  zoom-out.
+
+#### Close-on-exit is three settings, not a checkbox
+A shell you exited on purpose should take its pane with it; a shell that
+*died* has usually printed why, and closing the pane throws that away exactly
+when you needed to read it. Default is the middle option, matching Windows
+Terminal's closeOnExit. Closing is deferred a turn of the event loop -
+deleting the widget that owns the object currently emitting is how you get a
+crash rather than a closed pane - and the pane is re-checked at that point,
+since the tab can be gone by then.
+
+#### Background image
+The theme colour becomes a **veil** over the image rather than the ground:
+the image is the bottom layer, with a flat wash of the theme background over
+it at (100 minus strength). Default strength 30, because a photograph at full
+strength behind text is unreadable and the first thing someone tries should
+still work as a terminal. `allowTransparency` is set at construction, and
+xterm's own background goes transparent only when an image is set, so the
+no-image case renders exactly as before.
+
+#### Shortcuts are rebindable, and only the differences are stored
+Added because no default table can be right everywhere, and the reason is not
+taste. A tiling window manager that owns Alt+Arrow, a desktop that has claimed
+a chord, a shell binding somebody depends on - none of these are visible from
+inside qtxterm, and all of them take the key before the app sees it. Rebinding
+makes the defaults a starting point rather than a verdict.
+
+The alternative considered first was adding a second default chord per action
+as a fallback, which is what prompted the question this settles: **is binding
+several chords to one action good practice?** The distinction that matters:
+
+- A **compatibility hedge** is two spellings of one physical gesture where
+  only one can ever fire - Alt+Shift+= and Alt+Shift++ are the same keypress.
+  Free: no keyspace consumed, nothing shadowed, nothing extra to learn.
+- A **true alias** is two different gestures for one action - Ctrl+= and
+  Ctrl++, or Ctrl+Shift+C and Ctrl+Insert. Each costs a chord permanently, and
+  in a terminal the keyspace is scarce because the shell owns most of it.
+
+Hedge freely; alias only against evidence. Measured at the time: 26 actions
+resolved to 44 sequences on Windows/Linux against 29 on macOS, and the
+tab-number slots alone (Alt+N *and* Ctrl+Alt+N) accounted for roughly half the
+aliasing. Adding Ctrl+Shift+Arrow as a speculative Linux fallback was rejected
+on those grounds - it would have been a "just in case" alias, and rebinding is
+the honest answer to environmental capture.
+
+Three decisions in the implementation:
+
+- **Only overrides are written.** Saving the resolved table would freeze
+  today's defaults into every config file, so a later version that improved a
+  binding or added an action would never reach anyone who had opened the
+  editor once. An untouched action follows the defaults forever.
+- **A conflict is refused, not accepted.** Two QShortcuts sharing a sequence
+  makes Qt fire *neither* - it reports the ambiguity and gives up - so a
+  last-one-wins policy would silently disable both actions. The store rejects
+  the save and names the action already holding the chord.
+- **Shortcuts are rebuilt, not patched.** Working out which QShortcuts a
+  changed table implies is more code than making them all again, and the set
+  is small. The previous set is disposed first: a left-behind QShortcut keeps
+  firing, and once its replacement exists the two are ambiguous - which is the
+  failure above, self-inflicted.
+
+`shortcuts.py` stays a pure table with no Qt storage in it; `keybindings.py`
+layers overrides on top, and `terminal_tabs` resolves through the store when
+it has one and straight from the table when it does not, which is what tests
+and embedders get.
+
+An empty binding list is a real setting, distinct from resetting: an action
+nobody wants a key for is a legitimate thing to ask for, and the difference is
+"no shortcut" versus "the default shortcut".
+
+#### Documentation is tested, not proofread
+`tests/test_usage_docs.py` asserts that every shortcut the app binds appears
+in USAGE.md, and that the guide survives `QTextBrowser.setMarkdown` - whose
+escaping rules are not GitHub's, so the file being correct is no evidence the
+dialog is. It was written after the guide was found advertising chords that
+could not fire, and after a pipe character silently ate a table cell.
+
 ## Open Questions / Deferred
 
 ### Start-up latency - measured, not yet decided
@@ -953,36 +1123,64 @@ with no stop is exactly today's behaviour. No visible "advanced" tier - one
 job type with optional fields, because two tiers is two things to learn and a
 migration when a simple job later needs a window.
 
-### Ctrl-C does not reach child processes on Windows - bug, not yet fixed
-Found while designing the above, and **independent of cron**: pressing Ctrl-C
-in any qtxterm terminal does not stop a running command on Windows.
+### Ctrl-C on Windows - the reported bug was a measurement artifact
+Re-measured during Phase 5a, and the conclusion is the opposite of what this
+document said before: **Ctrl-C works.** Pressing it in a cmd or PowerShell tab
+stops a running child, in a normally launched qtxterm.
 
-`pywinpty`'s `sendintr()` is literally `write("")`, which is what typing
-Ctrl-C already does. Measured, spawning `ping -t` and counting replies:
+What made it look broken is worth recording, because it is an easy trap and it
+wasted a long investigation.
 
-| Backend | child started | after `` | after closing |
-|---|---|---|---|
-| **ConPTY** (what we use) | running | **still running** | killed |
-| WinPTY (legacy) | running | killed | killed |
+**Windows makes the "ignore Ctrl+C" state inheritable.** A process whose
+parent called `SetConsoleCtrlHandler(NULL, TRUE)` inherits the ignore, and so
+does everything *it* spawns. Automation runners, CI agents and some launchers
+set it as a matter of course. When qtxterm is started from such a process the
+flag travels down the whole chain - qtxterm, its ConPTY, the shell in the tab,
+and the shell's children - so nothing in any terminal responds to Ctrl+C. The
+same build launched normally is fine.
 
-At an idle prompt the shell echoes `^C`, which makes it look like it worked;
-a running child never sees it. Closing the terminal kills the process under
-both backends, so that is the only stop that currently works.
+Measured, one script, two trials, the only difference being the flag:
 
-Three ways out:
+| Condition | Child after Ctrl-C |
+|---|---|
+| as launched by an automation shell | still running |
+| after `SetConsoleCtrlHandler(NULL, FALSE)` | **stopped** |
 
-1. `GenerateConsoleCtrlEvent` - attach to the child console, raise
-   CTRL_C_EVENT, detach. The correct mechanism, and it fixes interactive
-   Ctrl-C too. Our own process must ignore the event first or it takes the
-   app down with it.
-2. Switch to the WinPTY backend - works immediately, but it is the
-   deprecated emulation layer with an extra agent process and worse
-   fidelity. Bad trade for the terminal's quality.
-3. Leave it, and stop things by closing the tab.
+Two earlier findings were real observations with the wrong explanation
+attached, and both dissolve once the flag is understood:
 
-Preferred: 1. Linux is unaffected - a real SIGINT to the foreground process
-group is straightforward there, and untested only because the bug is
-Windows-specific.
+- **Git Bash appeared immune.** It is: MSYS2 implements POSIX signals in its
+  own runtime and raises SIGINT for the foreground process group without ever
+  consulting the Windows console control path, so an inherited console flag
+  cannot affect it. That is why it kept working while cmd and PowerShell did
+  not - not evidence of a ConPTY defect.
+- **`AttachConsole` + `GenerateConsoleCtrlEvent` reported success and killed
+  nothing.** Expected, once the target is ignoring the event.
+
+The ConPTY-versus-WinPTY table previously recorded here should be treated as
+unverified: it may well have been taken under the same inherited flag, and it
+attributes to ConPTY a behaviour that reproduces just as readily without it.
+
+Genuinely useful things learned along the way, kept because they are true
+regardless:
+
+- `AttachConsole` **resets** the Ctrl+C ignore flag, so
+  `SetConsoleCtrlHandler(NULL, TRUE)` must be called *after* attaching, not
+  before. Getting this backwards takes the calling process down with the
+  event. Doing console surgery in a throwaway helper process avoids the
+  question entirely.
+- The standard handles are stale after `AttachConsole`; `CONIN$` has to be
+  reopened with `CreateFile` before `GetConsoleMode` will work.
+- The pseudoconsole's input mode already has `ENABLE_PROCESSED_INPUT`
+  (measured 0x01f7), so the "processed input is off" theory is dead in any
+  case.
+
+**Testing lesson, which is the durable part.** Every measurement above was
+taken from a harness that silently changed the thing being measured. A test
+environment that disables Ctrl+C cannot be used to test Ctrl+C, and nothing in
+the output said so - the app simply looked broken. Where a behaviour depends
+on process or console state inherited from the launcher, the only trustworthy
+check is the application started the way a user starts it.
 
 ### Stable `Preset.id` - proposed, low priority, not implemented
 Give every preset an `id: str` (uuid4 hex), assigned in `__post_init__` when

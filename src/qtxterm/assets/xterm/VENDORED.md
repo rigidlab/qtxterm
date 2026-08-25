@@ -5,6 +5,8 @@
 | `xterm.js` | https://unpkg.com/@xterm/xterm@5.5.0/lib/xterm.js | 5.5.0 |
 | `xterm.css` | https://unpkg.com/@xterm/xterm@5.5.0/css/xterm.css | 5.5.0 |
 | `addon-fit.js` | https://unpkg.com/@xterm/addon-fit@0.10.0/lib/addon-fit.js | 0.10.0 |
+| `addon-search.js` | https://unpkg.com/@xterm/addon-search@0.15.0/lib/addon-search.js | 0.15.0 |
+| `addon-web-links.js` | https://unpkg.com/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js | 0.11.0 |
 
 `qwebchannel.js` is NOT vendored here — Qt auto-registers it as a resource
 (`qrc:///qtwebchannel/qwebchannel.js`) whenever `QtWebChannel` is imported

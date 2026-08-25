@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, Qt, QUrl, QUrlQuery, Signal
-from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -15,6 +15,14 @@ from qtxterm.pty_backend import PtySession, create_pty_session, default_shell
 from qtxterm.terminal_bridge import TerminalBridge
 
 ASSETS_DIR = Path(__file__).parent / "assets"
+
+# What a Ctrl+click in the terminal is allowed to hand to the OS. The link
+# addon's own regex already matches only http/https, but that regex is not a
+# security boundary: the text it ran against came out of the terminal, which
+# on an SSH session means it came from the remote host. QDesktopServices.
+# openUrl will happily launch a registered handler for any scheme, so the
+# check is repeated here, where it decides whether anything is launched.
+OPENABLE_URL_SCHEMES = frozenset({"http", "https"})
 
 
 def shell_short_name(shell: str) -> str:
@@ -30,6 +38,10 @@ class TerminalWidget(PaneWidget):
 
     title_changed = Signal(str)
     pty_started = Signal()
+    # The shell finished, with its exit code. Separate from the bridge's
+    # `exited`, which only tells the page to print a line: this one is
+    # what decides whether the pane closes itself.
+    process_exited = Signal(int)
     # Global position, so a listener can pop a menu up without knowing where
     # this widget sits.
     context_menu_requested = Signal(QPoint)
@@ -78,16 +90,34 @@ class TerminalWidget(PaneWidget):
         layout.addWidget(self._view)
 
         self._script_loaded = False
+        self._focus_when_loaded = False
+        self._pending_background_geometry: tuple[int, int, int, int] | None = None
         self._bridge.script_loaded.connect(self._on_script_loaded)
         self._bridge.terminal_ready.connect(self._on_terminal_ready)
         self._bridge.input_received.connect(self._pty.write)
         self._bridge.resize_requested.connect(self._pty.resize)
         self._bridge.title_changed.connect(self.title_changed.emit)
         self._bridge.selection_changed.connect(self._on_selection_changed)
+        self._bridge.link_activated.connect(self.open_link)
         self._pty.output_ready.connect(self._bridge.output.emit)
         self._pty.exited.connect(self._bridge.exited.emit)
+        self._pty.exited.connect(self.process_exited.emit)
 
         self._view.load(self._terminal_url(appearance or Appearance()))
+
+    @staticmethod
+    def _background_image_url(appearance: Appearance) -> str:
+        """The background image as a URL the page can load, or "".
+
+        A plain filesystem path will not do: the page is served from file://
+        and resolves a bare path relative to the assets directory. Missing
+        files resolve to "" rather than a broken url(), so deleting the image
+        leaves a normal terminal instead of a half-painted one.
+        """
+        path = (appearance.background_image or "").strip()
+        if not path or not Path(path).is_file():
+            return ""
+        return QUrl.fromLocalFile(str(Path(path).resolve())).toString()
 
     @staticmethod
     def _terminal_url(appearance: Appearance) -> QUrl:
@@ -100,6 +130,10 @@ class TerminalWidget(PaneWidget):
         query.addQueryItem("fontFamily", appearance.font_family)
         query.addQueryItem("fontSize", str(appearance.font_size))
         query.addQueryItem("scrollback", str(appearance.scrollback))
+        query.addQueryItem(
+            "backgroundImage", TerminalWidget._background_image_url(appearance)
+        )
+        query.addQueryItem("backgroundOpacity", str(appearance.background_opacity))
         url.setQuery(query)
         return url
 
@@ -112,6 +146,8 @@ class TerminalWidget(PaneWidget):
                 "fontFamily": appearance.font_family,
                 "fontSize": appearance.font_size,
                 "scrollback": appearance.scrollback,
+                "backgroundImage": self._background_image_url(appearance),
+                "backgroundOpacity": appearance.background_opacity,
             }
         )
         self._view.page().runJavaScript(
@@ -141,6 +177,17 @@ class TerminalWidget(PaneWidget):
         """
         self._script_loaded = True
         self._apply_size()
+        # Geometry pushed before the page was ready was dropped, and nothing
+        # would push it again until the next split or resize - which left the
+        # first pane of a tab painting the whole background while its
+        # neighbours painted their slices.
+        if self._pending_background_geometry is not None:
+            pending = self._pending_background_geometry
+            self._pending_background_geometry = None
+            self.set_background_geometry(*pending)
+        if self._focus_when_loaded:
+            self._focus_when_loaded = False
+            self.focus_pane()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -194,6 +241,85 @@ class TerminalWidget(PaneWidget):
 
     def paste_from_clipboard(self) -> None:
         self.paste(QGuiApplication.clipboard().text())
+
+    def open_link(self, uri: str) -> bool:
+        """Open a URL Ctrl+clicked in the output, in the system browser.
+
+        The system browser rather than a qtxterm browser tab, even though the
+        app has them. Two reasons, and the second is the one that settles it:
+        it is what every other terminal does, and the URL is untrusted output,
+        so the sandboxed browser the user already keeps their extensions and
+        blocklists in is the better place for it than this app's embedded
+        engine.
+
+        Returns whether it was opened, so a caller can tell a refused scheme
+        from a successful launch.
+        """
+        url = QUrl(uri.strip())
+        if not url.isValid() or url.scheme().lower() not in OPENABLE_URL_SCHEMES:
+            return False
+        QDesktopServices.openUrl(url)
+        return True
+
+    def view_origin_in(self, ancestor: QWidget) -> QPoint:
+        """Where this pane's *page* starts, in `ancestor` coordinates."""
+        return self._view.mapTo(ancestor, QPoint(0, 0))
+
+    def set_background_geometry(
+        self, x: int, y: int, tab_width: int, tab_height: int
+    ) -> None:
+        """Tell the page where this pane sits inside its tab.
+
+        A background image spans the whole tab, but every pane is a separate
+        page, so none of them can work this out alone - left to itself each
+        would paint the entire picture and a split tab would show it once per
+        pane. Only the tab widget knows the layout, so it pushes the numbers
+        here.
+
+        Measured from the web view rather than the pane, because the pane
+        carries a border margin the page never sees.
+        """
+        if not self._script_loaded:
+            self._pending_background_geometry = (x, y, tab_width, tab_height)
+            return
+        self._view.page().runJavaScript(
+            "window.applyBackgroundGeometry && window.applyBackgroundGeometry("
+            f"{x}, {y}, {tab_width}, {tab_height});"
+        )
+
+    def focus_pane(self) -> None:
+        """Put the keyboard in this terminal.
+
+        Two steps, because there are two layers between the pane and the
+        keys. `setFocus()` on the view moves Qt's focus off whatever had it -
+        the tab bar, after a split - and `term.focus()` moves it again inside
+        the page, to the hidden textarea xterm actually reads from. Without
+        the second, the pane looks focused and types nowhere.
+
+        A pane split off a moment ago has no page yet, and runJavaScript
+        against it is silently dropped, so the request is remembered and
+        replayed from _on_script_loaded.
+        """
+        self._view.setFocus()
+        if self._script_loaded:
+            self._view.page().runJavaScript(
+                "window.focusTerminal && window.focusTerminal();"
+            )
+        else:
+            self._focus_when_loaded = True
+
+    def show_find(self) -> None:
+        """Open the find bar over this terminal and focus its input.
+
+        The bar is part of the page, not a Qt widget stacked above the view:
+        a Qt bar would take rows off the grid every time it appeared, and
+        reflowing the shell's output is a high price for opening a search.
+        """
+        self._view.page().runJavaScript("window.showFind && window.showFind();")
+
+    def hide_find(self) -> None:
+        """Close the find bar, clear its highlights, and refocus the terminal."""
+        self._view.page().runJavaScript("window.hideFind && window.hideFind();")
 
     def send_command(self, text: str) -> None:
         """Write a line to the PTY and submit it, as if the user typed it + Enter.

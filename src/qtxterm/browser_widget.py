@@ -114,6 +114,12 @@ class BrowserWidget(PaneWidget):
         self._address.setText(url.toString())
         self.host_changed.emit(url.host() or self.default_title)
 
+    def focus_pane(self) -> None:
+        """Focus the page, not the address bar - this is a pane being
+        navigated to, and landing in the URL box would eat the next
+        keystrokes."""
+        self._view.setFocus()
+
     def shutdown(self) -> None:
         """Stop loading and release the page, mirroring TerminalWidget.
 
