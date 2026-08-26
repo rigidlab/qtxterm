@@ -815,6 +815,58 @@ Four decisions, each taken over a plausible alternative:
       the preset menus rather than growing its own copy of the ownership
       handling those exist for.
 
+### Phase 4s.1 - Config shared between instances ✅ done
+Two qtxterm windows are two processes over one `cron.json` and one
+`presets.json`. Each loaded its file once at launch, so a job added in one
+was invisible to the other until restart - and the next save from the stale
+window wrote its old list over the new one, losing the job silently.
+
+- [x] **Polled once a minute, not watched.** The scheduler's tick already
+      runs every second, so checking on the minute costs a `stat()` and *no
+      extra wakeup*. A `QFileSystemWatcher` costs a worker thread, wakes on
+      every change in the config directory, and stops watching a file that
+      is *replaced* rather than modified - which is exactly what the atomic
+      save below does. A minute is also cron's own resolution: there is
+      nothing to do with a job noticed sooner than it could first fire.
+- [x] **Stamped, so an unchanged file is never re-parsed.** `(mtime_ns,
+      size)`, compared before reading. Reloading unconditionally would emit
+      `changed` every minute and rebuild every menu, including one the user
+      has open.
+- [x] **Presets are polled too, not just jobs.** A job added elsewhere
+      normally arrives with the Macro it names, and a job whose Macro has
+      not been re-read fails every single firing with "no Macro named ...
+      any more".
+- [x] **Atomic save**, via a sibling temp file and `os.replace`. The reader
+      is another process polling this exact path; a plain write is visible in
+      its truncated middle.
+- [x] **Reloads are suspended while an editor is open.** Both editors address
+      entries by index, and an `exec()` dialog still runs the event loop - a
+      poll landing mid-edit would shift the list under the open form and save
+      the user's changes onto whichever entry inherited that index. Counted,
+      not a flag, since two editors can be open over one store.
+- [x] **A bad read changes nothing and is retried.** Invalid JSON - a
+      hand-edit in progress, a half-synced cloud drive, an older qtxterm
+      without the atomic save - leaves the in-memory list alone and does not
+      advance the stamp. Raising out of a timer would take down the window
+      over a file that is very likely fine a second later. A *deleted* file
+      is treated the same way: the presets do not evaporate mid-session.
+
+Two things this deliberately does not fix:
+
+- **The clobber window is narrowed, not closed.** Saves still write the whole
+  file, so an edit made in two windows inside the same minute still resolves
+  last-writer-wins. Closing it properly means merging per entry, which needs
+  stable ids the files do not have.
+- **Both instances still fire the same job**, each into its own tab, since
+  each runs its own scheduler. Cron is per-instance by design. If that ever
+  needs to change, the fix is a single-instance lock at launch, not a
+  fourth thing for the poll to do.
+
+Implementation note: `config_store.py` holds this once and both stores
+inherit it - `PresetStore` and `CronStore` were already the same problem
+twice (a list of dataclasses, one JSON file, editors addressing entries by
+index), and the file handling is now the part they literally share.
+
 Implementation notes:
 
 - `cron.py` is schedules and storage and knows nothing about terminals;
@@ -822,7 +874,8 @@ Implementation notes:
   what let the whole expression layer be tested without a Qt widget.
 - The scheduler ticks every second and acts only when the *minute* changes.
   A 60s timer drifts against the wall clock and skips a minute whenever the
-  machine sleeps.
+  machine sleeps. On each minute change it re-reads the config first, then
+  fires - see Phase 4s.1.
 - `next_run()` walks minute by minute but skips whole days that cannot match,
   and gives up after four years - "0 0 31 2 *" parses fine and can never
   happen, and the alternative to a bound is a UI that hangs.

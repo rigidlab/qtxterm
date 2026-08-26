@@ -121,6 +121,10 @@ class PresetEditorDialog(QDialog):
         self.resize(620, 420)
         self._store = store
         self._current_index: int | None = None
+        # Addresses presets by index, so a poll must not reorder the list
+        # under the open form - see ConfigStore.
+        self._store.suspend_reload()
+        self.finished.connect(lambda _: self._store.resume_reload())
         self._is_command = category == CATEGORY_COMMANDS
         self._is_macro = category == CATEGORY_MACROS
         self._is_selection = category == CATEGORY_SELECTION

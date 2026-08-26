@@ -64,6 +64,11 @@ class CronEditorDialog(QDialog):
         self._preset_store = preset_store
         self._scheduler = scheduler
         self._current_index: int | None = None
+        # This form addresses jobs by index, so the lists behind it must not
+        # be swapped out by a poll while it is open - see ConfigStore.
+        self._store.suspend_reload()
+        self._preset_store.suspend_reload()
+        self.finished.connect(self._resume_reloads)
 
         layout = QHBoxLayout(self)
 
@@ -128,6 +133,10 @@ class CronEditorDialog(QDialog):
         self._reload_list()
         if create_new:
             self._new_job()
+
+    def _resume_reloads(self) -> None:
+        self._store.resume_reload()
+        self._preset_store.resume_reload()
 
     def _runnable_presets(self):
         """Macros only.

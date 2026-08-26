@@ -16,12 +16,12 @@ with a `/step`. Day-of-week 0 and 7 both mean Sunday.
 from __future__ import annotations
 
 import dataclasses
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import platformdirs
-from PySide6.QtCore import QObject, Signal
+
+from qtxterm.config_store import ConfigStore
 
 # (name, low, high) per field, in the order they are written.
 _FIELDS = [
@@ -222,22 +222,18 @@ def default_cron_path() -> Path:
     return Path(platformdirs.user_config_dir("qtxterm", appauthor=False)) / "cron.json"
 
 
-class CronStore(QObject):
+class CronStore(ConfigStore):
     """Loads/saves cron jobs as JSON, the same shape PresetStore uses."""
 
-    changed = Signal()
-
     def __init__(self, path: Path | None = None) -> None:
-        super().__init__()
-        self.path = path or default_cron_path()
+        super().__init__(path or default_cron_path())
         self.jobs: list[CronJob] = []
         self.load()
 
-    def load(self) -> None:
-        if not self.path.exists():
-            self.jobs = []
-            return
-        raw = json.loads(self.path.read_text(encoding="utf-8"))
+    def _apply_missing(self) -> None:
+        self.jobs = []
+
+    def _apply_payload(self, raw: list) -> None:
         # Unknown keys are dropped rather than raising: a file written by a
         # later version should cost you a field, not the whole app.
         fields = {f.name for f in dataclasses.fields(CronJob)}
@@ -245,11 +241,8 @@ class CronStore(QObject):
             CronJob(**{k: v for k, v in item.items() if k in fields}) for item in raw
         ]
 
-    def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = [dataclasses.asdict(job) for job in self.jobs]
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        self.changed.emit()
+    def _build_payload(self) -> list:
+        return [dataclasses.asdict(job) for job in self.jobs]
 
     def add(self, job: CronJob) -> None:
         self.jobs.append(job)

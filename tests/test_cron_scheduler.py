@@ -194,3 +194,85 @@ def test_run_now_ignores_the_schedule(tmp_path) -> None:
 
     assert scheduler.run_now(job) is True
     assert tabs.fed == [(tabs.open_tabs[0], ["echo hi"])]
+
+
+def test_a_job_added_by_another_instance_fires_without_a_restart(tmp_path) -> None:
+    """The whole point of polling: two windows open, job added in the other."""
+    cron_path, preset_path = tmp_path / "cron.json", tmp_path / "presets.json"
+    preset_store = PresetStore(path=preset_path)
+    preset_store.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
+    preset_store.save()
+    scheduler = CronScheduler(CronStore(path=cron_path), preset_store, FakeTabs())
+
+    elsewhere = CronStore(path=cron_path)
+    elsewhere.add(CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup"))
+
+    scheduler.refresh_config()
+
+    assert scheduler.run_due_jobs(at("2026-08-17 02:00")) == ["Nightly"]
+
+
+def test_a_macro_added_by_another_instance_arrives_with_its_job(tmp_path) -> None:
+    """A job is useless here without the Macro it names, so both are polled."""
+    cron_path, preset_path = tmp_path / "cron.json", tmp_path / "presets.json"
+    preset_store = PresetStore(path=preset_path)
+    preset_store.presets = []
+    preset_store.save()
+    cron_store = CronStore(path=cron_path)
+    scheduler = CronScheduler(cron_store, preset_store, FakeTabs())
+    failures = []
+    scheduler.job_failed.connect(lambda name, why: failures.append((name, why)))
+
+    other_presets = PresetStore(path=preset_path)
+    other_presets.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
+    other_presets.save()
+    other_cron = CronStore(path=cron_path)
+    other_cron.add(
+        CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")
+    )
+
+    scheduler.refresh_config()
+
+    assert scheduler.run_due_jobs(at("2026-08-17 02:00")) == ["Nightly"]
+    assert failures == []
+
+
+def test_a_job_deleted_elsewhere_stops_firing(tmp_path) -> None:
+    cron_path = tmp_path / "cron.json"
+    preset_store = PresetStore(path=tmp_path / "presets.json")
+    preset_store.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
+    cron_store = CronStore(path=cron_path)
+    cron_store.add(CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup"))
+    scheduler = CronScheduler(cron_store, preset_store, FakeTabs())
+
+    elsewhere = CronStore(path=cron_path)
+    elsewhere.delete(0)
+
+    scheduler.refresh_config()
+
+    assert scheduler.run_due_jobs(at("2026-08-17 02:00")) == []
+
+
+def test_a_reload_keeps_a_running_job_pointed_at_its_own_tab(tmp_path) -> None:
+    """Tabs are keyed by job name, so re-reading the file must not orphan one."""
+    cron_path = tmp_path / "cron.json"
+    preset_store = PresetStore(path=tmp_path / "presets.json")
+    preset_store.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
+    cron_store = CronStore(path=cron_path)
+    cron_store.add(CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup"))
+    tabs = FakeTabs()
+    scheduler = CronScheduler(cron_store, preset_store, tabs)
+
+    scheduler.run_due_jobs(at("2026-08-17 02:00"))
+    first_tab = tabs.open_tabs[0]
+
+    # Another instance re-saves the same job with a changed schedule.
+    elsewhere = CronStore(path=cron_path)
+    elsewhere.update(
+        0, CronJob(name="Nightly", expression="0 3 * * *", preset_name="Backup")
+    )
+    scheduler.refresh_config()
+    scheduler.run_due_jobs(at("2026-08-18 03:00"))
+
+    assert tabs.open_tabs == [first_tab]
+    assert [terminal for terminal, _ in tabs.fed] == [first_tab, first_tab]
