@@ -364,7 +364,7 @@ that menu, the same way Macros do - useful once you have a job per feed per
 session. Ungrouped jobs stay at the top level. **Run Now** in the editor runs a job
 immediately, which beats waiting until 2am to find out whether it works.
 
-Two things to know:
+Three things to know:
 
 - **Jobs only run while qtxterm is open**, and nothing missed while it was
   closed is caught up on. Launching after a weekend does not fire a burst of
@@ -372,6 +372,11 @@ Two things to know:
   machine, use the system's own scheduler.
 - **A job names its Macro.** Rename or delete that Macro and the job says so
   in the status bar rather than running something else.
+- **Two qtxterm windows share one set of jobs.** Add or edit a job in one and
+  the other picks it up within a minute, no restart needed. Note that each
+  window runs its own schedule, so a job fires once per open window, each
+  into its own tab. If that isn't what you want, keep one window open, or
+  turn the job off in the others.
 
 ## Ordering
 
