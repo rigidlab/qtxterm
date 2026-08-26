@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 from pathlib import Path
 
 import platformdirs
-from PySide6.QtCore import QObject, Signal
+
+from qtxterm.config_store import ConfigStore
 
 INPUT_NONE = "none"
 INPUT_SELECTION = "selection"
@@ -173,35 +173,29 @@ def default_presets_path() -> Path:
     )
 
 
-class PresetStore(QObject):
+class PresetStore(ConfigStore):
     """Loads/saves the preset list as JSON, seeding defaults on first run.
 
     Emits `changed` after every save() so any number of UI surfaces
     (sidebar, Macros menu) can stay in sync regardless of which one
-    triggered the edit, without reaching into each other.
+    triggered the edit, without reaching into each other - and, since
+    `ConfigStore` polls, regardless of which *instance* made the edit.
     """
 
-    changed = Signal()
-
     def __init__(self, path: Path | None = None) -> None:
-        super().__init__()
-        self.path = path or default_presets_path()
+        super().__init__(path or default_presets_path())
         self.presets: list[Preset] = []
         self.load()
 
-    def load(self) -> None:
-        if self.path.exists():
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
-            self.presets = [Preset(**item) for item in raw]
-        else:
-            self.presets = default_presets()
-            self.save()
+    def _apply_missing(self) -> None:
+        self.presets = default_presets()
+        self.save()
 
-    def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = [dataclasses.asdict(p) for p in self.presets]
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        self.changed.emit()
+    def _apply_payload(self, raw: list) -> None:
+        self.presets = [Preset(**item) for item in raw]
+
+    def _build_payload(self) -> list:
+        return [dataclasses.asdict(p) for p in self.presets]
 
     def sidebar_presets(self) -> list[Preset]:
         """Command-category presets opted into the sidebar.

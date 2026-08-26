@@ -27,6 +27,9 @@ class CronScheduler(QObject):
     the app starts never fires, and nothing missed while it was closed is
     replayed. Otherwise launching after a weekend would open a burst of
     terminals before you had touched anything.
+
+    Config is re-read on the minute, so a job added in another instance is
+    picked up here without a restart - see `refresh_config`.
     """
 
     job_fired = Signal(str)
@@ -73,7 +76,26 @@ class CronScheduler(QObject):
         if minute == self._last_minute:
             return
         self._last_minute = minute
+        self.refresh_config()
         self.run_due_jobs(minute)
+
+    def refresh_config(self) -> None:
+        """Pick up jobs and Macros written by another qtxterm instance.
+
+        Polled here rather than watched, for two reasons. This tick already
+        happens every second, so checking on the minute costs a stat and no
+        extra wakeup at all - where a QFileSystemWatcher costs a worker
+        thread, and silently stops watching when a file is *replaced*, which
+        is exactly what the atomic save in `ConfigStore` does. And a minute
+        is the resolution cron works at anyway; there is nothing to be done
+        with a job noticed sooner than the minute it could first fire.
+
+        Presets as well as jobs, because a job added elsewhere usually
+        arrives with the Macro it runs, and a job whose Macro we have not
+        re-read fails every firing with "no Macro named ... any more".
+        """
+        self._preset_store.reload_if_changed()
+        self._cron_store.reload_if_changed()
 
     def run_due_jobs(self, minute: datetime) -> list[str]:
         """Fire every enabled job whose schedule matches `minute`."""
