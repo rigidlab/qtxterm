@@ -240,3 +240,45 @@ def test_clearing_the_group_makes_it_ungrouped(qtbot, tmp_path: Path) -> None:
     dialog._save_current()
 
     assert cron_store.jobs[0].group is None
+
+
+def test_the_open_editor_holds_off_a_reload(qtbot, tmp_path: Path) -> None:
+    """The form addresses jobs by index, and a modal dialog still runs the
+    event loop - so a poll landing mid-edit would save onto the wrong job."""
+    cron_store, preset_store = make_stores(
+        tmp_path, [CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")]
+    )
+    cron_store.save()
+    dialog = CronEditorDialog(cron_store, preset_store)
+    qtbot.addWidget(dialog)
+
+    elsewhere = CronStore(path=tmp_path / "cron.json")
+    elsewhere.jobs.insert(
+        0, CronJob(name="Sneaked In", expression="* * * * *", preset_name="Backup")
+    )
+    elsewhere.save()
+
+    assert cron_store.reload_if_changed() is False
+    assert [job.name for job in cron_store.jobs] == ["Nightly"]
+
+    dialog.reject()
+
+    assert cron_store.reload_if_changed() is True
+    assert [job.name for job in cron_store.jobs] == ["Sneaked In", "Nightly"]
+
+
+def test_the_open_editor_holds_off_a_preset_reload_too(qtbot, tmp_path: Path) -> None:
+    """Its Macro combo is built once, so the preset list must hold still too."""
+    cron_store, preset_store = make_stores(tmp_path)
+    preset_store.save()
+    dialog = CronEditorDialog(cron_store, preset_store)
+    qtbot.addWidget(dialog)
+
+    elsewhere = PresetStore(path=tmp_path / "presets.json")
+    elsewhere.add(Preset(name="Deploy", lines=["make deploy"], target="new_tab"))
+
+    assert preset_store.reload_if_changed() is False
+
+    dialog.reject()
+
+    assert preset_store.reload_if_changed() is True

@@ -450,3 +450,27 @@ def test_the_new_order_is_saved_and_shown_in_the_menu(qtbot, tmp_path: Path) -> 
     menu = MacrosMenu(store, tabs)
     listed = [a.text() for a in menu.actions()][:2]
     assert listed == ["Second", "First"]
+
+
+def test_the_open_editor_holds_off_a_reload(qtbot, tmp_path) -> None:
+    """Presets are addressed by index here, so the list must not be swapped
+    out by a poll while the form is open."""
+    store = PresetStore(path=tmp_path / "presets.json")
+    store.presets = [Preset(name="Build", lines=["make"], target="active")]
+    store.save()
+    dialog = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
+    qtbot.addWidget(dialog)
+
+    elsewhere = PresetStore(path=tmp_path / "presets.json")
+    elsewhere.presets.insert(
+        0, Preset(name="Sneaked In", lines=["x"], target="active")
+    )
+    elsewhere.save()
+
+    assert store.reload_if_changed() is False
+    assert [p.name for p in store.presets] == ["Build"]
+
+    dialog.reject()
+
+    assert store.reload_if_changed() is True
+    assert [p.name for p in store.presets] == ["Sneaked In", "Build"]
