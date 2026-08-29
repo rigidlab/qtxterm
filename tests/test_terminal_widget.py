@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs
 
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QGuiApplication, QWheelEvent
 
 from conftest import FakePtySession
 
@@ -416,3 +416,36 @@ def test_geometry_pushed_before_the_page_loads_is_replayed(qtbot) -> None:
     widget._bridge.loaded()
 
     assert any("applyBackgroundGeometry(7, 9, 500, 400)" in s for s in pushed)
+
+
+def _wheel_event(modifiers: Qt.KeyboardModifier) -> QWheelEvent:
+    return QWheelEvent(
+        QPointF(10, 10),
+        QPointF(10, 10),
+        QPoint(0, 0),
+        QPoint(0, 120),
+        Qt.MouseButton.NoButton,
+        modifiers,
+        Qt.ScrollPhase.NoScrollPhase,
+        False,
+    )
+
+
+def test_ctrl_wheel_does_not_reach_the_page(qtbot) -> None:
+    """Chromium's own Ctrl+wheel zoom scales the pixels without resizing the
+    grid - font size belongs to the zoom shortcuts."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+
+    event = _wheel_event(Qt.KeyboardModifier.ControlModifier)
+
+    assert widget._view.eventFilter(widget._view, event) is True
+
+
+def test_plain_wheel_still_scrolls(qtbot) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+
+    event = _wheel_event(Qt.KeyboardModifier.NoModifier)
+
+    assert widget._view.eventFilter(widget._view, event) is False

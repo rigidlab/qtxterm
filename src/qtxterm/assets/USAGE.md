@@ -492,6 +492,10 @@ zooming *is* editing the preference - which is why `Ctrl+0` returns to the
 default rather than to whatever the dialog last held, since otherwise it
 would have nothing to mean.
 
+Ctrl+scrolling the mouse wheel does *not* resize the text. A stray scroll
+over the buffer would otherwise scale the page's pixels without resizing the
+grid the shell is drawing into, leaving the two disagreeing.
+
 ## What else is remembered
 
 The window's size and position, and whether the Commands sidebar is showing,
