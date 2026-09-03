@@ -66,6 +66,13 @@ there are two pairs and either works:
 Everything that rearranges panes lives under that one **Pane** group.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
 
+A split pane starts **in the directory the pane it came from is in**, so
+splitting to run something beside your build lands you where you already
+were. That works for PowerShell, cmd and Git Bash, which qtxterm asks to
+report their directory as it launches them - a shell it did not launch that
+way (a WSL distro, or anything you started yourself inside a pane) has
+nothing to report, and a split off it opens where a new tab would.
+
 Browser panes split too, and a split gives you **another pane of the same
 kind** - splitting a browser gives a browser, splitting a terminal gives a
 terminal. In a browser pane the shortcuts are the only route: right-clicking
@@ -491,6 +498,10 @@ every browser accepts both. There is only one stored size, so
 zooming *is* editing the preference - which is why `Ctrl+0` returns to the
 default rather than to whatever the dialog last held, since otherwise it
 would have nothing to mean.
+
+Ctrl+scrolling the mouse wheel does *not* resize the text. A stray scroll
+over the buffer would otherwise scale the page's pixels without resizing the
+grid the shell is drawing into, leaving the two disagreeing.
 
 ## What else is remembered
 

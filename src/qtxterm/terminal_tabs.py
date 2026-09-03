@@ -189,6 +189,7 @@ class TerminalTabWidget(QTabWidget):
         self,
         shell: str | list[str] | None = None,
         pty_session: PtySession | None = None,
+        cwd: str | None = None,
     ) -> TerminalWidget:
         appearance = (
             self._appearance_store.current if self._appearance_store else Appearance()
@@ -200,7 +201,7 @@ class TerminalTabWidget(QTabWidget):
         if shell is None:
             shell = self.preferred_shell()
         widget = TerminalWidget(
-            shell=shell, pty_session=pty_session, appearance=appearance
+            shell=shell, pty_session=pty_session, appearance=appearance, cwd=cwd
         )
         # Deliberately not wired to the tab label. Shells set wildly
         # different OSC titles - Git Bash sends
@@ -377,7 +378,13 @@ class TerminalTabWidget(QTabWidget):
         """
         if isinstance(pane, BrowserWidget):
             return BrowserWidget()
-        return self._make_terminal(shell, pty_session)
+        # Splitting is "another one of these, here": the new pane starts in
+        # the directory the old one is in, the way a split does in tmux or
+        # Windows Terminal. Only shells that report their directory (see
+        # shell_integration) have one to inherit; the rest start where a new
+        # tab would.
+        cwd = pane.current_directory if isinstance(pane, TerminalWidget) else None
+        return self._make_terminal(shell, pty_session, cwd=cwd)
 
     def split_active(
         self,
