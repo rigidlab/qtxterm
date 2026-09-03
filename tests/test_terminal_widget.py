@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from urllib.parse import parse_qs
 
 from PySide6.QtCore import QPoint, QPointF, Qt
@@ -449,3 +450,51 @@ def test_plain_wheel_still_scrolls(qtbot) -> None:
     event = _wheel_event(Qt.KeyboardModifier.NoModifier)
 
     assert widget._view.eventFilter(widget._view, event) is False
+
+
+def test_reported_directory_is_where_a_split_would_start(qtbot, tmp_path) -> None:
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+    assert widget.current_directory is None
+
+    widget._bridge.setCwd(tmp_path.as_uri())
+
+    assert Path(widget.current_directory) == tmp_path
+
+
+def test_a_directory_that_is_not_one_here_is_ignored(qtbot) -> None:
+    """The payload comes out of the terminal, so on an SSH session it is a
+    remote path - starting a shell in it would only fail."""
+    widget = TerminalWidget(pty_session=FakePtySession())
+    qtbot.addWidget(widget)
+
+    widget._bridge.setCwd("file:///nowhere/in/particular")
+
+    assert widget.current_directory is None
+
+
+def test_the_starting_directory_answers_until_the_shell_reports(
+    qtbot, tmp_path
+) -> None:
+    """A pane split off a pane whose shell has not drawn a prompt yet still
+    has somewhere to go."""
+    widget = TerminalWidget(pty_session=FakePtySession(), cwd=str(tmp_path))
+    qtbot.addWidget(widget)
+
+    assert widget.current_directory == str(tmp_path)
+
+
+def test_the_pty_starts_in_the_given_directory_with_the_shell_hooked(
+    qtbot, tmp_path
+) -> None:
+    fake_pty = FakePtySession()
+    widget = TerminalWidget(
+        shell="powershell.exe", pty_session=fake_pty, cwd=str(tmp_path)
+    )
+    qtbot.addWidget(widget)
+
+    widget._bridge.ready(80, 24)
+
+    command, _cols, _rows = fake_pty.start_calls[0]
+    assert command[-2] == "-Command"
+    assert fake_pty.start_kwargs[0]["cwd"] == str(tmp_path)

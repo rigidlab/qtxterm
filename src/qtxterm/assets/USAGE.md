@@ -66,6 +66,13 @@ there are two pairs and either works:
 Everything that rearranges panes lives under that one **Pane** group.
 Splits nest, so you can build columns of rows. Drag the divider to resize.
 
+A split pane starts **in the directory the pane it came from is in**, so
+splitting to run something beside your build lands you where you already
+were. That works for PowerShell, cmd and Git Bash, which qtxterm asks to
+report their directory as it launches them - a shell it did not launch that
+way (a WSL distro, or anything you started yourself inside a pane) has
+nothing to report, and a split off it opens where a new tab would.
+
 Browser panes split too, and a split gives you **another pane of the same
 kind** - splitting a browser gives a browser, splitting a terminal gives a
 terminal. In a browser pane the shortcuts are the only route: right-clicking

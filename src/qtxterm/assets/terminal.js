@@ -440,6 +440,15 @@
 
     term.onData((data) => bridge.sendInput(data));
     term.onTitleChange((title) => bridge.setTitle(title));
+
+    // OSC 7 - the shell saying which directory it is in, so a pane split
+    // off this one can start there. Only shells qtxterm has hooked (see
+    // shell_integration.py) send it; returning true marks it handled so
+    // xterm.js does not pass the payload on to be printed.
+    term.parser.registerOscHandler(7, (payload) => {
+      bridge.setCwd(payload);
+      return true;
+    });
     term.onSelectionChange(() => bridge.setSelection(term.getSelection()));
 
     bridge.output.connect((data) => term.write(data));

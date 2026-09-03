@@ -9,12 +9,21 @@ class FakePtySession(PtySession):
     def __init__(self) -> None:
         super().__init__()
         self.start_calls: list[tuple[list[str], int, int]] = []
+        self.start_kwargs: list[dict] = []
         self.write_calls: list[str] = []
         self.resize_calls: list[tuple[int, int]] = []
         self.closed = False
 
-    def start(self, command: list[str], cols: int, rows: int) -> None:
+    def start(
+        self,
+        command: list[str],
+        cols: int,
+        rows: int,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
         self.start_calls.append((command, cols, rows))
+        self.start_kwargs.append({"cwd": cwd, "env": env})
 
     def write(self, data: str) -> None:
         self.write_calls.append(data)
