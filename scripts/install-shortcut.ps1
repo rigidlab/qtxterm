@@ -5,7 +5,7 @@
 .DESCRIPTION
     Run after installing the app:
 
-        uv tool install .
+        uv tool install .                # or: uv tool install --editable .
         powershell -ExecutionPolicy Bypass -File scripts\install-shortcut.ps1
 
     Windows has blocked programmatic taskbar pinning since Windows 10, so the
@@ -19,8 +19,9 @@
     qtxterm.exe is the console one, for running from a terminal.
 
 .PARAMETER Icon
-    Path to the .ico. Defaults to the copy inside the installed package, and
-    falls back to this repo's copy.
+    Source .ico to cache. Defaults to the copy inside the installed package,
+    and falls back to this repo's copy. Whatever the source, the icon is
+    copied to a stable cache path (see below) and the shortcuts point there.
 #>
 [CmdletBinding()]
 param(
@@ -35,10 +36,12 @@ if (-not (Test-Path $Exe)) {
 }
 
 if (-not $Icon) {
-    # Prefer the icon shipped inside the installed package, so the shortcut
-    # keeps working if this repo is moved or deleted. The tool directory is
-    # asked of uv rather than hardcoded - it is %APPDATA%\uv\tools on Windows,
-    # elsewhere on other platforms and older uv versions.
+    # Prefer the icon shipped inside the installed package. An editable
+    # install doesn't copy the package into site-packages (it leaves only a
+    # .pth pointing at src/), so that path is absent there and we fall back
+    # to the repo copy. The tool directory is asked of uv rather than
+    # hardcoded - it is %APPDATA%\uv\tools on Windows, elsewhere on other
+    # platforms and older uv versions.
     $installed = ""
     try {
         $toolDir = (& uv tool dir 2>$null | Select-Object -Last 1)
@@ -58,6 +61,16 @@ if (-not (Test-Path $Icon)) {
     Write-Error "Icon not found at $Icon. Run 'uv run python scripts/make_icon.py' first."
 }
 
+# Cache the icon somewhere neither install mode owns. Pointing a shortcut at
+# site-packages breaks on an editable install (nothing is copied there) and
+# again on any `uv tool install --force`, which deletes and recreates that
+# tree; pointing it at the repo breaks if the repo moves. A copy under
+# LOCALAPPDATA outlives all three.
+$cacheDir = Join-Path $env:LOCALAPPDATA "qtxterm"
+$cache    = Join-Path $cacheDir "logo.ico"
+if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
+Copy-Item -LiteralPath $Icon -Destination $cache -Force
+
 $shell = New-Object -ComObject WScript.Shell
 $targets = @(
     (Join-Path ([Environment]::GetFolderPath("Desktop")) "qtxterm.lnk"),
@@ -70,7 +83,7 @@ foreach ($path in $targets) {
 
     $link = $shell.CreateShortcut($path)
     $link.TargetPath       = $Exe
-    $link.IconLocation     = "$Icon,0"
+    $link.IconLocation     = "$cache,0"
     $link.Description      = "Cross-platform tabbed terminal"
     $link.WorkingDirectory = $env:USERPROFILE
     $link.Save()
@@ -78,7 +91,7 @@ foreach ($path in $targets) {
 }
 
 Write-Host ""
-Write-Host "Icon:   $Icon"
+Write-Host "Icon:   $cache (copied from $Icon)"
 Write-Host "Target: $Exe"
 Write-Host ""
 Write-Host "To pin: open the Start Menu, find qtxterm, right-click -> Pin to taskbar."
