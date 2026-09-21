@@ -21,6 +21,7 @@ class TerminalBridge(QObject):
     title_changed = Signal(str)
     selection_changed = Signal(str)
     link_activated = Signal(str)
+    cwd_changed = Signal(str)
 
     @Slot(str)
     def sendInput(self, data: str) -> None:
@@ -50,6 +51,16 @@ class TerminalBridge(QObject):
     @Slot(str)
     def setTitle(self, title: str) -> None:
         self.title_changed.emit(title)
+
+    @Slot(str)
+    def setCwd(self, uri: str) -> None:
+        """The shell reported its working directory (OSC 7).
+
+        The payload is whatever the shell printed - on an SSH session, a
+        remote path that means nothing locally - so TerminalWidget checks it
+        against the filesystem before starting anything in it.
+        """
+        self.cwd_changed.emit(uri)
 
     @Slot(str)
     def setSelection(self, text: str) -> None:

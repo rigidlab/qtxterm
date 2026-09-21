@@ -1447,3 +1447,29 @@ def test_a_rebound_shortcut_still_does_its_job(qtbot, tmp_path: Path) -> None:
     _shortcut_for(tabs, "Ctrl+Alt+Shift+R").activated.emit()
 
     assert len(tabs._panes_in(tabs.currentWidget())) == 2
+
+
+def test_a_split_pane_starts_where_the_pane_it_came_from_is(qtbot, tmp_path) -> None:
+    tabs = make_tabs(qtbot)
+    first = tabs.new_tab(shell="/bin/fake-shell", pty_session=FakePtySession())
+    first._bridge.setCwd(tmp_path.as_uri())
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert Path(second.current_directory) == tmp_path
+    second._bridge.ready(80, 24)
+    assert Path(second._pty.start_kwargs[0]["cwd"]) == tmp_path
+
+
+def test_a_split_off_a_pane_with_no_reported_directory_starts_anywhere(qtbot) -> None:
+    """A shell qtxterm has no hook for never reports one, and a split off it
+    should open a normal terminal rather than fail."""
+    tabs = make_tabs(qtbot)
+    tabs.new_tab(shell="/bin/fake-shell", pty_session=FakePtySession())
+
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
+
+    assert second.current_directory is None
+    second._pty.start_kwargs.clear()
+    second._bridge.ready(80, 24)
+    assert second._pty.start_kwargs[0]["cwd"] is None

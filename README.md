@@ -13,8 +13,8 @@ own command. Shown in the default theme - several dark themes ship with it.*
 
 ## Features
 
-- **Tabs and split panes** - split any pane right or down, move panes between
-  tabs or out into their own.
+- **Tabs and split panes** - split any pane right or down, starting in the
+  directory you were already in; move panes between tabs or out into their own.
 - **Any shell on the box** - PowerShell, Command Prompt, Git Bash or a specific
   WSL distro, discovered at runtime.
 - **Commands and Macros** - saved one-liners sent to the terminal you're in;

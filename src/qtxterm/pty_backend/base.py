@@ -65,8 +65,22 @@ class PtySession(QObject):
             pass
 
     @abstractmethod
-    def start(self, command: list[str], cols: int, rows: int) -> None:
-        """Spawn `command` (argv: executable + args) attached to a new PTY."""
+    def start(
+        self,
+        command: list[str],
+        cols: int,
+        rows: int,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        """Spawn `command` (argv: executable + args) attached to a new PTY.
+
+        `cwd` is the directory the shell starts in - a split pane passes the
+        directory its sibling was in - and `env` replaces the inherited
+        environment wholesale, which is how the shell-integration hooks in
+        `shell_integration` reach the shell. Both default to this process's
+        own, which is what every caller wanted before either existed.
+        """
 
     @abstractmethod
     def write(self, data: str) -> None:
