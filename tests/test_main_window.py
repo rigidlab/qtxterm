@@ -164,6 +164,46 @@ def test_help_menu_usage_action_opens_the_dialog(
     window.close()
 
 
+def test_help_menu_about_action_opens_the_dialog(
+    qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    """exec() is monkeypatched - a real modal would block the test run."""
+    import qtxterm.main_window as main_window
+
+    opened = []
+
+    class FakeAboutDialog:
+        def __init__(self, parent=None) -> None:
+            opened.append(parent)
+
+        def exec(self) -> int:
+            return 0
+
+    monkeypatch.setattr(main_window, "AboutDialog", FakeAboutDialog)
+
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+
+    assert window._about_action.text() == "About qtxterm"
+    assert not window._about_action.icon().isNull()
+
+    window._about_action.trigger()
+
+    assert opened == [window]
+
+    window.close()
+
+
+def test_help_menu_lists_usage_then_about(qtbot, tmp_path: Path) -> None:
+    window = MainWindow(settings=make_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    entries = [a.text() for a in window._help_menu.actions() if not a.isSeparator()]
+
+    assert entries == ["Usage", "About qtxterm"]
+
+
 def test_menu_bar_order(qtbot, tmp_path: Path) -> None:
     window = MainWindow(settings=make_settings(tmp_path))
     qtbot.addWidget(window)
