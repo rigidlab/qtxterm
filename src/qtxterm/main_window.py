@@ -4,6 +4,7 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QStyle
 
+from qtxterm.about_dialog import AboutDialog
 from qtxterm.appearance import AppearanceStore
 from qtxterm.branding import app_icon
 from qtxterm.cron import CronStore
@@ -182,9 +183,18 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
         )
         self._usage_action.triggered.connect(self.show_usage)
+        self._help_menu.addSeparator()
+        self._about_action = self._help_menu.addAction("About qtxterm")
+        self._about_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
+        )
+        self._about_action.triggered.connect(self.show_about)
 
     def show_usage(self) -> None:
         HelpDialog(self).exec()
+
+    def show_about(self) -> None:
+        AboutDialog(self).exec()
 
     def _build_file_menu(self) -> None:
         # QMenu.addMenu() parents the submenu in C++, but without a Python-side
