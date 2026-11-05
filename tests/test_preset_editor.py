@@ -14,12 +14,7 @@ from PySide6.QtWidgets import QDialog
 from qtxterm import preset_editor
 from qtxterm.preset_editor import PresetEditorDialog
 from qtxterm.preset_menu import MacrosMenu
-from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.presets import (
-    STEP_DOWN,
-    STEP_RIGHT,
-    STEP_TAB,
-    macro_steps,
     CATEGORY_COMMANDS,
     CATEGORY_MACROS,
     CATEGORY_SELECTION,
@@ -27,10 +22,15 @@ from qtxterm.presets import (
     KIND_STDIN,
     KIND_URL,
     SELECTION_PLACEHOLDER,
+    STEP_DOWN,
+    STEP_RIGHT,
+    STEP_TAB,
     Preset,
     PresetStore,
     category_of,
+    macro_steps,
 )
+from qtxterm.terminal_tabs import TerminalTabWidget
 
 
 def make_store(tmp_path: Path) -> PresetStore:

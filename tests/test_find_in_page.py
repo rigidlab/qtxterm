@@ -18,7 +18,6 @@ import json
 import pytest
 
 from conftest import FakePtySession
-
 from qtxterm.terminal_widget import TerminalWidget
 
 # Enough lines to prove a match is found in the scrollback rather than only on

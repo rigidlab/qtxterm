@@ -10,24 +10,22 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings
 from PySide6.QtGui import QAction, QGuiApplication
-from PySide6.QtWidgets import QMenu
-
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QMenu
 
 from qtxterm import preset_menu, selection_actions
-from qtxterm.preset_menu import (
-    CommandsMenu,
-    MacrosMenu,
-    SelectionMenu,
-    TerminalContextMenu,
-    selection_preview,
-)
 from qtxterm.menu_prefs import (
     SECTION_CLIPBOARD,
     SECTION_COMMAND,
     SECTION_PANE,
     SECTION_SELECTION,
     ContextMenuOrderStore,
+)
+from qtxterm.preset_menu import (
+    CommandsMenu,
+    MacrosMenu,
+    SelectionMenu,
+    TerminalContextMenu,
+    selection_preview,
 )
 from qtxterm.presets import (
     CATEGORY_SELECTION,
@@ -320,9 +318,9 @@ class FakeTerminal:
         self.copied = 0
         self.pasted = 0
 
-    def parentWidget(self):  # noqa: N802 - stands in for a QWidget
+    def parentWidget(self):
         """Unsplit: no splitter above it, so pane moves are unavailable."""
-        return None
+        return
 
     def copy_selection(self) -> bool:
         self.copied += 1

@@ -9,7 +9,6 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QGuiApplication, QWheelEvent
 
 from conftest import FakePtySession
-
 from qtxterm.appearance import Appearance
 from qtxterm.terminal_widget import TerminalWidget
 

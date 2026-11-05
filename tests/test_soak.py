@@ -39,7 +39,6 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import FakePtySession
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMenu
 from soak_metrics import (
@@ -50,6 +49,7 @@ from soak_metrics import (
     write_csv,
 )
 
+from conftest import FakePtySession
 from qtxterm import terminal_widget as terminal_widget_module
 from qtxterm.appearance import Appearance
 from qtxterm.browser_widget import BrowserWidget

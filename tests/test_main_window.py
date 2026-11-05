@@ -7,16 +7,14 @@ so these are closer to integration tests than the rest of the suite.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import os
+from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDockWidget
 
 from conftest import FakePtySession
-
 from qtxterm.main_window import MainWindow
 
 
@@ -136,7 +134,7 @@ def test_help_menu_usage_action_opens_the_dialog(
     qtbot, monkeypatch, tmp_path: Path
 ) -> None:
     """exec() is monkeypatched - a real modal would block the test run."""
-    import qtxterm.main_window as main_window
+    from qtxterm import main_window
 
     opened = []
 

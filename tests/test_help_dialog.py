@@ -19,7 +19,7 @@ def test_load_usage_text_returns_the_guide() -> None:
 
 
 def test_load_usage_text_degrades_when_file_is_missing(monkeypatch, tmp_path) -> None:
-    import qtxterm.help_dialog as help_dialog
+    from qtxterm import help_dialog
 
     monkeypatch.setattr(help_dialog, "USAGE_PATH", tmp_path / "gone.md")
 

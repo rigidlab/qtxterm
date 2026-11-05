@@ -12,12 +12,12 @@ from qtxterm.qt_theme import (
     CHROME_BORDER_CONTRAST,
     apply_qt_theme,
     build_palette,
-    contrast_ratio,
     chrome_border_color,
     chrome_stylesheet,
+    contrast_ratio,
     ensure_contrast,
 )
-from qtxterm.themes import THEMES, QT_DEFAULT
+from qtxterm.themes import QT_DEFAULT, THEMES
 
 
 def test_build_palette_maps_ui_colors_onto_roles() -> None:

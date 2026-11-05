@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import subprocess
 
-import qtxterm.shells as shells
+from qtxterm import shells
 
 
 def _wsl_list_result(distro_names: list[str]) -> subprocess.CompletedProcess:

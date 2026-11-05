@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QWidget
 

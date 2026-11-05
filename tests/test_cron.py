@@ -10,7 +10,8 @@ from qtxterm.cron import CronError, CronExpression, CronJob, CronStore
 
 
 def at(text: str) -> datetime:
-    return datetime.strptime(text, "%Y-%m-%d %H:%M")
+    # Naive on purpose: cron matches local wall-clock time, like the app.
+    return datetime.strptime(text, "%Y-%m-%d %H:%M")  # noqa: DTZ007
 
 
 def test_every_minute_matches_everything() -> None:

@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import replace
-
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
 
 from qtxterm.appearance import (
-    Appearance,
-    AppearanceStore,
     DEFAULT_FONT_FAMILY,
     DEFAULT_FONT_SIZE,
     DEFAULT_SCROLLBACK,
     MAX_SCROLLBACK,
     MIN_SCROLLBACK,
+    Appearance,
+    AppearanceStore,
 )
 from qtxterm.themes import THEMES, default_theme_name
 

@@ -4,18 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from conftest import FakePtySession
 from PySide6.QtCore import QPoint, QSettings, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QSplitter
 
+from conftest import FakePtySession
+from qtxterm import shortcuts, terminal_tabs
 from qtxterm.appearance import Appearance, AppearanceStore
-from qtxterm import terminal_tabs
-from qtxterm.pty_backend import default_shell
-from qtxterm import shortcuts
-from qtxterm.pane import PANE_BORDER_WIDTH
-from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.browser_widget import BrowserWidget
+from qtxterm.pane import PANE_BORDER_WIDTH
+from qtxterm.pty_backend import default_shell
+from qtxterm.terminal_tabs import TerminalTabWidget
 from qtxterm.terminal_widget import TerminalWidget, shell_short_name
 
 

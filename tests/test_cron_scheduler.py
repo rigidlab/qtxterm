@@ -11,7 +11,8 @@ from qtxterm.presets import Preset, PresetStore
 
 
 def at(text: str) -> datetime:
-    return datetime.strptime(text, "%Y-%m-%d %H:%M")
+    # Naive on purpose: cron matches local wall-clock time, like the app.
+    return datetime.strptime(text, "%Y-%m-%d %H:%M")  # noqa: DTZ007
 
 
 class FakeTabs:
