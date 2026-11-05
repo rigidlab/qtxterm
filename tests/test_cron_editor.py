@@ -246,7 +246,8 @@ def test_the_open_editor_holds_off_a_reload(qtbot, tmp_path: Path) -> None:
     """The form addresses jobs by index, and a modal dialog still runs the
     event loop - so a poll landing mid-edit would save onto the wrong job."""
     cron_store, preset_store = make_stores(
-        tmp_path, [CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")]
+        tmp_path,
+        [CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")],
     )
     cron_store.save()
     dialog = CronEditorDialog(cron_store, preset_store)

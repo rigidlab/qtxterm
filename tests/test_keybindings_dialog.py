@@ -123,9 +123,7 @@ def test_removing_a_chord_leaves_the_others(dialog, store) -> None:
     assert store.sequences_for(shortcuts.FIND) == ["Ctrl+Alt+Shift+G"]
 
 
-def test_a_clash_is_reported_and_nothing_is_changed(
-    dialog, store, monkeypatch
-) -> None:
+def test_a_clash_is_reported_and_nothing_is_changed(dialog, store, monkeypatch) -> None:
     """Qt fires neither of two shortcuts sharing a chord, so silently taking
     the new binding would break both actions."""
     warnings = []

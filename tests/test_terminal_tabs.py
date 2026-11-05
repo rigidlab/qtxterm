@@ -139,7 +139,9 @@ def test_close_all_tabs_shuts_down_every_pty_without_removing_them(qtbot) -> Non
 
     assert pty_a.closed is True
     assert pty_b.closed is True
-    assert tabs.count() == 2  # window-close path; MainWindow tears the window down after
+    assert (
+        tabs.count() == 2
+    )  # window-close path; MainWindow tears the window down after
 
 
 def test_next_prev_tab_wraps_around(qtbot) -> None:
@@ -173,7 +175,9 @@ def test_run_in_new_tab_feeds_lines_once_pty_starts(qtbot) -> None:
     assert fake_pty.write_calls == ["echo one\r", "echo two\r"]
 
 
-def test_appearance_store_change_reapplies_to_all_open_tabs(qtbot, tmp_path: Path) -> None:
+def test_appearance_store_change_reapplies_to_all_open_tabs(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_appearance_store(tmp_path)
     tabs = TerminalTabWidget(appearance_store=store)
     qtbot.addWidget(tabs)
@@ -211,7 +215,9 @@ class FakeShellStore:
 
 
 def test_new_tab_uses_the_preferred_shell_when_none_is_given(qtbot) -> None:
-    tabs = TerminalTabWidget(shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"]))
+    tabs = TerminalTabWidget(
+        shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"])
+    )
     qtbot.addWidget(tabs)
     pty = FakePtySession()
 
@@ -235,7 +241,9 @@ def test_an_explicit_shell_still_wins_over_the_preference(qtbot) -> None:
 def test_default_shell_name_reflects_the_preference(qtbot) -> None:
     """Selection Actions targeting a new tab need this to pick the right way
     to feed a file to stdin."""
-    tabs = TerminalTabWidget(shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"]))
+    tabs = TerminalTabWidget(
+        shell_store=FakeShellStore(["/usr/bin/wsl", "-d", "Ubuntu"])
+    )
     qtbot.addWidget(tabs)
 
     assert tabs.default_shell_name() == "wsl"
@@ -403,7 +411,9 @@ def test_renaming_a_missing_tab_is_a_no_op(qtbot) -> None:
     assert tabs.count() == 0
 
 
-def test_double_click_on_empty_tab_bar_space_does_not_prompt(qtbot, monkeypatch) -> None:
+def test_double_click_on_empty_tab_bar_space_does_not_prompt(
+    qtbot, monkeypatch
+) -> None:
     """tabBarDoubleClicked fires with -1 when the click misses every tab."""
     tabs = make_tabs(qtbot)
     tabs.new_tab(shell="/bin/bash", pty_session=FakePtySession())
@@ -603,7 +613,7 @@ def test_closing_a_pane_leaves_the_other_and_collapses_the_splitter(qtbot) -> No
     tabs.close_active_pane()
 
     assert tabs.count() == 1
-    assert tabs.widget(0) is first          # splitter unwrapped, not left behind
+    assert tabs.widget(0) is first  # splitter unwrapped, not left behind
     assert tabs.active_terminal() is first
 
 
@@ -775,10 +785,10 @@ def test_move_pane_to_new_tab_keeps_the_terminal_alive(qtbot) -> None:
 
     assert moved is second
     assert tabs.count() == 2
-    assert tabs.widget(0) is first          # source tab collapsed back to one
+    assert tabs.widget(0) is first  # source tab collapsed back to one
     assert tabs.widget(1) is second
-    assert pty_b.closed is False            # same shell, new container
-    assert tabs.tabText(1) == "1:zsh"   # names its own shell, not the source tab's
+    assert pty_b.closed is False  # same shell, new container
+    assert tabs.tabText(1) == "1:zsh"  # names its own shell, not the source tab's
 
 
 def test_move_pane_to_new_tab_needs_more_than_one_pane(qtbot) -> None:
@@ -858,7 +868,7 @@ def test_run_macro_splits_instead_of_opening_a_tab(qtbot) -> None:
     opened = tabs.run_macro(["dev", "--- right", "tests", "--- down", "logs"])
 
     assert len(opened) == 3
-    assert tabs.count() == 1                       # all three share one tab
+    assert tabs.count() == 1  # all three share one tab
     assert len(tabs._panes_in(tabs.widget(0))) == 3
 
 
@@ -936,8 +946,10 @@ def _nested_layout(qtbot, tabs):
     top = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
     bottom = tabs.split_active(Qt.Orientation.Vertical, pty_session=FakePtySession())
     qtbot.waitUntil(
-        lambda: tabs._pane_rect(left).width() > 0
-        and tabs._pane_rect(top).top() < tabs._pane_rect(bottom).top(),
+        lambda: (
+            tabs._pane_rect(left).width() > 0
+            and tabs._pane_rect(top).top() < tabs._pane_rect(bottom).top()
+        ),
         timeout=5000,
     )
     return left, top, bottom
@@ -1056,6 +1068,7 @@ def test_every_split_chord_actually_splits(qtbot) -> None:
         splitter = tabs.currentWidget()
         assert isinstance(splitter, QSplitter)
         assert splitter.orientation() is orientation, sequence
+
 
 def test_copy_shortcut_copies_the_active_terminals_selection(qtbot) -> None:
     from PySide6.QtGui import QGuiApplication
@@ -1206,6 +1219,7 @@ def test_every_shortcut_action_is_registered_on_the_widget(qtbot) -> None:
         for sequence in shortcuts.sequences_for(action):
             assert QKeySequence(sequence).toString() in registered, (action, sequence)
 
+
 def make_exit_store(tmp_path: Path, choice: str):
     from qtxterm.exit_prefs import PaneExitStore
 
@@ -1286,9 +1300,7 @@ def test_an_exiting_shell_closes_only_its_own_pane_in_a_split(
     tabs = make_tabs_with_exit(qtbot, tmp_path, CLOSE_CLEAN)
     first_pty = FakePtySession()
     first = tabs.new_tab(shell="/bin/bash", pty_session=first_pty)
-    second = tabs.split_active(
-        Qt.Orientation.Horizontal, pty_session=FakePtySession()
-    )
+    second = tabs.split_active(Qt.Orientation.Horizontal, pty_session=FakePtySession())
     assert len(tabs._panes_in(tabs.currentWidget())) == 2
 
     first_pty.exited.emit(0)
@@ -1330,6 +1342,7 @@ def test_a_tab_closed_before_the_deferred_close_runs_is_survivable(
 
     assert tabs.count() == 0
 
+
 def test_panes_in_a_split_get_different_slices_of_the_background(qtbot) -> None:
     """The whole point of spanning: each pane is a separate page, so left to
     itself every one paints the entire picture and a tab split three ways
@@ -1338,8 +1351,8 @@ def test_panes_in_a_split_get_different_slices_of_the_background(qtbot) -> None:
     left, top_right, bottom_right = _nested_layout(qtbot, tabs)
     pushed = {}
     for pane in (left, top_right, bottom_right):
-        pane.set_background_geometry = (
-            lambda x, y, w, h, p=pane: pushed.__setitem__(p, (x, y, w, h))
+        pane.set_background_geometry = lambda x, y, w, h, p=pane: pushed.__setitem__(
+            p, (x, y, w, h)
         )
 
     tabs.refresh_background_geometry()
@@ -1374,6 +1387,7 @@ def test_an_unsplit_pane_spans_its_whole_tab(qtbot) -> None:
     # that margin and leave visible seams where panes meet.
     assert (x, y) == (PANE_BORDER_WIDTH, PANE_BORDER_WIDTH)
     assert w > 0 and h > 0
+
 
 def make_keybinding_store(tmp_path: Path):
     from qtxterm.keybindings import KeybindingStore

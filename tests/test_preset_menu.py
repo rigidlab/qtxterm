@@ -150,7 +150,9 @@ def test_store_changes_auto_reload_the_macros_menu(qtbot, tmp_path: Path) -> Non
     assert "New Macro Item" in [a.text() for a in menu.actions()]
 
 
-def test_store_changes_reload_the_commands_menu_without_error(qtbot, tmp_path: Path) -> None:
+def test_store_changes_reload_the_commands_menu_without_error(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
@@ -165,7 +167,9 @@ def test_store_changes_reload_the_commands_menu_without_error(qtbot, tmp_path: P
     ]
 
 
-def test_sidebar_toggle_action_present_and_survives_reload(qtbot, tmp_path: Path) -> None:
+def test_sidebar_toggle_action_present_and_survives_reload(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
@@ -181,7 +185,9 @@ def test_sidebar_toggle_action_present_and_survives_reload(qtbot, tmp_path: Path
     assert toggle_action in menu.actions()
 
 
-def test_commands_menu_without_sidebar_toggle_action_omits_it(qtbot, tmp_path: Path) -> None:
+def test_commands_menu_without_sidebar_toggle_action_omits_it(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_store(tmp_path, [])
     tabs = TerminalTabWidget()
     qtbot.addWidget(tabs)
@@ -428,8 +434,12 @@ def test_use_selection_lists_selection_actions_and_manage_entries(qtbot, tmp_pat
         tmp_path,
         FakeTerminal(selection="some text"),
         presets=[
-            Preset(name="Search", lines=["https://x/?q={selection}"],
-                   input=INPUT_SELECTION, kind=KIND_URL),
+            Preset(
+                name="Search",
+                lines=["https://x/?q={selection}"],
+                input=INPUT_SELECTION,
+                kind=KIND_URL,
+            ),
             Preset(name="A Command", lines=["git status"]),
         ],
     )
@@ -449,7 +459,9 @@ def test_use_selection_is_disabled_without_a_selection(qtbot, tmp_path: Path) ->
 
     menu.refresh_enabled_state()
 
-    assert next(a for a in menu.actions() if a.text() == "Selection").isEnabled() is False
+    assert (
+        next(a for a in menu.actions() if a.text() == "Selection").isEnabled() is False
+    )
 
 
 def test_use_selection_previews_the_selected_text(qtbot, tmp_path: Path) -> None:
@@ -470,7 +482,9 @@ def test_selection_preview_collapses_and_truncates() -> None:
     assert len(long_preview) < 60
 
 
-def test_running_a_selection_action_passes_the_live_selection(qtbot, tmp_path, monkeypatch):
+def test_running_a_selection_action_passes_the_live_selection(
+    qtbot, tmp_path, monkeypatch
+):
     opened = []
     monkeypatch.setattr(
         selection_actions.QDesktopServices, "openUrl", lambda url: opened.append(url)
@@ -481,8 +495,12 @@ def test_running_a_selection_action_passes_the_live_selection(qtbot, tmp_path, m
         tmp_path,
         terminal,
         presets=[
-            Preset(name="Search", lines=["https://x/?q={selection}"],
-                   input=INPUT_SELECTION, kind=KIND_URL)
+            Preset(
+                name="Search",
+                lines=["https://x/?q={selection}"],
+                input=INPUT_SELECTION,
+                kind=KIND_URL,
+            )
         ],
     )
 
@@ -622,10 +640,7 @@ def test_moved_copy_paste_keeps_a_separator_from_the_submenus(
 
     menu = TerminalContextMenu(store, tabs, order_store=order_store)
 
-    shape = [
-        "---" if a.isSeparator() else a.text()
-        for a in menu.actions()
-    ]
+    shape = ["---" if a.isSeparator() else a.text() for a in menu.actions()]
     assert shape == ["Pane", "---", "Copy", "Paste", "---", "Command", "Selection"]
 
 

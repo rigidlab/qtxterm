@@ -200,7 +200,9 @@ def test_wsl_gets_a_linux_path() -> None:
     Linux side of WSL, and on Linux a plain Path() treats the backslashes as
     ordinary characters - so the test only exercised the real thing when it
     happened to run on Windows."""
-    assert wsl_path(PureWindowsPath(r"C:\Users\me\sel.txt")) == "/mnt/c/Users/me/sel.txt"
+    assert (
+        wsl_path(PureWindowsPath(r"C:\Users\me\sel.txt")) == "/mnt/c/Users/me/sel.txt"
+    )
     assert feed_from_file("wc -l", PureWindowsPath(r"D:\tmp\s.txt"), "wsl") == (
         'wc -l < "/mnt/d/tmp/s.txt"'
     )
@@ -233,7 +235,9 @@ def test_shell_name_for_asks_the_tabs_what_a_new_tab_would_open() -> None:
     assert selection_actions.shell_name_for(new_tab, Tabs()) == "powershell"
 
 
-def test_selection_directory_is_not_readable_by_other_users(tmp_path, monkeypatch) -> None:
+def test_selection_directory_is_not_readable_by_other_users(
+    tmp_path, monkeypatch
+) -> None:
     """On Linux the temp dir is shared, so another account could pre-create
     this path and swap in its own file for the command to read."""
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))

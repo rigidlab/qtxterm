@@ -37,7 +37,9 @@ def test_presets_are_grouped_into_group_boxes(qtbot, tmp_path: Path) -> None:
     store = make_store(
         tmp_path,
         [
-            Preset(name="Status", lines=["git status"], group="Git", show_in_sidebar=True),
+            Preset(
+                name="Status", lines=["git status"], group="Git", show_in_sidebar=True
+            ),
             Preset(name="Pull", lines=["git pull"], group="Git", show_in_sidebar=True),
             Preset(name="Clear", lines=["clear"], show_in_sidebar=True),
         ],
@@ -55,7 +57,9 @@ def test_presets_are_grouped_into_group_boxes(qtbot, tmp_path: Path) -> None:
     assert git_buttons == ["Status", "Pull"]
 
 
-def test_clicking_a_button_emits_run_requested_with_its_lines(qtbot, tmp_path: Path) -> None:
+def test_clicking_a_button_emits_run_requested_with_its_lines(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_store(
         tmp_path,
         [Preset(name="Status", lines=["git status"], show_in_sidebar=True)],

@@ -115,9 +115,12 @@ def test_the_last_tab_slot_means_the_last_tab(monkeypatch) -> None:
     assert shortcuts.LAST_TAB_SLOT == shortcuts.TAB_SLOTS
     assert shortcuts.tab_slot_action(3) in shortcuts.all_actions()
 
+
 def test_display_names_are_unchanged_off_mac(on_windows) -> None:
     for action in shortcuts.all_actions():
-        assert shortcuts.display_sequences_for(action) == shortcuts.sequences_for(action)
+        assert shortcuts.display_sequences_for(action) == shortcuts.sequences_for(
+            action
+        )
 
 
 def test_mac_display_names_use_the_keys_people_actually_press(on_mac) -> None:

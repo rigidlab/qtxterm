@@ -242,7 +242,9 @@ def test_a_job_deleted_elsewhere_stops_firing(tmp_path) -> None:
     preset_store = PresetStore(path=tmp_path / "presets.json")
     preset_store.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
     cron_store = CronStore(path=cron_path)
-    cron_store.add(CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup"))
+    cron_store.add(
+        CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")
+    )
     scheduler = CronScheduler(cron_store, preset_store, FakeTabs())
 
     elsewhere = CronStore(path=cron_path)
@@ -259,7 +261,9 @@ def test_a_reload_keeps_a_running_job_pointed_at_its_own_tab(tmp_path) -> None:
     preset_store = PresetStore(path=tmp_path / "presets.json")
     preset_store.presets = [Preset(name="Backup", lines=["x"], target="new_tab")]
     cron_store = CronStore(path=cron_path)
-    cron_store.add(CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup"))
+    cron_store.add(
+        CronJob(name="Nightly", expression="0 2 * * *", preset_name="Backup")
+    )
     tabs = FakeTabs()
     scheduler = CronScheduler(cron_store, preset_store, tabs)
 

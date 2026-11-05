@@ -186,7 +186,9 @@ def test_window_starts_with_no_terminals(qtbot, tmp_path: Path) -> None:
     assert window._tabs.count() == 0
 
 
-def test_closing_the_last_terminal_leaves_the_window_open(qtbot, tmp_path: Path) -> None:
+def test_closing_the_last_terminal_leaves_the_window_open(
+    qtbot, tmp_path: Path
+) -> None:
     window = MainWindow(settings=make_settings(tmp_path))
     qtbot.addWidget(window)
     window.show()

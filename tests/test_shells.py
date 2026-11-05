@@ -11,7 +11,9 @@ import qtxterm.shells as shells
 def _wsl_list_result(distro_names: list[str]) -> subprocess.CompletedProcess:
     # wsl.exe -l -q really does print UTF-16LE regardless of console encoding.
     stdout = "".join(f"{name}\r\n" for name in distro_names).encode("utf-16-le")
-    return subprocess.CompletedProcess(args=["wsl.exe", "-l", "-q"], returncode=0, stdout=stdout)
+    return subprocess.CompletedProcess(
+        args=["wsl.exe", "-l", "-q"], returncode=0, stdout=stdout
+    )
 
 
 def test_returns_empty_on_non_windows(monkeypatch) -> None:
@@ -26,7 +28,9 @@ def test_includes_powershell_and_cmd_when_present(monkeypatch) -> None:
     monkeypatch.setattr(
         shells.shutil,
         "which",
-        lambda name: f"C:\\fake\\{name}" if name in ("powershell.exe", "cmd.exe") else None,
+        lambda name: (
+            f"C:\\fake\\{name}" if name in ("powershell.exe", "cmd.exe") else None
+        ),
     )
 
     labels = [label for label, _ in shells.known_shells()]
@@ -98,7 +102,9 @@ def test_wsl_skips_non_interactive_docker_distros(monkeypatch) -> None:
     monkeypatch.setattr(
         shells.subprocess,
         "run",
-        lambda *a, **kw: _wsl_list_result(["docker-desktop-data", "Ubuntu", "docker-desktop"]),
+        lambda *a, **kw: _wsl_list_result(
+            ["docker-desktop-data", "Ubuntu", "docker-desktop"]
+        ),
     )
 
     result = shells.known_shells()
@@ -161,10 +167,14 @@ def test_resolving_a_local_shell_never_enumerates_wsl(monkeypatch) -> None:
     monkeypatch.setattr(
         shells.shutil,
         "which",
-        lambda name: r"C:\Program Files\Git\bin\bash.exe" if name == "bash.exe" else None,
+        lambda name: (
+            r"C:\Program Files\Git\bin\bash.exe" if name == "bash.exe" else None
+        ),
     )
+
     def explode(*a, **kw):
         raise AssertionError("wsl.exe was enumerated")
+
     monkeypatch.setattr(shells.subprocess, "run", explode)
 
     assert shells.shell_for_label("Git Bash") == r"C:\Program Files\Git\bin\bash.exe"

@@ -36,7 +36,11 @@ def test_save_persists_across_store_instances(tmp_path: Path) -> None:
     settings = make_settings(tmp_path)
     store = AppearanceStore(settings)
 
-    store.save(Appearance(theme_name="Solarized Dark", font_family="Cascadia Mono", font_size=16))
+    store.save(
+        Appearance(
+            theme_name="Solarized Dark", font_family="Cascadia Mono", font_size=16
+        )
+    )
 
     reloaded = AppearanceStore(settings)
     assert reloaded.current.theme_name == "Solarized Dark"
@@ -108,9 +112,13 @@ def test_background_image_and_opacity_round_trip(tmp_path) -> None:
     assert store.current.background_image == ""
     assert store.current.background_opacity == DEFAULT_BACKGROUND_OPACITY
 
-    store.save(replace(store.current, background_image="C:/wall.png", background_opacity=70))
+    store.save(
+        replace(store.current, background_image="C:/wall.png", background_opacity=70)
+    )
 
-    reloaded = AppearanceStore(QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat))
+    reloaded = AppearanceStore(
+        QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat)
+    )
     assert reloaded.current.background_image == "C:/wall.png"
     assert reloaded.current.background_opacity == 70
 
@@ -122,7 +130,9 @@ def test_background_opacity_is_clamped_on_load(tmp_path) -> None:
 
     settings = QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat)
     settings.setValue("appearance/backgroundOpacity", 900)
-    assert AppearanceStore(settings).current.background_opacity == MAX_BACKGROUND_OPACITY
+    assert (
+        AppearanceStore(settings).current.background_opacity == MAX_BACKGROUND_OPACITY
+    )
 
     settings.setValue("appearance/backgroundOpacity", -5)
     assert AppearanceStore(settings).current.background_opacity == 0

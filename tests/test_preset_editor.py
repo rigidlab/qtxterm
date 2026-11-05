@@ -143,7 +143,9 @@ def test_delete_removes_preset(qtbot, tmp_path: Path) -> None:
     assert store.presets == []
 
 
-def test_blank_lines_are_dropped_and_empty_lines_fall_back(qtbot, tmp_path: Path) -> None:
+def test_blank_lines_are_dropped_and_empty_lines_fall_back(
+    qtbot, tmp_path: Path
+) -> None:
     store = make_store(tmp_path)
     store.add(Preset(name="X", lines=["echo x"]))
     dialog = PresetEditorDialog(store, category=CATEGORY_COMMANDS)
@@ -304,7 +306,9 @@ def test_step_buttons_only_appear_for_macros(qtbot, tmp_path: Path) -> None:
     assert commands._hint_label.text() == ""
 
 
-def test_inserting_a_step_puts_the_separator_on_its_own_line(qtbot, tmp_path: Path) -> None:
+def test_inserting_a_step_puts_the_separator_on_its_own_line(
+    qtbot, tmp_path: Path
+) -> None:
     dialog = macro_dialog(tmp_path, qtbot, ["npm run dev"])
     cursor = dialog._lines_edit.textCursor()
     cursor.movePosition(cursor.MoveOperation.End)
@@ -333,7 +337,9 @@ def test_inserting_mid_line_breaks_the_line_first(qtbot, tmp_path: Path) -> None
     assert dialog._lines_edit.toPlainText().splitlines() == ["npm run dev", "---"]
 
 
-def test_what_the_buttons_insert_is_what_the_parser_understands(qtbot, tmp_path: Path) -> None:
+def test_what_the_buttons_insert_is_what_the_parser_understands(
+    qtbot, tmp_path: Path
+) -> None:
     """The buttons and macro_steps() must not drift apart - an unrecognised
     separator silently opens a tab instead of a pane."""
     dialog = macro_dialog(tmp_path, qtbot, ["first"])
@@ -347,7 +353,12 @@ def test_what_the_buttons_insert_is_what_the_parser_understands(qtbot, tmp_path:
 
     steps = macro_steps(dialog._lines_edit.toPlainText().splitlines())
 
-    assert [step.placement for step in steps] == [STEP_TAB, STEP_TAB, STEP_RIGHT, STEP_DOWN]
+    assert [step.placement for step in steps] == [
+        STEP_TAB,
+        STEP_TAB,
+        STEP_RIGHT,
+        STEP_DOWN,
+    ]
 
 
 def test_saving_keeps_the_separator_lines(qtbot, tmp_path: Path) -> None:
@@ -462,9 +473,7 @@ def test_the_open_editor_holds_off_a_reload(qtbot, tmp_path) -> None:
     qtbot.addWidget(dialog)
 
     elsewhere = PresetStore(path=tmp_path / "presets.json")
-    elsewhere.presets.insert(
-        0, Preset(name="Sneaked In", lines=["x"], target="active")
-    )
+    elsewhere.presets.insert(0, Preset(name="Sneaked In", lines=["x"], target="active"))
     elsewhere.save()
 
     assert store.reload_if_changed() is False

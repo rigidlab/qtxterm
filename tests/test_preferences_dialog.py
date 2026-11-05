@@ -26,7 +26,9 @@ def make_store(tmp_path: Path) -> AppearanceStore:
 
 def test_dialog_preselects_current_appearance(qtbot, tmp_path: Path) -> None:
     store = make_store(tmp_path)
-    store.save(Appearance(theme_name="Solarized Dark", font_family="Consolas", font_size=18))
+    store.save(
+        Appearance(theme_name="Solarized Dark", font_family="Consolas", font_size=18)
+    )
 
     dialog = PreferencesDialog(store)
     qtbot.addWidget(dialog)

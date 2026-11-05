@@ -52,7 +52,9 @@ def test_sidebar_presets_filters_by_flag(tmp_path: Path) -> None:
     assert [p.name for p in store.sidebar_presets()] == ["Shown"]
 
 
-def test_sidebar_presets_excludes_new_tab_macros_even_if_flagged(tmp_path: Path) -> None:
+def test_sidebar_presets_excludes_new_tab_macros_even_if_flagged(
+    tmp_path: Path,
+) -> None:
     """Commands vs Macros is a strict split: a new_tab preset is a Macro and
     belongs in the Macros menu (Phase 4), never the sidebar."""
     store = PresetStore(path=tmp_path / "presets.json")
@@ -96,7 +98,9 @@ def test_macro_without_a_separator_is_one_step() -> None:
     """Every Macro written before steps existed must keep opening one tab."""
     steps = macro_steps(["echo one", "echo two"])
 
-    assert [(s.placement, s.lines) for s in steps] == [("tab", ["echo one", "echo two"])]
+    assert [(s.placement, s.lines) for s in steps] == [
+        ("tab", ["echo one", "echo two"])
+    ]
 
 
 def test_a_separator_starts_another_tab() -> None:

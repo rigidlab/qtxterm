@@ -90,14 +90,18 @@ def test_run_when_ready_waits_for_pty_started(qtbot) -> None:
 
 
 def test_terminal_url_encodes_appearance_as_query_params() -> None:
-    appearance = Appearance(theme_name="Solarized Dark", font_family="Cascadia Mono", font_size=18)
+    appearance = Appearance(
+        theme_name="Solarized Dark", font_family="Cascadia Mono", font_size=18
+    )
 
     url = TerminalWidget._terminal_url(appearance)
 
     query = parse_qs(url.query())
     assert query["fontFamily"] == ["Cascadia Mono"]
     assert query["fontSize"] == ["18"]
-    assert '"background": "#002b36"' in query["theme"][0] or "#002b36" in query["theme"][0]
+    assert (
+        '"background": "#002b36"' in query["theme"][0] or "#002b36" in query["theme"][0]
+    )
 
 
 def test_apply_appearance_runs_javascript_with_theme_and_font(qtbot) -> None:
@@ -343,6 +347,7 @@ def test_an_http_link_reports_that_it_opened(qtbot, monkeypatch) -> None:
 
     assert widget.open_link("http://localhost:8080/") is True
 
+
 def test_background_image_becomes_a_file_url_for_the_page(qtbot, tmp_path) -> None:
     """A bare filesystem path will not do: the page is served from file://
     and would resolve it relative to the assets directory."""
@@ -390,6 +395,7 @@ def test_background_changes_are_pushed_to_an_open_terminal(qtbot, tmp_path) -> N
 
     assert '"backgroundOpacity": 15' in pushed[-1]
     assert "wall.png" in pushed[-1]
+
 
 def test_background_geometry_is_pushed_to_the_page(qtbot) -> None:
     widget = TerminalWidget(pty_session=FakePtySession())
