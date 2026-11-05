@@ -17,6 +17,10 @@ CHROME_BORDER_CONTRAST = 3.0
 # fine - 4.5 starts dragging Solarized Dark's blue lighter for no gain.
 ACTIVE_PANE_CONTRAST = 4.0
 
+# How much of the highlight colour tints the selected tab's body. Enough to
+# spot at a glance, low enough that the label keeps its contrast.
+SELECTED_TAB_TINT = 0.3
+
 
 def _relative_luminance(color: QColor) -> float:
     def channel(value: float) -> float:
@@ -158,8 +162,17 @@ def chrome_stylesheet(ui: UiPalette) -> str:
     an accent line in the theme's highlight colour plus full-strength text,
     with unselected tabs dimmed - the same signal VS Code's own tab strip
     uses, and one that survives any palette.
+
+    The accent alone still read too faint (the raw highlight is 2.34:1 on
+    black), so it is lifted to ACTIVE_PANE_CONTRAST like the active-pane
+    outline, thickened, and the tab body gets a highlight tint. Bold text is
+    avoided: QTabBar sizes tabs from the unselected font, so a bold label
+    gets elided.
     """
     border = chrome_border_color(ui).name()
+    window = QColor(ui.window)
+    accent = ensure_contrast(QColor(ui.highlight), window, ACTIVE_PANE_CONTRAST)
+    selected_bg = _blend(QColor(ui.highlight), window, SELECTED_TAB_TINT).name()
     return f"""
         QMenu {{ border: 1px solid {border}; }}
         QTabWidget::pane {{ border: 1px solid {border}; }}
@@ -179,14 +192,15 @@ def chrome_stylesheet(ui: UiPalette) -> str:
             background: {ui.window};
             color: {ui.disabled_text};
             border: 1px solid {border};
-            border-top: 2px solid {border};
+            border-top: 3px solid {border};
             border-bottom: none;
             padding: 4px 10px;
             margin-right: 2px;
         }}
         QTabBar::tab:selected {{
+            background: {selected_bg};
             color: {ui.window_text};
-            border-top: 2px solid {ui.highlight};
+            border-top: 3px solid {accent.name()};
         }}
         QTabBar::tab:!selected:hover {{ color: {ui.window_text}; }}
     """

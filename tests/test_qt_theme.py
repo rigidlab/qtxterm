@@ -88,7 +88,7 @@ def test_menu_border_beats_the_fusion_default() -> None:
     window = QColor(theme.ui.window)
 
     fusion_default = window.darker(140)
-    assert contrast_ratio(fusion_default, window) < 1.1   # black on black
+    assert contrast_ratio(fusion_default, window) < 1.1  # black on black
     assert contrast_ratio(chrome_border_color(theme.ui), window) > 3
 
 
@@ -132,9 +132,21 @@ def test_selected_tab_is_marked_by_more_than_a_background() -> None:
     ui = THEMES["VS Code Dark High Contrast"].ui
 
     sheet = chrome_stylesheet(ui)
+    selected = re.search(r"QTabBar::tab:selected\s*\{([^{}]*)\}", sheet)
+    assert selected is not None
+    rule = selected.group(1)
 
-    assert ui.highlight in sheet          # accent line on the selected tab
-    assert ui.disabled_text in sheet      # unselected tabs dimmed
+    accent = re.search(r"border-top:\s*\d+px solid (#[0-9a-f]{6})", rule)
+    assert accent is not None
+    # The raw highlight was 2.34:1 on black - too faint to spot the tab.
+    window = QColor(ui.window)
+    assert contrast_ratio(QColor(accent.group(1)), window) >= ACTIVE_PANE_CONTRAST
+
+    background = re.search(r"background:\s*(#[0-9a-f]{6})", rule)
+    assert background is not None
+    assert QColor(background.group(1)) != window  # tinted body
+
+    assert ui.disabled_text in sheet  # unselected tabs dimmed
 
 
 def test_active_pane_accent_outshouts_the_frames_beside_it() -> None:
